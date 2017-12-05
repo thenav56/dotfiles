@@ -1,0 +1,26 @@
+#!/bin/bash
+
+TMPFILE="/tmp/datetime"
+
+case $BLOCK_BUTTON in
+    1)
+        if [ -e $TMPFILE ]; then
+            rm $TMPFILE
+        else
+            touch $TMPFILE
+        fi
+    ;;
+    *)
+        # nothing
+    ;;
+esac
+
+if [ -e $TMPFILE ]; then
+    time=$(date '+%I:%M')
+    date=$(nepaliconv -bs -f 'W y.m.d')
+    datetime="$date $time"
+else
+    datetime=$(date '+%a %Y.%m.%d %I:%M')
+fi
+
+echo $datetime

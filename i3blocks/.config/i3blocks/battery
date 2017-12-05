@@ -1,0 +1,45 @@
+#!/bin/bash
+
+command=$(acpi -b)
+command=${command//, / }
+
+#state=$(echo $res | awk '{ print $2 }')
+state=$(echo $command | awk '{ print $3 }')
+percentage=$(echo $command | awk '{ print $4 }' | sed 's/%//' )
+time_to=$(echo $command | awk '{ print $5 }')
+time_to=${time_to:0:5}
+
+info="$percentage% $time_to"
+
+if [[ $state == "Charging" ]]; then
+    full_text=" $info"
+    color="#FFFFBB"
+elif [[ $state == "Full" ]]; then
+    full_text=" $info"
+    color="#FFFFBB"
+elif [[ $state == "Discharging" ]];then
+    if [[ $percentage -lt 10 ]]; then
+        full_text=" $info"
+        color="#FF0000"
+    elif [[ $percentage -lt 40 ]]; then
+        full_text=" $info"
+        color="#FFAAA"
+    elif [[ $percentage -lt 60 ]]; then
+        full_text=" $info"
+        color="#FFEEEE"
+    elif [[ $percentage -lt 90 ]]; then
+        full_text=" $info"
+        color="#FFEEEE"
+    else
+        full_text=" $info"
+        color="#FFFFFF"
+    fi
+else
+    # $state Unknown
+    full_text=" $info"
+    color="#00DDDD"
+fi
+
+echo "$full_text"
+echo "battery"
+echo "$color"

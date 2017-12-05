@@ -1,0 +1,19 @@
+#!/bin/bash
+
+GROUP=${BLOCK_INSTANCE:-3}
+
+command=$(loadshedding -g $GROUP -r)
+time=$(echo $command | awk '{print $1}')
+status=$(echo $command | awk '{print $2}')
+
+if [[ $status == 'Y' ]]; then
+    echo -n " "
+    color="#FFFFBB"
+else
+    echo -n " "
+    color="#FFFFFF"
+fi
+
+echo "$time"
+echo ""
+echo "$color"
