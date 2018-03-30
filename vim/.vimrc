@@ -1,99 +1,28 @@
 call plug#begin('~/.vim/plugged')
 
-Plug 'christoomey/vim-tmux-navigator'
+Plug 'tpope/vim-surround'
+Plug 'sickill/vim-pasta'
+Plug 'AndrewRadev/qftools.vim'
+" Plug 'tpope/vim-repeat'
+" Plug 'troydm/easytree.vim'
+" Plug 'xolox/vim-notes'
+
+" Plug 'rakr/vim-one'
+Plug 'Yggdroot/indentLine'
+
 Plug 'airblade/vim-gitgutter'
 
-" Plug 'NLKNguyen/papercolor-theme'
-
+Plug 'justinmk/vim-dirvish'
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
 Plug 'junegunn/fzf.vim'
 
 Plug 'w0rp/ale'
-Plug 'Konfekt/FastFold'
-Plug 'Yggdroot/indentLine'
-
-" Plug 'haya14busa/incsearch.vim'
-
-" Plug 'pangloss/vim-javascript'
-" Plug 'jelera/vim-javascript-syntax'
-" Plug 'othree/javascript-libraries-syntax.vim'
-" Plug 'mxw/vim-jsx'
-
-" Plug 'justinmk/vim-dirvish'
-" Plug 'ctrlpvim/ctrlp.vim'
-" Plug 'eugen0329/vim-esearch'
-
-" Colorschemes
-" Plug 'altercation/vim-colors-solarized'
-" Plug 'joshdick/onedark.vim'
-Plug 'morhetz/gruvbox'
-" Plug 'zeis/vim-kolor'
-" Plug 'jpo/vim-railscasts-theme'
-" Plug 'rakr/vim-two-firewatch'
-" Plug 'rakr/vim-one'
-
-" Plug 'Shougo/vimfiler.vim'
-" Plug 'Shougo/unite.vim'
-" Plug 'Shougo/vimproc.vim', {'do' : 'make'}
-
-" Plug 'thaerkh/vim-workspace'
-" Plug 'Shougo/denite.nvim'
-" Plug 'tpope/vim-surround' "gs'}
-" Plug 'maralla/completor.vim'
-
-" MISC
-" Plug 'xolox/vim-session'
-" Plug 'xolox/vim-misc'
-
-" Plug 'tmhedberg/matchit'
-" Plug 'tpope/vim-commentary' "gc
-
-" Plug 'rudes/vim-java'
-
-" Plug 'mhinz/vim-signify'
-" Plug 'Shougo/unite.vim'
-" Plug 'devjoe/vim-codequery'
-
-" MOTION
-" Plug 'tpope/vim-vinegar'
-" Plug 'scrooloose/nerdtree'
-" Plug 'easymotion/vim-easymotion'
-
-" EYECANDY
-" Plug 'jacoborus/tender.vim'
-" Plug 'gmist/vim-palette'
-" Plug 'altercation/vim-colors-solarized'
-
-
-" Plug 'itchyny/lightline.vim'
-" Plug 'shinchu/lightline-gruvbox.vim'
-" Plug 'thaerkh/vim-indentguides'
-
-" Plug 'nathanaelkane/vim-indent-guides'
-" Plug 'yuttie/comfortable-motion.vim'
-
-" SYNTAX
 Plug 'sheerun/vim-polyglot'
-" Plug 'Chiel92/vim-autoformat'
-" Plug 'Valloric/YouCompleteMe':
-" Plug 'terryma/vim-multiple-cursors'
 
-" JAVASCRIPT
-" Plug 'ternjs/tern_for_vim'
-
-" REACT
-
-" GIT
-" Plug 'Xuyuanp/nerdtree-git-plugin'
-" Plug 'airblade/vim-gitgutter'
-" Plug 'tpope/vim-fugitive'
-
-" ANGULAR
-" Plug 'burnettk/vim-angular'
-" Plug 'matthewsimo/angular-vim-snippets'
-
-" PYTHON
-"Plug 'klen/python-mode'
+Plug 'prabirshrestha/async.vim'
+Plug 'prabirshrestha/vim-lsp'
+Plug 'prabirshrestha/asyncomplete.vim'
+Plug 'prabirshrestha/asyncomplete-lsp.vim'
 
 call plug#end()
 
@@ -144,26 +73,24 @@ set expandtab                                       " Set <Tab> to spaces in Ins
 set autoindent                                      " Auto indentation
 set smartindent                                     " Do clever auto indentation
 set whichwrap=b,s,h,l,<,>,[,]                       " Backspace and cursor keys wrap too
-set colorcolumn=80                                  " Draw indicator column at 80
-set nowrap                                        " Don't wrap long lines
-" set wrap                                            " Set wrap
+" set colorcolumn=80                                  " Draw indicator column at 80
+set nowrap                                          " Don't wrap long lines
+" set wrap                                          " Set wrap
 " set wrapmargin=10                                 " Number of characters from right window border where wrapping starts
-" set synmaxcol=100                                  " Syntax highlighting limit for column
-" set textwidth=100                                  " Set maximum width of text that is being inserted
+" set synmaxcol=100                                 " Syntax highlighting limit for column
+" set textwidth=100                                 " Set maximum width of text that is being inserted
 set breakindent                                     " Preseve indent on wrap
-set showbreak=...                                   " Wrap indicator
-" set conceallevel=0                                  " Do not conceal
+set showbreak=…                                     " Wrap indicator
+" set conceallevel=0                                " Do not conceal
 " set concealcursor=""
+set formatoptions+=j                                " Sane line joins
 
 " UI
-" let g:onedark_termcolors=256
-let g:gruvbox_termcolors = 256
-" let g:solarized_termcolors=256
-
 if has('gui_running')
+    set guifont=Anonymous\ Pro\ Regular\ 11
     " set guifont=Fantasque\ Sans\ Mono\ Regular\ 11
     " set guifont=M+\ 1m\ regular\ 11
-    set guifont=Iosevka\ Regular\ 11
+    " set guifont=Iosevka\ Regular\ 11
     set guioptions -=m                              " Remove menubar
     set guioptions -=T                              " Remove GUI toolbar
     set guioptions -=l                              " Remove left-hand scroll bar
@@ -171,13 +98,15 @@ if has('gui_running')
     set guioptions -=L                              " Remove left-hand scroll bar
     set guioptions -=R                              " Remove left-hand scroll bar
 else
-    set t_Co=256                                    " Set terminal color to 256
+    " set t_Co=256                                    " Set terminal color to 256
+    " let g:gruvbox_termcolors = 256
+    " let g:solarized_termcolors=256
+   "  set termguicolors
 endif
 
-set background=dark" Set dark background
-colorscheme gruvbox " Set colorscheme
-" colorscheme one " Set colorscheme
-" colorscheme PaperColor
+" set background=light                                " Set dark background
+" colorscheme default
+" colorscheme one                                     " Set colorscheme
 
 set showmatch                                       " When inserting bracket, briefly jump to its match
 set number                                          " Show line number for each line
@@ -188,8 +117,8 @@ if has('statusline')
     set statusline=\ %<%f                               " Filename
     set statusline+=%w%h%m%r\                           " Options
     set statusline+=»\ %{&ff}/%Y\                       " Filetype
-    " set statusline+=»\ %{getcwd()}\                     " Current directory
-    set statusline+=%=%l,%c%V\ %p%%                     " Right aligned file navigation info
+    " set statusline+=»\ %{getcwd()}\                   " Current directory
+    set statusline+=%=%l,%c%V\ %3p%%\ %L                 " Right aligned file navigation info
 endif
 if has('cmdline_info')
     set ruler                                           " Shows current position below each window
@@ -204,13 +133,96 @@ set list                                            " Useful to see difference b
 set listchars=tab:›\ ,trail:•,extends:#,nbsp:.      " Highlight problematic whitespace
 set wildmenu                                        " Command-line completion show a list of matches
 set wildmode=list:longest                           " Specifies how command line completion works
-set wildignore=*.o,*.obj,*/.git/*,*/node_modules,*/bower_components,*/dist " List of file patterns ignored while expanding wildcards
+set wildignore=*.o,*.obj,*/.git/*,*/node_modules,*/coverage/,*/bower_components,*/dist " List of file patterns ignored while expanding wildcards
 set wildignorecase                                  " Ignore case when completing file names
 
+" PLUGINS
 
-" Set Folding
-hi Folded cterm=italic term=italic ctermfg=242 ctermbg=235 guifg=#666666 guibg=#282828
-" hi Folded term=italic cterm=italic ctermfg=244 ctermbg=255
+" Jsx
+let g:jsx_ext_required = 0
+
+" Change indent line
+let g:indentLine_char = '▏'
+
+" Ale
+let g:ale_sign_column_always = 1
+let g:ale_sign_error = '>>'
+let g:ale_sign_warning = '> '
+let g:ale_linters = { 'javascript': ['eslint'], 'python': ['flake8'], 'scss': ['stylelint'] }
+let g:ale_fixers = { 'scss': ['stylelint'], 'javascript': ['eslint'] }
+let g:ale_javascript_eslint_executable = 'eslint_d'
+let g:ale_lint_on_enter = 1
+let g:ale_lint_on_save = 0
+let g:ale_lint_on_text_changed = 1
+let g:ale_lint_delay = 150 " ms
+
+" Git Gutter
+let g:gitgutter_realtime = 1
+let g:gitgutter_= 1
+
+" Dirvish
+let g:dirvish_mode = 1
+augroup dirvish
+    autocmd!
+    autocmd FileType dirvish silent sort '^.*[\/]'
+    autocmd FileType dirvish silent keeppatterns g@\v/\.[^\/]+/?$@d _
+    autocmd FileType dirvish silent! unmap <buffer> <C-p>
+augroup END
+
+" Netrw
+let g:loaded_netrw = 1              " disable
+let g:loaded_netrwPlugin = 1
+
+" AsyncComplete
+let g:asyncomplete_auto_popup = 1
+let g:asyncomplete_remove_duplicates = 1
+
+" Lsp
+if executable('typescript-language-server')
+    au User lsp_setup call lsp#register_server({
+        \ 'name': 'typescript-language-server',
+        \ 'cmd': {server_info->[&shell, &shellcmdflag, 'typescript-language-server --stdio']},
+        \ 'root_uri':{server_info->lsp#utils#path_to_uri(lsp#utils#find_nearest_parent_file_directory(lsp#utils#get_buffer_path(), 'tsconfig.json'))},
+        \ 'whitelist': ['typescript'],
+        \ })
+endif
+
+" LSP
+let g:lsp_async_completion = 1
+autocmd FileType typescript setlocal omnifunc=lsp#complete
+
+
+" CUSTOM
+
+" CTRL-A CTRL-Q to select all and build quickfix list
+function! s:build_quickfix_list(lines)
+  call setqflist(map(copy(a:lines), '{ "filename": v:val }'))
+  copen
+  cc
+endfunction
+
+" Fzf
+let g:fzf_action = {
+  \ 'ctrl-q': function('s:build_quickfix_list'),
+  \ 'ctrl-t': 'tab split',
+  \ 'ctrl-x': 'split',
+  \ 'ctrl-v': 'vsplit' }
+let $FZF_DEFAULT_OPTS = '--bind ctrl-a:select-all'
+
+" Fzf search inside text
+let g:rg_command = '
+  \ rg --column --line-number --no-heading --case-sensitive
+  \ --no-ignore --hidden --follow --color "always"
+  \ -g "*.{js,jsx,ts,tsx,json,php,md,styl,jade,html,config,py,cpp,c,go,hs,rb,conf,scss,css}"
+  \ -g "!{.git,coverage,node_modules,vendor,.cache,public,generated}/*" '
+command! -bang -nargs=* RgWord call fzf#vim#grep(
+  \ g:rg_command .shellescape(expand('<cword>')), 1, <bang>0
+  \ )
+command! -bang -nargs=* Rg call fzf#vim#grep(
+  \ g:rg_command .<q-args>, 1, <bang>0
+  \ )
+
+" FOLDING TEXT
 function! MyFoldText() " {{{
     let line = getline(v:foldstart)
 
@@ -228,29 +240,32 @@ function! MyFoldText() " {{{
 endfunction " }}}
 set foldtext=MyFoldText()
 
-" Auto reload config
-augroup reload_vimrc " {
-    autocmd!
-    autocmd BufWritePost $MYVIMRC source $MYVIMRC
-augroup END " }
+
+" Set errors
+match ErrorMsg '\%>120v.\+'
+match ErrorMsg '\s\+$'
 
 " MAPPINGS
+" Map leader to ,
+let mapleader = ','
+let maplocalleader = '\\'
 
 " Open file under cursor
 nnoremap gf :vertical wincmd f<CR>
 
-" Map leader to ,
-let mapleader = ','
+" Open file explorer
+nnoremap <leader>e :call dirvish#open(getcwd()) <cr>
+nnoremap <leader>E :Dirvish % <cr>
 
 " Quickly edit/reload the vimrc file
-nmap <silent> <leader>e :e $MYVIMRC<CR>
-nmap <silent> <leader>r :source $MYVIMRC<CR>
+nnoremap <silent> <leader>c :e $MYVIMRC<CR>
+nnoremap <silent> <leader>r :source $MYVIMRC<CR>
 
 " Change Working Directory to that of the current file
-cmap cd. cd %:p:h
+cnoremap cd. cd %:p:h
 
 " For when you forget to sudo
-cmap w!! w !sudo tee % >/dev/null
+cnoremap w!! w !sudo tee % >/dev/null
 
 " smart navigation even on wrapped lines
 noremap <silent> <expr> j (v:count == 0 ? 'gj' : 'j')
@@ -264,135 +279,46 @@ nnoremap <c-l> <c-w>l
 
 " Fzf related bindings
 nnoremap <leader>f :Files<CR>
-nnoremap <leader>F :Rg 
+nnoremap <leader>F :Rg -e 
+nnoremap <leader>W :RgWord<CR>
 
-" PLUGINS
+" function! GetCurrentColorscheme()
+"     try
+"         return g:colors_name
+"     catch /^Vim:E121/
+"         return "default"
+"     endtry
+" endfunction
 
-" Jsx
-let g:jsx_ext_required = 0
+hi Folded cterm=italic ctermbg=256 ctermfg=249
 
-" Change indent line
-let g:indentLine_char = '▏'
+" function! SetFoldColor()
+"     let current_colorscheme = GetCurrentColorscheme()
+"     if (current_colorscheme ==# 'PaperColor')
+"         if (&background ==# 'light')
+"             hi Folded cterm=italic ctermfg=102 ctermbg=255 gui=italic guifg=#878787 guibg=#eeeeee
+"         else
+"             hi Folded cterm=italic ctermfg=244 ctermbg=234 gui=italic guifg=#808080 guibg=#1c1c1c
+"         endif
+"     elseif (current_colorscheme ==# 'one')
+"         if (&background ==# 'light')
+"             hi Folded cterm=italic ctermfg=145 ctermbg=255 gui=italic guifg=#a0a1a7 guibg=#fafafa
+"         else
+"             hi Folded cterm=italic ctermfg=59 ctermbg=16 gui=italic guifg=#5c6370 guibg=#282c34
+"         endif
+"         hi SpellBad cterm=underline
+"         hi SpellCap cterm=underline
+"     elseif (current_colorscheme ==# 'gruvbox')
+"         if (&background ==# 'light')
+"             hi Folded cterm=italic term=italic ctermfg=242 ctermbg=235 guifg=#666666 guibg=#282828
+"         endif
+"     endif
+" endfunction
 
-let g:netrw_liststyle = 3
-let g:netrw_banner = 0
-let g:netrw_browse_split = 4
-let g:netrw_winsize = 25
+" function! ToggleBackground()
+"     let &background = ( &background ==# "dark"? "light" : "dark" )
+"     call SetFoldColor()
+" endfunction
 
-" Fuzzy
-let g:rg_command = '
-  \ rg --column --line-number --no-heading --fixed-strings --ignore-case
-  \ --no-ignore --hidden --follow --color "always"
-  \ -g "*.{js,json,php,md,styl,jade,html,config,py,cpp,c,go,hs,rb,conf}"
-  \ -g "!{.git,node_modules,vendor,.cache,public}/*" '
-
-command! -bang -nargs=* Rg call fzf#vim#grep(
-  \ g:rg_command .shellescape(<q-args>), 1, <bang>0
-  \ )
-
-
-" Ale
-let g:ale_sign_column_always = 1
-let g:ale_sign_error = '>>'
-let g:ale_sign_warning = '> '
-let g:ale_linters = { 'javascript': ['eslint'], 'python': ['flake8'], 'scss': ['scsslint'] } " jshint
-let g:ale_javascript_eslint_executable = 'eslint_d'
-let g:ale_lint_on_enter = 1
-let g:ale_lint_on_save = 0
-let g:ale_lint_on_text_changed = 1
-let g:ale_lint_delay = 50 " ms
-" nmap <silent> <C-k> <Plug>(ale_previous_wrap)
-" nmap <silent> <C-j> <Plug>(ale_next_wrap)
-
-" CtrlP
-" let g:ctrlp_working_path_mode = 'rw'
-" Using ag for faster load
-" if executable('ag')
-"     let g:ctrlp_user_command = 'ag %s -i --nocolor --nogroup --hidden
-"         \ --skip-vcs-ignores
-"         \ --ignore .git
-"         \ --ignore .cache
-"         \ --ignore bower_components
-"         \ --ignore node_modules
-"         \ --ignore "*.tmp"
-"         \ --ignore "*.swp"
-"         \ --ignore "*.o"
-"         \ --ignore "*.obj"
-"         \ --ignore "*.pyc"
-"         \ --ignore "*~"
-"         \ -g ""'
-"     let g:ctrlp_cache_dir = $HOME . '/.vim/tmp/cache/ctrlp'
-" endif
-
-" let g:dirvish_mode = ':sort ,^.*[\/], | silent keeppatterns g@\v/\.[^\/]+/?$@d _'
-
-" let g:signify_vcs_list = [ 'git' ]
-" let g:signify_realtime = 1
-
-
-" let g:gitgutter_highlight_lines = 1
-let g:gitgutter_realtime = 1
-let g:gitgutter_= 1
-
-
-
-" CTRL-A CTRL-Q to select all and build quickfix list
-
-function! s:build_quickfix_list(lines)
-  call setqflist(map(copy(a:lines), '{ "filename": v:val }'))
-  copen
-  cc
-endfunction
-
-let g:fzf_action = {
-  \ 'ctrl-q': function('s:build_quickfix_list'),
-  \ 'ctrl-t': 'tab split',
-  \ 'ctrl-x': 'split',
-  \ 'ctrl-v': 'vsplit' }
-
-let $FZF_DEFAULT_OPTS = '--bind ctrl-a:select-all'
-
-
-" map /  <Plug>(incsearch-forward)
-" map ?  <Plug>(incsearch-backward)
-" map g/ <Plug>(incsearch-stay)
-
-
-" >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FOR GIT <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-" Put this in your .vimrc and whenever you `git commit` you'll see the diff of your commit next to your commit message.
-" For the most accurate diffs, use `git config --global commit.verbose true`
-
-" BufRead seems more appropriate here but for some reason the final `wincmd p` doesn't work if we do that.
-autocmd VimEnter COMMIT_EDITMSG call OpenCommitMessageDiff()
-function! OpenCommitMessageDiff()
-  " Save the contents of the z register
-  let old_z = getreg("z")
-  let old_z_type = getregtype("z")
-
-  try
-    call cursor(1, 0)
-    let diff_start = search("^diff --git")
-    if diff_start == 0
-      " There's no diff in the commit message; generate our own.
-      let @z = system("git diff --cached -M -C")
-    else
-      " Yank diff from the bottom of the commit message into the z register
-      :.,$yank z
-      call cursor(1, 0)
-    endif
-
-    " Paste into a new buffer
-    vnew
-    normal! V"zP
-  finally
-    " Restore the z register
-    call setreg("z", old_z, old_z_type)
-  endtry
-
-  " Configure the buffer
-  set filetype=diff noswapfile nomodified readonly
-  silent file [Changes\ to\ be\ committed]
-
-  " Get back to the commit message
-  wincmd p
-endfunction
+" call SetFoldColor()
+" nnoremap <Leader>b :call ToggleBackground()<CR>

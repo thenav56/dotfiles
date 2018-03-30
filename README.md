@@ -1,6 +1,7 @@
 # .dotfiles
 
-Configuration files for termite, vim, i3wm, i3blocks, compton, redshift, rofi, dunst & twmn.
+Configuration files for alacritty, termite, vim, i3wm, i3blocks, compton,
+redshift, rofi, dunst & twmn.
 Uses **stow** to install and uninstall configurations.
 
 To install a certain config:

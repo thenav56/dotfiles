@@ -10,5 +10,4 @@
 # mogrify -flip $image
 
 image=$HOME/.config/i3/windows-error.png
-
-i3lock --no-unlock-indicator --ignore-empty-password --beep --dpms -i $image
+i3lock -u -e --beep -i $image --tiling

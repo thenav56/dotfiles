@@ -1,10 +1,23 @@
 # i3 config file (v4)
 
+# Set modifier key
+set $mod Mod4
+
 set $exit 
 set $resize 
 
-# Set modifier key
-set $mod Mod4
+# time in minutes
+set $sleepAfter 15
+set $primaryFont Fira Mono
+set $iconFont FontAwesome
+set $titleFontSize 10
+set $barFontSize 10
+
+set $i3blocksConfig ~/.config/i3blocks/config
+set $wallpaper ~/Pictures/images/wallpapers/ok-*
+set $locker ~/.config/i3/i3lock.sh
+set $screenshot ~/.bin/screeneat
+set $alacritty_colorscheme ~/.bin/alacritty-colorscheme
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
@@ -81,13 +94,19 @@ bindsym $mod+Shift+9 move container to workspace 9
 bindsym $mod+Shift+0 move container to workspace 10
 
 # start terminal
-bindsym $mod+Return exec termite
+bindsym $mod+Return exec alacritty
+# bindsym $mod+Return exec termite
+
+bindsym $mod+Shift+n exec $alacritty_colorscheme -t solarized-light.yml solarized-dark.yml
+bindsym $mod+Shift+m exec $alacritty_colorscheme -T
+bindsym $mod+Shift+b exec notify-send "Alacritty Colorscheme" `$alacritty_colorscheme -s`
 
 # Open vim
-bindsym $mod+Ctrl+Return exec termite -e vim
+bindsym $mod+Ctrl+Return exec alacritty -e vim
+# bindsym $mod+Ctrl+Return exec termite -e vim
 
 # start filemanager
-bindsym $mod+Shift+Return exec nautilus --no-desktop
+bindsym $mod+Shift+Return exec nautilus
 
 # reload the configuration file
 bindsym $mod+Shift+c reload
@@ -95,19 +114,23 @@ bindsym $mod+Shift+c reload
 bindsym $mod+Shift+r restart
 
 # Set screenshot program to ScreenEat
-set $screenshot ~/ScreenEat/screeneat.py
 bindsym Print exec python3 $screenshot
 bindsym Shift+Print exec python3 $screenshot --active
 bindsym --release $mod+Print exec python3 $screenshot --cropped
 
 # Pulse Audio controls
-bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 1 0 && pactl set-sink-volume 1 +3% && pkill -35 i3blocks
-bindsym XF86AudioLowerVolume exec pactl set-sink-mute 1 0 && pactl set-sink-volume 1 -3% && pkill -35 i3blocks
-bindsym XF86AudioMute exec pactl set-sink-mute 1 toggle && pkill -35 i3blocks
+bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 0 0 && \
+pactl set-sink-volume 0 +3% && \
+pkill -35 i3blocks
+bindsym XF86AudioLowerVolume exec pactl set-sink-mute 0 0 && \
+pactl set-sink-volume 0 -3% && \
+pkill -35 i3blocks
+bindsym XF86AudioMute exec pactl set-sink-mute 0 toggle && \
+pkill -35 i3blocks
 
 # Sreen brightness controls
-bindsym XF86MonBrightnessUp exec xbacklight -inc 3
-bindsym XF86MonBrightnessDown exec xbacklight -dec 3
+bindsym XF86MonBrightnessUp exec xbacklight -inc 10
+bindsym XF86MonBrightnessDown exec xbacklight -dec 10
 
 # Media player controls
 bindsym $mod+Up exec playerctl play-pause       # XF86AudioPlay
@@ -118,10 +141,10 @@ bindsym $mod+Left exec playerctl previous       # XF86AudioPrev
 # resize window (you can also use the mouse for that)
 mode $resize {
         # These bindings trigger as soon as you enter the resize mode
-        bindsym h resize shrink width 10 px or 10 ppt
-        bindsym j resize grow height 10 px or 10 ppt
-        bindsym k resize shrink height 10 px or 10 ppt
-        bindsym l resize grow width 10 px or 10 ppt
+        bindsym h resize shrink width 2 px or 2 ppt
+        bindsym j resize grow height 2 px or 2 ppt
+        bindsym k resize shrink height 2 px or 2 ppt
+        bindsym l resize grow width 2 px or 2 ppt
         # back to normal: Enter or Escape
         bindsym Escape mode "default"
         bindsym $mod+r mode "default"
@@ -137,12 +160,11 @@ mode $exit {
         # Poweroff
         bindsym Shift+s exec systemctl poweroff, mode "default"
         # Hibernate
-        bindsym h exec ~/.config/i3/i3lock.sh && systemctl hibernate, mode "default"
+        bindsym h exec $locker && systemctl hibernate, mode "default"
         # Suspend
-        bindsym s exec ~/.config/i3/i3lock.sh && systemctl suspend, mode "default"
+        bindsym s exec $locker && systemctl suspend, mode "default"
         # Lock
-        bindsym l exec ~/.config/i3/i3lock.sh, mode "default"
-
+        bindsym l exec $locker, mode "default"
         # back to normal: Enter or Escape
         bindsym Escape mode "default"
         bindsym $mod+Shift+q mode "default"
@@ -154,7 +176,7 @@ bindsym $mod+d exec "rofi -combi-modi window,drun,run -show combi -modi combi"
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.
-font pango:M+ 1m 12
+font pango:$primaryFont $titleFontSize
 
 # Start i3bar to display a workspace bar (plus i3status bar)
 bar {
@@ -174,20 +196,18 @@ bar {
     position top
     separator_symbol "‹"
     strip_workspace_numbers yes
-    font pango:M+ 1m, FontAwesome 13
-    status_command i3blocks -c ~/.config/i3blocks/config
+    font pango:$primaryFont, $iconFont $barFontSize
+    status_command i3blocks -c $i3blocksConfig
 }
 
 # Type                  border  background font hint activeborder
-client.focused          #388E3C #00ff00 #ffffff
+client.focused          #388E3C #00ff00 #444444
 client.focused_inactive #333333 #333333 #aaaaaa
 client.unfocused        #333333 #333333 #aaaaaa
 client.urgent           #900000 #900000 #aaaaaa
 
 # Hide titlebar
 for_window [class="^.*"] border pixel 2 title_format " %title"
-
-hide_edge_borders smart
 
 # Don't change focus with mouse
 focus_follows_mouse no
@@ -196,6 +216,9 @@ focus_follows_mouse no
 assign [class="Gitg"] 9
 assign [class="Slack"] 10
 
+# Hide borders when only one window is present
+hide_edge_borders smart
+
 # Display popup if it belongs to the fullscreen application only
 popup_during_fullscreen smart
 focus_on_window_activation smart
@@ -203,13 +226,16 @@ focus_on_window_activation smart
 # Automatic back-and-forth when switching to the current workspace
 workspace_auto_back_and_forth no
 
-# STARTUP APPLICATIONS-----------------------------------------
-
-# Set wallpaper
-exec --no-startup-id feh --randomize --bg-fill ~/Pictures/images/wallpapers/ok-*
+# i3 gaps
+smart_gaps on
+gaps inner 8
+gaps outer 0
 
 # Random wallpaper binding
-bindsym $mod+Shift+w exec feh --randomize --bg-fill ~/Pictures/images/wallpapers/ok-*
+bindsym $mod+Shift+w exec feh --randomize --bg-fill $wallpaper
+
+# Set random wallpaper
+exec --no-startup-id feh --randomize --bg-fill $wallpaper
 
 # Run compositing manager
 exec --no-startup-id compton -b
@@ -217,33 +243,19 @@ exec --no-startup-id compton -b
 # Start notification daemon
 exec --no-startup-id twmnd
 
-# Start network manager
-exec --no-startup-id nm-applet
-
 # Start redshift
 exec --no-startup-id redshift-gtk
 
-# Start clipboard manager
-exec --no-startup-id parcellite
-
-# Start slack
-exec --no-startup-id slack
-
 # Start xautolock
 # Use i3lock.sh as locker and suspend, after 5 miutes of inactivity
-# Set the screen off as notifier, 10 seconds before suspending
 # Enable hotcorners, top-right triggers suspend
 # Enable hotcorners, top-right disables suspend
+# Set the screen off as notifier, 10 seconds before suspending
 exec --no-startup-id xautolock \
--locker "~/.config/i3/i3lock.sh; systemctl suspend" \
--detectsleep -time 5 \
--notifier "xset dpms force off" \
--notify 10 \
+-locker "$locker; systemctl suspend" \
+-detectsleep -time $sleepAfter \
 -corners +-00 \
 -cornerdelay 15 \
 -cornerredelay 15
-
-# i3 gaps
-smart_gaps on
-gaps inner 8
-gaps outer 0
+-notifier "xset dpms force off" \
+-notify 10 \
