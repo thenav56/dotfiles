@@ -51,7 +51,7 @@ HIST_STAMPS="yyyy.mm.dd"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git colorize cp extract wd zsh-autosuggestions zsh-syntax-highlighting)
+plugins=(git colorize cp extract wd zsh-autosuggestions zsh-syntax-highlighting shrink-path)
 # colored-man-pages
 
 # User configuration
@@ -71,9 +71,9 @@ source $ZSH/oh-my-zsh.sh
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then
-  export EDITOR='vim'
+  export EDITOR='nvim'
 else
-  export EDITOR='vim'
+  export EDITOR='nvim'
 fi
 
 # Compilation flags
@@ -108,7 +108,26 @@ bindkey '^R' history-incremental-pattern-search-backward
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-export FZF_DEFAULT_COMMAND='rg -i --files --no-ignore --follow --hidden -g "!{.git,node_modules,coverage,.cache}/*" 2> /dev/null'
+export FZF_DEFAULT_COMMAND='rg -i --files --no-ignore --follow --hidden -g "!{.git,node_modules,coverage,.cache,android,ios}/*" 2> /dev/null'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 
+# Set cache directory for chromium
 alias chromium='chromium --disk-cache-dir=/tmp/cache'
+
+# Use wayland by default
+export GDK_BACKEND=wayland
+export QT_QPA_PLATFORM=wayland
+export CLUTTER_BACKEND=wayland
+export SDL_VIDEODRIVER=wayland
+
+# java
+export _JAVA_OPTIONS='-Dawt.useSystemAAFontSettings=on -Dswing.aatext=true -Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel'
+
+# android studio
+export ANDROID_HOME=${HOME}/Android/Sdk
+export PATH=${PATH}:${ANDROID_HOME}/tools
+export PATH=${PATH}:${ANDROID_HOME}/platform-tools
+
+# colorscheme installation from https://github.com/chriskempson/base16-shell
+BASE16_SHELL=$HOME/.config/base16-shell/
+[ -n "$PS1" ] && [ -s $BASE16_SHELL/profile_helper.sh ] && eval "$($BASE16_SHELL/profile_helper.sh)"

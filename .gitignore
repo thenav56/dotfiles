@@ -1,2 +1,3 @@
-vim/.vim/plugged
-vim/.vim/tmp
+nvim/.config/nvim/plugged/
+nvim/.config/nvim/tmp/
+base16-kitty/

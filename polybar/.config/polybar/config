@@ -1,0 +1,242 @@
+[colors]
+foreground = #212121
+foreground-alt = #757575
+separator = #BDBDBD
+background = #fff
+background-alt = #eee
+
+primary = #1E88E5
+warning = #F57C00
+alert = #d32f2f
+success = #1B5E20
+disabled = #aaa
+
+[bar/top]
+monitor = ${env:MONITOR}
+width = 100%
+height = 24
+radius = 0
+fixed-center = true
+
+background = ${colors.background}
+foreground = ${colors.foreground}
+
+border-bottom-size = 1
+border-bottom-color = ${colors.separator}
+
+; bottom = true
+
+padding-left = 0
+padding-right = 1
+
+module-margin-left = 2
+module-margin-right = 0
+
+font-0 = "Noto Sans Mono:size=10;0"
+font-1 = "Noto Sans Mono:size=11;1"
+font-2 = "LineAwesome:size=14;1"
+
+modules-left = i3 wlan
+; xwindow
+modules-center = date
+modules-right = filesystem filesystemRoot cpu memory temperature pulseaudio battery
+
+tray-position = right
+tray-padding = 1
+
+; override-redirect = true
+; wm-restack = i3
+
+scroll-up = i3wm-wsnext
+scroll-down = i3wm-wsprev
+
+cursor-click = pointer
+cursor-scroll = default
+
+[module/xwindow]
+type = internal/xwindow
+format = <label>
+label = %title%
+label-maxlen = 50
+format-foreground = ${colors.foreground}
+
+[module/filesystem]
+type = internal/fs
+interval = 25
+format-mounted-prefix = 
+format-mounted-prefix-foreground = ${colors.foreground-alt}
+format-mounted = <label-mounted>
+mount-0 = /
+label-mounted = %percentage_free%%
+
+[module/filesystemRoot]
+type = internal/fs
+interval = 25
+format-mounted-prefix = 
+format-mounted-prefix-foreground = ${colors.foreground-alt}
+format-mounted = <label-mounted>
+mount-0 = /home
+label-mounted = %percentage_free%%
+
+[module/i3]
+type = internal/i3
+format = <label-state> <label-mode>
+index-sort = true
+wrapping-scroll = false
+pin-workspaces = true
+
+label-mode-padding = 0
+label-mode-foreground = ${colors.primary}
+label-mode-background = ${colors.background}
+
+; focused = Active workspace on focused monitor
+label-focused = %index%
+label-focused-foreground = ${colors.background}
+label-focused-background = ${colors.primary}
+label-focused-padding = 1
+
+; unfocused = Inactive workspace on any monitor
+label-unfocused = %index%
+label-unfocused-padding = 1
+
+; visible = Active workspace on unfocused monitor
+label-visible = %index%
+label-visible-foreground = ${colors.primary}
+label-visible-background = ${colors.background}
+label-visible-padding = 1
+
+; urgent = Workspace with urgency hint set
+label-urgent = %index%
+label-urgent-foreground= ${colors.background}
+label-urgent-background = ${colors.alert}
+label-urgent-padding = 1
+
+[module/cpu]
+type = internal/cpu
+interval = 2
+format-prefix = 
+format-prefix-foreground = ${colors.foreground-alt}
+label = %percentage:2%%
+
+[module/memory]
+type = internal/memory
+interval = 2
+format-prefix = 
+format-prefix-foreground = ${colors.foreground-alt}
+label = %percentage_used:2%%
+
+[module/wlan]
+type = internal/network
+interface = wlp2s0
+interval = 3.0
+
+format-connected = <label-connected>
+label-connected = %essid% %downspeed%
+label-connected-foreground = ${colors.success}
+
+format-disconnected =
+
+[module/date]
+type = internal/date
+interval = 5
+
+date = "%a, %d %b"
+time = %I:%M
+label = %date% %time%
+label-font = 2
+
+[module/pulseaudio]
+type = internal/pulseaudio
+
+format-volume-prefix = 
+format-volume-prefix-foreground = ${colors.foreground-alt}
+
+format-volume = <label-volume>
+; <bar-volume>
+
+label-volume = %percentage:2%
+label-volume-foreground = ${root.foreground}
+label-muted = 
+label-muted-foreground = ${colors.disabled}
+
+; bar-volume-width = 7
+; bar-volume-foreground-0 = ${colors.success}
+; bar-volume-foreground-1 = ${colors.success}
+; bar-volume-foreground-2 = ${colors.success}
+; bar-volume-foreground-3 = ${colors.success}
+; bar-volume-foreground-4 = ${colors.warning}
+; bar-volume-foreground-5 = ${colors.warning}
+; bar-volume-foreground-6 = ${colors.alert}
+; bar-volume-gradient = false
+; bar-volume-indicator = º
+; bar-volume-indicator-color = ${colors.foreground}
+; bar-volume-fill = ─
+; bar-volume-empty = ─
+; bar-volume-empty-foreground = ${colors.foreground-alt}
+
+[module/battery]
+type = internal/battery
+battery = BAT1
+adapter = ACAD
+full-at = 99
+
+time-format = %H:%M
+
+format-charging = <animation-charging> <label-charging>
+format-discharging = <ramp-capacity> <label-discharging>
+
+label-charging = %percentage:2%% %time%
+label-discharging = %percentage:2%% %time%
+
+format-full-prefix = 
+format-full-prefix-foreground = ${colors.foreground}
+
+animation-charging-0 = 
+animation-charging-1 = 
+animation-charging-2 = 
+animation-charging-3 = 
+animation-charging-foreground = ${colors.warning}
+animation-charging-framerate = 500
+
+ramp-capacity-0 = 
+ramp-capacity-1 = 
+ramp-capacity-2 = 
+ramp-capacity-3 = 
+ramp-capacity-4 = 
+ramp-capacity-5 = 
+ramp-capacity-6 = 
+ramp-capacity-7 = 
+
+ramp-capacity-0-foreground = ${colors.alert}
+ramp-capacity-1-foreground = ${colors.alert}
+ramp-capacity-2-foreground = ${colors.warning}
+ramp-capacity-3-foreground = ${colors.warning}
+ramp-capacity-4-foreground = ${colors.warning}
+ramp-capacity-5-foreground = ${colors.foreground}
+ramp-capacity-6-foreground = ${colors.foreground}
+ramp-capacity-7-foreground = ${colors.foreground}
+
+[module/temperature]
+type = internal/temperature
+thermal-zone = 0
+warn-temperature = 60
+
+format = <label>
+format-warn = <label-warn>
+
+label = %temperature-c%
+label-warn = %temperature-c%
+label-warn-foreground = ${colors.alert}
+
+[settings]
+screenchange-reload = true
+;compositing-background = xor
+;compositing-background = screen
+;compositing-foreground = source
+;compositing-border = over
+
+[global/wm]
+margin-top = 5
+margin-bottom = 5
+
+; vim:ft=dosini
