@@ -3,45 +3,58 @@
 # Set modifier key
 set $mod Mod4
 
-set $exit 
-set $resize 
+set $left h
+set $down j
+set $up k
+set $right l
+
+set $term kitty
+
+set $exit_icon 
+set $resize_icon 
 
 # time in seconds
-set $black_after 60
-set $lock_after 120
+set $black_after 1200
+set $lock_after 2400
+
+set $white #37474F
+set $gray #ffffff
+set $blue #03A9F4
+set $green #8BC34A
+set $red #f44336
 
 set $primary_font Hack
 set $title_font_size 10
 
-set $bar_font Noto Sans Mono
+set $bar_font Ubuntu Mono
 set $bar_icon_font LineAwesome
-set $bar_font_size 11
+set $bar_font_size 12
 
-set $wallpaper ~/Pictures/images/wallpapers
+set $wallpaper ~/Pictures
 set $locker ~/.config/sway/swaylock.sh
 set $vol_sink 0
 
 # Use Mouse+$mod to drag floating windows to their wanted position
-floating_modifier $mod
+floating_modifier $mod normal
 
 # kill focused window
-bindsym $mod+q kill
+bindsym $mod+Shift+q kill
 
 # change focus
-bindsym $mod+h focus left
-bindsym $mod+j focus down
-bindsym $mod+k focus up
-bindsym $mod+l focus right
+bindsym $mod+$left focus left
+bindsym $mod+$down focus down
+bindsym $mod+$up focus up
+bindsym $mod+$right focus right
 
 # move focused window
-bindsym $mod+Shift+h move left
-bindsym $mod+Shift+j move down
-bindsym $mod+Shift+k move up
-bindsym $mod+Shift+l move right
+bindsym $mod+Shift+$left move left
+bindsym $mod+Shift+$down move down
+bindsym $mod+Shift+$up move up
+bindsym $mod+Shift+$right move right
 
 # move focused workspace
-bindsym $mod+Ctrl+h move workspace to output left
-bindsym $mod+Ctrl+l move workspace to output right
+bindsym $mod+Ctrl+$left move workspace to output left
+bindsym $mod+Ctrl+$right move workspace to output right
 
 # split in horizontal and vertical orientation
 bindsym $mod+b split h
@@ -96,23 +109,16 @@ bindsym $mod+Shift+9 move container to workspace 9
 bindsym $mod+Shift+0 move container to workspace 10
 
 # start terminal
-bindsym $mod+Return exec kitty
+bindsym $mod+Return exec $term
 
 # start filemanager
 bindsym $mod+Shift+Return exec nautilus
 
 # reload the configuration file
 bindsym $mod+Shift+c reload
-# restart i3 inplace
-bindsym $mod+Shift+r restart
 
-# Set screenshot program to ScreenEat
-bindsym Print exec screen-eat
-bindsym Shift+Print exec screen-eat --active
-bindsym --release $mod+Print exec screen-eat --cropped
-bindsym Ctrl+Print exec sleep 2 && screen-eat
-bindsym Ctrl+Shift+Print exec sleep 2 && screen-eat --active
-bindsym --release Ctrl+$mod+Print exec sleep 2 && screen-eat --cropped
+# Screenshot
+bindsym Print exec grim -g "$(slurp)" $HOME/grim_$(date +'%Y-%m-%d-%H%M%S.png')
 
 # Pulse Audio controls
 bindsym XF86AudioRaiseVolume exec pactl set-sink-mute $vol_sink 0 && pactl set-sink-volume $vol_sink +2%
@@ -130,20 +136,20 @@ bindsym $mod+Right exec playerctl next          # XF86AudioNext
 bindsym $mod+Left exec playerctl previous       # XF86AudioPrev
 
 # resize window (you can also use the mouse for that)
-mode $resize {
+mode $resize_icon {
         # These bindings trigger as soon as you enter the resize mode
-        bindsym h resize shrink width 2 px or 2 ppt
-        bindsym j resize grow height 2 px or 2 ppt
-        bindsym k resize shrink height 2 px or 2 ppt
-        bindsym l resize grow width 2 px or 2 ppt
+        bindsym $left resize shrink width 2 px or 2 ppt
+        bindsym $down resize grow height 2 px or 2 ppt
+        bindsym $up resize shrink height 2 px or 2 ppt
+        bindsym $right resize grow width 2 px or 2 ppt
         # back to normal: Enter or Escape
         bindsym Escape mode "default"
         bindsym $mod+r mode "default"
 }
-bindsym $mod+r mode $resize
+bindsym $mod+r mode $resize_icon
 
 # Create Log out, Reboot, Poweroff bindings
-mode $exit {
+mode $exit_icon {
         # Reboot
         bindsym r exec systemctl reboot, mode "default"
         # Logout
@@ -158,9 +164,9 @@ mode $exit {
         bindsym l exec $locker, mode "default"
         # back to normal: Enter or Escape
         bindsym Escape mode "default"
-        bindsym $mod+Shift+q mode "default"
+        bindsym $mod+Shift+e mode "default"
 }
-bindsym $mod+Shift+q mode $exit
+bindsym $mod+Shift+e mode $exit_icon
 
 # start rofi (replacement of dmenu)
 bindsym $mod+d exec "rofi -show drun"
@@ -169,32 +175,25 @@ bindsym $mod+d exec "rofi -show drun"
 # is used in the bar {} block below.
 font pango:$primary_font $title_font_size
 
-# exec_always --no-startup-id $polybar_launcher
-
-set $blue #03A9F4
-set $green #8BC34A
-set $gray #607D8B
-set $red #f44336
-set $white #ffffff
-
 bar {
     font pango:$bar_font, $bar_icon_font $bar_font_size
     position top
     # tray_output none
     status_command bumblebee-status \
-        -m traffic nic pasink disk:root disk:home memory cpu datetime battery\
+        -m traffic nic pasink disk memory cpu datetime battery\
         -p interval=2.5 \
-        traffic.states=^down traffic.showname=false\
-        nic.states=^down nic.format='{ssid}' \
-        home.format='{percent:.0f}%' home.path=/home \
-        root.format='{percent:.0f}%' root.path=/ \
+        traffic.exclude="lo,virbr,docker,vboxnet,veth,br-" traffic.states=^down traffic.showname=false\
+        nic.exclude="lo,virbr,docker,vboxnet,veth,br-" nic.states=^down nic.format='{ssid}' \
+        disk.format='{percent:.0f}%' disk.path=/home \
         cpu.format='{:.0f}%' \
         memory.format='{percent:.0f}%' \
         datetime.format="%a, %d %b %H:%M" \
-        -t nicer
+        battery.showremaining=true \
+        -t ~/.config/bumblebee-status/my-theme-dark.json
+
+
     colors {
         background $white
-
         focused_workspace  $blue    $blue   $white
         active_workspace   $white   $white  $gray
         inactive_workspace $white   $white  $gray
@@ -206,14 +205,13 @@ bar {
 # class                 border  bground text    indicator child_border
 client.focused          $blue   $blue   $white  $green  $blue
 client.focused_inactive $gray   $gray   $white  $gray   $gray
-client.unfocused        $gray   $gray   $gray   $white  $gray
+client.unfocused        $gray   $gray   $white  $white  $gray
 client.urgent           $red    $red    $white  $red    $red
 client.placeholder      $gray   $gray   $white  $gray   $gray
 client.background       $white
 
 # Hide titlebar
-
-for_window [title="^.*"] border pixel 2 title_format " %title"
+default_border pixel
 
 # Don't change focus with mouse
 focus_follows_mouse no
@@ -237,29 +235,26 @@ smart_gaps on
 gaps inner 4
 gaps outer 4
 
-# Set wallpaper binding
-output "*" background "$wallpaper/2018-09-08 01:07:32.jpg" fill
+output * background `find $wallpaper -type f -maxdepth 1 | shuf -n 1` fill
 
 # Start notification daemon
 exec --no-startup-id mako
 
-set $gnome-schema org.gnome.desktop.interface
-
 # Set theme in gsettings
+set $gnome-schema org.gnome.desktop.interface
 exec_always {
-    gsettings set $gnome-schema gtk-theme 'Flat-Remix-GTK'
+    gsettings set $gnome-schema gtk-theme 'Flat-Remix-GTK-Darker'
     gsettings set $gnome-schema icon-theme Flat-Remix-Light''
     gsettings set $gnome-schema cursor-theme 'Adwaita'
 }
 
-exec --no-startup-id swayidle \
+# Turn off screen and Sleep after certain timeout
+exec swayidle \
     timeout $black_after 'swaymsg "output * dpms off"' resume 'swaymsg "output * dpms on"' \
-    timeout $lock_after $locker \
+    timeout $lock_after 'systemctl suspend, mode default' \
     before-sleep $locker \
 
+# Enable tap on click for touchpad
 input "2:7:SynPS/2_Synaptics_TouchPad" {
     tap enabled
 }
-
-# TODO: style mako
-# TODO: redshift alternative

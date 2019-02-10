@@ -1,0 +1,31 @@
+{
+    "defaults": {
+        "padding": " "
+    },
+    "memory": { "prefix": "" },
+    "cpu": { "prefix": "" },
+    "disk": { "prefix": "" },
+    "brightness": { "prefix": "" },
+    "pasink": {
+        "muted": { "prefix": "" },
+        "unmuted": { "prefix": "" }
+    },
+    "nic": {
+        "wireless-up": { "prefix": "" },
+        "wired-up": { "prefix": "" }
+    },
+    "battery": {
+        "charged": { "prefix": "" },
+        "charging": { "prefix": "" },
+        "AC": { "prefix": "" },
+        "discharging-10": { "prefix": "" },
+        "discharging-25": { "prefix": "" },
+        "discharging-50": { "prefix": "" },
+        "discharging-80": { "prefix": "" },
+        "discharging-100": { "prefix": "" }
+    },
+    "traffic": {
+        "rx": { "prefix": ""},
+        "tx": { "prefix": ""}
+    }
+}

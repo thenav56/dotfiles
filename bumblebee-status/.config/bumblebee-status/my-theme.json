@@ -1,0 +1,23 @@
+{
+    "icons": [ "~/.config/bumblebee-status/my-icon.json" ],
+    "defaults": {
+        "separator-block-width": 0,
+        "separator": "",
+        "warning": {
+            "fg": "#0f1117",
+            "bg": "#e2a478"
+        },
+        "critical": {
+            "fg": "#0f1117",
+            "bg": "#e27878"
+        },
+        "bg": "#ffffff",
+        "fg": "#161821"
+    },
+    "traffic": {
+        "fg": "#009700"
+    },
+    "nic": {
+        "fg": "#009700"
+    }
+}

@@ -6,7 +6,7 @@ Plug 'Yggdroot/indentLine'
 Plug 'lambdalisue/suda.vim'
 
 " Git
-Plug 'tpope/vim-fugitive'
+" Plug 'tpope/vim-fugitive'
 Plug 'airblade/vim-gitgutter'
 
 " Quickfix
@@ -21,10 +21,20 @@ Plug 'junegunn/fzf.vim'
 " Language support
 Plug 'sheerun/vim-polyglot'
 Plug 'w0rp/ale'
-Plug 'autozimu/LanguageClient-neovim', {
-    \ 'branch': 'next',
-    \ 'do': 'bash install.sh',
-    \ }
+
+Plug 'Shougo/vimproc.vim', { 'do': 'make' }
+Plug 'Quramy/tsuquyomi'
+
+" Plug 'kien/rainbow_parentheses.vim'
+
+" Plug 'autozimu/LanguageClient-neovim', {
+"     \ 'branch': 'next',
+"     \ 'do': 'bash install.sh',
+"     \ }
+
+" Integration
+" Plug 'blindFS/vim-taskwarrior'
+
 
 call plug#end()
 
@@ -87,8 +97,8 @@ if has('statusline')
   set statusline+=%w%h%m%r\                           " Options
   set statusline+=»\ %{&ff}/%Y\                       " Filetype
   set statusline+=%=%l,%c%V\ %3p%%\ %L                " Right aligned file navigation info
-
 endif
+
 if has('cmdline_info')
   set rulerformat=%30(%=\:b%n%y%m%r%w\ %l,%c%V\ %P%)  " A ruler on steroids
 endif
@@ -111,14 +121,14 @@ set wildignorecase                                  " Ignore case when completin
 let g:indentLine_char = '▏'
 
 " Language Server
-let g:LanguageClient_serverCommands = {
-\ 'python': ['pyls'],
-\ 'javascript.jsx': ['javascript-typescript-stdio'],
-\ 'javascript': ['javascript-typescript-stdio'],
-\ 'typescript': ['javascript-typescript-stdio'],
-\ }
-let g:LanguageClient_autoStart = 1
-let g:LanguageClient_diagnosticsList = 'Disabled'
+" let g:LanguageClient_serverCommands = {
+" \ 'python': ['pyls'],
+" \ 'javascript.jsx': ['javascript-typescript-stdio'],
+" \ 'javascript': ['javascript-typescript-stdio'],
+" \ 'typescript': ['javascript-typescript-stdio'],
+" \ }
+" let g:LanguageClient_autoStart = 1
+" let g:LanguageClient_diagnosticsList = 'Disabled'
 
 " Ale
 let g:ale_sign_column_always = 1
@@ -127,7 +137,7 @@ let g:ale_sign_error = '>>'
 let g:ale_sign_warning = '> '
 let g:ale_linters = {
   \ 'vim': ['vint'],
-  \ 'typescript': ['tslint'],
+  \ 'typescript': ['tsserver', 'tslint'],
   \ 'javascript.jsx': ['eslint'],
   \ 'javascript': ['eslint'],
   \ 'python': ['flake8'],
@@ -138,7 +148,7 @@ let g:ale_fixers = {
   \ 'vim': ['vint'],
   \ 'scss': ['stylelint'],
   \ 'css': ['stylelint'],
-  \ 'typescript': ['tslint'],
+  \ 'typescript': ['tsserver', 'tslint'],
   \ 'javascript.jsx': ['eslint'],
   \ 'javascript': ['eslint'],
   \ }
@@ -231,10 +241,21 @@ let g:rg_command = '
   \ rg --column --line-number --no-heading --case-sensitive
   \ --no-ignore --hidden --follow --color "always"
   \ -g "*.{js,jsx,ts,tsx,json,php,md,styl,jade,html,config,py,cpp,c,go,hs,rb,conf,scss,css,html}"
-  \ -g "!{.git,coverage,node_modules,vendor,.cache,public,generated,android,ios}/*" '
+  \ -g "!{.git,coverage,node_modules,vendor,.cache,public,generated,android,ios,__pycache__}/*" '
 command! -bang -nargs=* RgWord call fzf#vim#grep(
   \ g:rg_command .shellescape(expand('<cword>')), 1, <bang>0
   \ )
 command! -bang -nargs=* Rg call fzf#vim#grep(
   \ g:rg_command .<q-args>, 1, <bang>0
   \ )
+
+" nnoremap <F5> :call LanguageClient_contextMenu()<CR>
+" Or map each action separately
+" nnoremap <silent> K :call LanguageClient#textDocument_hover()<CR>
+" nnoremap <silent> gd :call LanguageClient#textDocument_definition()<CR>
+" nnoremap <silent> <F2> :call LanguageClient#textDocument_rename()<CR>
+
+" au VimEnter * RainbowParenthesesToggle
+" au Syntax * RainbowParenthesesLoadRound
+" au Syntax * RainbowParenthesesLoadSquare
+" au Syntax * RainbowParenthesesLoadBraces

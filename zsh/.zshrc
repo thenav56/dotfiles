@@ -1,13 +1,11 @@
 # Path to your oh-my-zsh installation.
-export ZSH=/home/water/.oh-my-zsh
+export ZSH=/home/pandaman/.oh-my-zsh
 
 # Set name of the theme to load.
 # Look in ~/.oh-my-zsh/themes/
 # Optionally, if you set this to "random", it'll load a random theme each
 # time that oh-my-zsh is loaded.
 ZSH_THEME="gallifrey"
-# ZSH_THEME="philips"
-
 
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
@@ -51,23 +49,34 @@ HIST_STAMPS="yyyy.mm.dd"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git colorize cp extract wd zsh-autosuggestions zsh-syntax-highlighting shrink-path)
-# colored-man-pages
+plugins=( \
+    # git \
+    # colorize \
+    # cp \
+    # shrink-path \
+    # command-not-found \
+    # fancy-ctrl-z \
+    colored-man-pages \
+    docker \
+    docker-compose \
+    extract \
+    rsync \
+    # sudo \
+    wd \
+    zsh-autosuggestions \
+    zsh-syntax-highlighting \
+)
 
 # User configuration
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl"
-# export ANDROID_HOME=${HOME}/Android/Sdk
-# export PATH=${PATH}:${ANDROID_HOME}/tools
-# export PATH=${PATH}:${ANDROID_HOME}/platform-tools
 export PATH=${PATH}:${HOME}/.bin
-
 # export MANPATH="/usr/local/man:$MANPATH"
 
 source $ZSH/oh-my-zsh.sh
 
 # You may need to manually set your language environment
-# export LANG=en_US.UTF-8
+export LANG=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
 if [[ -n $SSH_CONNECTION ]]; then
@@ -98,36 +107,42 @@ export KEYTIMEOUT=1
 bindkey '^ ' autosuggest-accept
 bindkey '^R' history-incremental-pattern-search-backward
 
-# Set personal aliases, overriding those provided by oh-my-zsh libs,
-# plugins, and themes. Aliases can be placed here, though oh-my-zsh
-# users are encouraged to define aliases within the ZSH_CUSTOM folder.
-# For a full list of active aliases, run `alias`.
-#
-# Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
-
+# Enable fzf
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 export FZF_DEFAULT_COMMAND='rg -i --files --no-ignore --follow --hidden -g "!{.git,node_modules,coverage,.cache,android,ios}/*" 2> /dev/null'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 
-# Set cache directory for chromium
-alias chromium='chromium --disk-cache-dir=/tmp/cache'
+# Enable ssh-agent
+if ! pgrep -u "$USER" ssh-agent > /dev/null; then
+    ssh-agent > ~/.ssh-agent-thing
+fi
+if [[ "$SSH_AGENT_PID" == "" ]]; then
+    eval "$(<~/.ssh-agent-thing)"
+fi
 
-# Use wayland by default
+# Use wayland
 export GDK_BACKEND=wayland
 export QT_QPA_PLATFORM=wayland
 export CLUTTER_BACKEND=wayland
 export SDL_VIDEODRIVER=wayland
 
-# java
+# Java
 export _JAVA_OPTIONS='-Dawt.useSystemAAFontSettings=on -Dswing.aatext=true -Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel'
 
-# android studio
-export ANDROID_HOME=${HOME}/Android/Sdk
-export PATH=${PATH}:${ANDROID_HOME}/tools
-export PATH=${PATH}:${ANDROID_HOME}/platform-tools
+# Android studio
+# export ANDROID_HOME=${HOME}/Android/Sdk
+# export PATH=${PATH}:${ANDROID_HOME}/tools
+# export PATH=${PATH}:${ANDROID_HOME}/platform-tools
 
-# colorscheme installation from https://github.com/chriskempson/base16-shell
+# Colorscheme installation from https://github.com/chriskempson/base16-shell
 BASE16_SHELL=$HOME/.config/base16-shell/
 [ -n "$PS1" ] && [ -s $BASE16_SHELL/profile_helper.sh ] && eval "$($BASE16_SHELL/profile_helper.sh)"
+
+# Custom alias
+alias day='base16_gruvbox-light-hard'
+alias night='base16_gruvbox-dark-hard'
+alias vim="nvim"
+
+# Set cache directory for chromium
+alias chromium='chromium --disk-cache-dir=/tmp/cache'
+

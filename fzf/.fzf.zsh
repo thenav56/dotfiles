@@ -1,14 +1,14 @@
 # Setup fzf
 # ---------
-if [[ ! "$PATH" == */home/water/.fzf/bin* ]]; then
-  export PATH="$PATH:/home/water/.fzf/bin"
+if [[ ! "$PATH" == */home/pandaman/.fzf/bin* ]]; then
+  export PATH="$PATH:/home/pandaman/.fzf/bin"
 fi
 
 # Auto-completion
 # ---------------
-[[ $- == *i* ]] && source "/home/water/.fzf/shell/completion.zsh" 2> /dev/null
+[[ $- == *i* ]] && source "/home/pandaman/.fzf/shell/completion.zsh" 2> /dev/null
 
 # Key bindings
 # ------------
-source "/home/water/.fzf/shell/key-bindings.zsh"
+source "/home/pandaman/.fzf/shell/key-bindings.zsh"
 

@@ -1,0 +1,36 @@
+{
+    "icons": [ "~/.config/bumblebee-status/my-icon.json" ],
+    "defaults": {
+        "separator-block-width": 0,
+        "separator": "",
+        "fg": "#ffffff",
+        "bg": "#37474F",
+        "warning": {
+            "fg": "#ffffff",
+            "bg": "#FB8C00"
+        },
+        "critical": {
+            "fg": "#ffffff",
+            "bg": "#F4511E"
+        }
+    },
+    "datetime": {
+        "fg": "#4DB6AC"
+    },
+    "traffic": {
+        "fg": "#7CB342"
+    },
+    "battery": {
+        "charging": {
+            "fg": "#ffffff",
+            "bg": "#4DB6AC"
+        },
+        "charged": {
+            "fg": "#ffffff",
+            "bg": "#7CB342"
+        }
+    },
+    "nic": {
+        "fg": "#7CB342"
+    }
+}

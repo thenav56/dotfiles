@@ -1,3 +1,3 @@
 #!/bin/bash
 image=$HOME/.config/sway/windows-error.png
-i3lock -u -e --beep -i $image --tiling
+swaylock --daemonize --no-unlock-indicator --ignore-empty-password --image $image --tiling
