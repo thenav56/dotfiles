@@ -3,7 +3,7 @@
     "defaults": {
         "separator-block-width": 0,
         "separator": "",
-        "fg": "#ffffff",
+        "fg": "#4DB6AC",
         "bg": "#37474F",
         "warning": {
             "fg": "#ffffff",
@@ -15,7 +15,7 @@
         }
     },
     "datetime": {
-        "fg": "#4DB6AC"
+        "fg": "#ffffff"
     },
     "traffic": {
         "fg": "#7CB342"

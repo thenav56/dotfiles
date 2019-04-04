@@ -6,7 +6,7 @@ Plug 'Yggdroot/indentLine'
 Plug 'lambdalisue/suda.vim'
 
 " Git
-" Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-fugitive'
 Plug 'airblade/vim-gitgutter'
 
 " Quickfix
@@ -23,18 +23,8 @@ Plug 'sheerun/vim-polyglot'
 Plug 'w0rp/ale'
 
 Plug 'Shougo/vimproc.vim', { 'do': 'make' }
-Plug 'Quramy/tsuquyomi'
-
-" Plug 'kien/rainbow_parentheses.vim'
-
-" Plug 'autozimu/LanguageClient-neovim', {
-"     \ 'branch': 'next',
-"     \ 'do': 'bash install.sh',
-"     \ }
-
-" Integration
-" Plug 'blindFS/vim-taskwarrior'
-
+" Plug 'Quramy/tsuquyomi'
+" Plug 'neoclide/coc.nvim', {'tag': '*', 'do': { -> coc#util#install()}}
 
 call plug#end()
 
@@ -120,16 +110,6 @@ set wildignorecase                                  " Ignore case when completin
 " Indent line
 let g:indentLine_char = '▏'
 
-" Language Server
-" let g:LanguageClient_serverCommands = {
-" \ 'python': ['pyls'],
-" \ 'javascript.jsx': ['javascript-typescript-stdio'],
-" \ 'javascript': ['javascript-typescript-stdio'],
-" \ 'typescript': ['javascript-typescript-stdio'],
-" \ }
-" let g:LanguageClient_autoStart = 1
-" let g:LanguageClient_diagnosticsList = 'Disabled'
-
 " Ale
 let g:ale_sign_column_always = 1
 let g:ale_linters_explicit = 1
@@ -137,7 +117,7 @@ let g:ale_sign_error = '>>'
 let g:ale_sign_warning = '> '
 let g:ale_linters = {
   \ 'vim': ['vint'],
-  \ 'typescript': ['tsserver', 'tslint'],
+  \ 'typescript': ['tsserver', 'tslint', 'eslint'],
   \ 'javascript.jsx': ['eslint'],
   \ 'javascript': ['eslint'],
   \ 'python': ['flake8'],
@@ -167,7 +147,7 @@ let g:dirvish_mode = 1
 augroup dirvish
   autocmd!
   autocmd FileType dirvish silent sort '^.*[\/]'
-  autocmd FileType dirvish silent keeppatterns g@\v/\.[^\/]+/?$@d _
+  " autocmd FileType dirvish silent keeppatterns g@\v/\.[^\/]+/?$@d _
   autocmd FileType dirvish silent! unmap <buffer> <C-p>
 augroup END
 
@@ -249,13 +229,4 @@ command! -bang -nargs=* Rg call fzf#vim#grep(
   \ g:rg_command .<q-args>, 1, <bang>0
   \ )
 
-" nnoremap <F5> :call LanguageClient_contextMenu()<CR>
-" Or map each action separately
-" nnoremap <silent> K :call LanguageClient#textDocument_hover()<CR>
-" nnoremap <silent> gd :call LanguageClient#textDocument_definition()<CR>
-" nnoremap <silent> <F2> :call LanguageClient#textDocument_rename()<CR>
-
-" au VimEnter * RainbowParenthesesToggle
-" au Syntax * RainbowParenthesesLoadRound
-" au Syntax * RainbowParenthesesLoadSquare
-" au Syntax * RainbowParenthesesLoadBraces
+let g:ale_completion_enabled = 1

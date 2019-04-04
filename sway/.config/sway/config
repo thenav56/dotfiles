@@ -8,7 +8,7 @@ set $down j
 set $up k
 set $right l
 
-set $term kitty
+set $term alacritty
 
 set $exit_icon 
 set $resize_icon 
@@ -180,16 +180,19 @@ bar {
     position top
     # tray_output none
     status_command bumblebee-status \
+        -t ~/.config/bumblebee-status/my-theme-dark.json\
         -m traffic nic pasink disk memory cpu datetime battery\
         -p interval=2.5 \
-        traffic.exclude="lo,virbr,docker,vboxnet,veth,br-" traffic.states=^down traffic.showname=false\
-        nic.exclude="lo,virbr,docker,vboxnet,veth,br-" nic.states=^down nic.format='{ssid}' \
-        disk.format='{percent:.0f}%' disk.path=/home \
-        cpu.format='{:.0f}%' \
-        memory.format='{percent:.0f}%' \
+        traffic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
+        traffic.states=^down\
+        traffic.showname=false\
+        nic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
+        nic.states=^down nic.format='{ssid}' \
+        disk.format='{percent:0>2.0f}%' disk.path=/home \
+        cpu.format='{:0>2.0f}%' \
+        memory.format='{percent:0>2.0f}%' \
         datetime.format="%a, %d %b %H:%M" \
-        battery.showremaining=true \
-        -t ~/.config/bumblebee-status/my-theme-dark.json
+        battery.showremaining=true
 
 
     colors {

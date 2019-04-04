@@ -129,11 +129,6 @@ export SDL_VIDEODRIVER=wayland
 # Java
 export _JAVA_OPTIONS='-Dawt.useSystemAAFontSettings=on -Dswing.aatext=true -Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel'
 
-# Android studio
-# export ANDROID_HOME=${HOME}/Android/Sdk
-# export PATH=${PATH}:${ANDROID_HOME}/tools
-# export PATH=${PATH}:${ANDROID_HOME}/platform-tools
-
 # Colorscheme installation from https://github.com/chriskempson/base16-shell
 BASE16_SHELL=$HOME/.config/base16-shell/
 [ -n "$PS1" ] && [ -s $BASE16_SHELL/profile_helper.sh ] && eval "$($BASE16_SHELL/profile_helper.sh)"
@@ -142,7 +137,4 @@ BASE16_SHELL=$HOME/.config/base16-shell/
 alias day='base16_gruvbox-light-hard'
 alias night='base16_gruvbox-dark-hard'
 alias vim="nvim"
-
-# Set cache directory for chromium
 alias chromium='chromium --disk-cache-dir=/tmp/cache'
-
