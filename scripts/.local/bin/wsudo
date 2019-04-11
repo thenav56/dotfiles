@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#small script to enable root access to x-windows system
+red=$'\e[1;31m'
+grn=$'\e[1;32m'
+end=$'\e[0m'
+
+printf "${red}Enabling root user to access the local user's X session${end}\n"
+
+xhost +SI:localuser:root
+sudo $1
+xhost -SI:localuser:root
+xhost
+
+printf "${grn}Disabled root user to access the local user's X session${end}\n"
+

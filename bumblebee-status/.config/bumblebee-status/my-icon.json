@@ -4,7 +4,8 @@
     },
     "memory": { "prefix": "" },
     "cpu": { "prefix": "" },
-    "disk": { "prefix": "" },
+    "root": { "prefix": "" },
+    "home": { "prefix": "" },
     "brightness": { "prefix": "" },
     "pasink": {
         "muted": { "prefix": "" },
@@ -25,7 +26,7 @@
         "discharging-100": { "prefix": "" }
     },
     "traffic": {
-        "rx": { "prefix": ""},
-        "tx": { "prefix": ""}
+        "rx": { "prefix": ""},
+        "tx": { "prefix": ""}
     }
 }

@@ -1,0 +1,35 @@
+#!/bin/sh
+
+notify_id=100011
+icon_name=audio-volume-medium
+step=5
+max_volume=150
+min_volume=0
+sink=$(pactl info | grep 'Default Sink:' | cut -d ' ' -f 3)
+
+volume=$(pactl list sinks | perl -slne '
+    if (/^\s+Name: (.+)%?/) {
+        $cur_sink = $1;
+    } elsif (/^\s+Volume:.*? (\d+)% / && $sink eq $cur_sink) {
+        print $1;
+    }
+' -- -sink="$sink")
+
+echo 'volume: ' $volume
+
+if [ "$1" = "+" ] ; then
+    action='INC'
+    volume=$((volume + step))
+    volume=$((volume > max_volume ? max_volume : volume))
+elif [ "$1" = "-" ] ; then
+    action='DEC'
+    volume=$((volume - step))
+    volume=$((volume < min_volume ? min_volume : volume))
+elif [ "$1" = "mute-toggle" ] ; then
+    pactl set-sink-mute $sink toggle
+    dunstify -r "$notify_id" -u low -a volume -i $icon_name Volume "Muted $volume%"
+    exit 0
+fi
+
+pactl set-sink-mute "$sink" 0 && pactl set-sink-volume "$sink" "$volume%"
+dunstify -r "$notify_id" -u low -a volume -i $icon_name Volume "$action $volume%"

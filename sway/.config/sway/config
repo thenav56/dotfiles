@@ -1,38 +1,31 @@
 # i3 config file (v4)
 
 # Set modifier key
-set $mod Mod4
+set $mod Mod1
 
 set $left h
 set $down j
 set $up k
 set $right l
 
-set $term alacritty
-
-set $exit_icon 
-set $resize_icon 
+set $exit_icon : [Shift+P]oweroff [H]ibernate, [S]uspend, [Shift+L]ogout [L]ock and [Shift+R]eboot
+set $resize_icon 
 
 # time in seconds
 set $black_after 1200
 set $lock_after 2400
 
-set $white #37474F
-set $gray #ffffff
-set $blue #03A9F4
-set $green #8BC34A
-set $red #f44336
-
 set $primary_font Hack
 set $title_font_size 10
 
-set $bar_font Ubuntu Mono
-set $bar_icon_font LineAwesome
-set $bar_font_size 12
+set $bar_font Hack
+set $bar_icon_font FontAwesome
+set $bar_font_size 9
+set $popup-height 34
 
-set $wallpaper ~/Pictures
+set $wallpaper ~/Pictures/wallpaper/
 set $locker ~/.config/sway/swaylock.sh
-set $vol_sink 0
+set $terminal alacritty
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod normal
@@ -45,16 +38,26 @@ bindsym $mod+$left focus left
 bindsym $mod+$down focus down
 bindsym $mod+$up focus up
 bindsym $mod+$right focus right
+bindsym $mod+left focus left
+bindsym $mod+down focus down
+bindsym $mod+up focus up
+bindsym $mod+right focus right
 
 # move focused window
 bindsym $mod+Shift+$left move left
 bindsym $mod+Shift+$down move down
 bindsym $mod+Shift+$up move up
 bindsym $mod+Shift+$right move right
+bindsym $mod+Shift+left move left
+bindsym $mod+Shift+down move down
+bindsym $mod+Shift+up move up
+bindsym $mod+Shift+right move right
 
 # move focused workspace
 bindsym $mod+Ctrl+$left move workspace to output left
 bindsym $mod+Ctrl+$right move workspace to output right
+bindsym $mod+Ctrl+left move workspace to output left
+bindsym $mod+Ctrl+right move workspace to output right
 
 # split in horizontal and vertical orientation
 bindsym $mod+b split h
@@ -62,6 +65,7 @@ bindsym $mod+v split v
 
 # enter fullscreen mgode for the focused container
 bindsym $mod+f fullscreen toggle
+bindsym $mod+shift+f bar mode toggle
 
 # change container layout (stacked, +tabbed, toggle split)
 bindsym $mod+s layout stacking
@@ -84,35 +88,47 @@ bindsym $mod+Shift+minus move scratchpad
 # Show the next scratchpad window or hide the focused scratchpad window.
 bindsym $mod+minus scratchpad show
 
+#workspaces
+set $workspace1 "1:"
+set $workspace2 "2:"
+set $workspace3 "3:"
+set $workspace4 "4:"
+set $workspace5 "5:"
+set $workspace6 "6:"
+set $workspace7 "7:"
+set $workspace8 "8:"
+set $workspace9 "9:"
+set $workspace10 "10:"
+
 # switch to workspace
-bindsym $mod+1 workspace 1
-bindsym $mod+2 workspace 2
-bindsym $mod+3 workspace 3
-bindsym $mod+4 workspace 4
-bindsym $mod+5 workspace 5
-bindsym $mod+6 workspace 6
-bindsym $mod+7 workspace 7
-bindsym $mod+8 workspace 8
-bindsym $mod+9 workspace 9
-bindsym $mod+0 workspace 10
+bindsym $mod+1 workspace $workspace1
+bindsym $mod+2 workspace $workspace2
+bindsym $mod+3 workspace $workspace3
+bindsym $mod+4 workspace $workspace4
+bindsym $mod+5 workspace $workspace5
+bindsym $mod+6 workspace $workspace6
+bindsym $mod+7 workspace $workspace7
+bindsym $mod+8 workspace $workspace8
+bindsym $mod+9 workspace $workspace9
+bindsym $mod+0 workspace $workspace10
 
 # move focused container to workspace and switch
-bindsym $mod+Shift+1 move container to workspace 1
-bindsym $mod+Shift+2 move container to workspace 2
-bindsym $mod+Shift+3 move container to workspace 3
-bindsym $mod+Shift+4 move container to workspace 4
-bindsym $mod+Shift+5 move container to workspace 5
-bindsym $mod+Shift+6 move container to workspace 6
-bindsym $mod+Shift+7 move container to workspace 7
-bindsym $mod+Shift+8 move container to workspace 8
-bindsym $mod+Shift+9 move container to workspace 9
-bindsym $mod+Shift+0 move container to workspace 10
+bindsym $mod+Shift+1 move container to workspace $workspace1
+bindsym $mod+Shift+2 move container to workspace $workspace2
+bindsym $mod+Shift+3 move container to workspace $workspace3
+bindsym $mod+Shift+4 move container to workspace $workspace4
+bindsym $mod+Shift+5 move container to workspace $workspace5
+bindsym $mod+Shift+6 move container to workspace $workspace6
+bindsym $mod+Shift+7 move container to workspace $workspace7
+bindsym $mod+Shift+8 move container to workspace $workspace8
+bindsym $mod+Shift+9 move container to workspace $workspace9
+bindsym $mod+Shift+0 move container to workspace $workspace10
 
 # start terminal
-bindsym $mod+Return exec $term
+bindsym $mod+Return exec $terminal
 
 # start filemanager
-bindsym $mod+Shift+Return exec nautilus
+bindsym $mod+Shift+Return exec thunar
 
 # reload the configuration file
 bindsym $mod+Shift+c reload
@@ -121,19 +137,13 @@ bindsym $mod+Shift+c reload
 bindsym Print exec grim -g "$(slurp)" $HOME/grim_$(date +'%Y-%m-%d-%H%M%S.png')
 
 # Pulse Audio controls
-bindsym XF86AudioRaiseVolume exec pactl set-sink-mute $vol_sink 0 && pactl set-sink-volume $vol_sink +2%
-bindsym XF86AudioLowerVolume exec pactl set-sink-mute $vol_sink 0 && pactl set-sink-volume $vol_sink -2%
-bindsym XF86AudioMute exec pactl set-sink-mute $vol_sink toggle
+bindsym XF86AudioRaiseVolume exec ~/.local/bin/pactl-limited +
+bindsym XF86AudioLowerVolume exec ~/.local/bin/pactl-limited -
+bindsym XF86AudioMute exec ~/.local/bin/pactl-limited mute-toggle
 
 # Sreen brightness controls
 bindsym XF86MonBrightnessUp exec light -A 7
 bindsym XF86MonBrightnessDown exec light -U 7
-
-# Media player controls
-bindsym $mod+Up exec playerctl play-pause       # XF86AudioPlay
-bindsym $mod+Down exec playerctl play-pause     # XF86AudioPause
-bindsym $mod+Right exec playerctl next          # XF86AudioNext
-bindsym $mod+Left exec playerctl previous       # XF86AudioPrev
 
 # resize window (you can also use the mouse for that)
 mode $resize_icon {
@@ -149,13 +159,13 @@ mode $resize_icon {
 bindsym $mod+r mode $resize_icon
 
 # Create Log out, Reboot, Poweroff bindings
-mode $exit_icon {
+mode "$exit_icon" {
         # Reboot
-        bindsym r exec systemctl reboot, mode "default"
+        bindsym Shift+r exec systemctl reboot, mode "default"
         # Logout
         bindsym Shift+l exit, mode "default"
         # Poweroff
-        bindsym Shift+s exec systemctl poweroff, mode "default"
+        bindsym Shift+p exec systemctl poweroff, mode "default"
         # Hibernate
         bindsym h exec $locker && systemctl hibernate, mode "default"
         # Suspend
@@ -166,7 +176,7 @@ mode $exit_icon {
         bindsym Escape mode "default"
         bindsym $mod+Shift+e mode "default"
 }
-bindsym $mod+Shift+e mode $exit_icon
+bindsym $mod+Shift+e mode "$exit_icon"
 
 # start rofi (replacement of dmenu)
 bindsym $mod+d exec "rofi -show drun"
@@ -175,25 +185,41 @@ bindsym $mod+d exec "rofi -show drun"
 # is used in the bar {} block below.
 font pango:$primary_font $title_font_size
 
+set $white #252D3A
+set $gray #ffffff
+set $blue #03A9F4
+set $green #8BC34A
+set $red #f44336
+
+# class                 border  bground text    indicator child_border
+client.focused          $blue   $blue   $white  $green  $green
+client.focused_inactive $gray   $white  $gray  $gray   $gray
+client.unfocused        $white  $white  $gray  $white  $gray
+client.urgent           $red    $red    $white  $red    $red
+client.placeholder      $gray   $gray   $white  $gray   $gray
+client.background       $white
+
 bar {
     font pango:$bar_font, $bar_icon_font $bar_font_size
     position top
     # tray_output none
+    # -t ~/.config/bumblebee-status/my-theme-dark.json
+    # swaybar_command waybar
     status_command bumblebee-status \
-        -t ~/.config/bumblebee-status/my-theme-dark.json\
-        -m traffic nic pasink disk memory cpu datetime battery\
+        -t onedark-powerline\
+        -m traffic nic pasink redshift sensors disk:root disk:home memory cpu battery datetime \
         -p interval=2.5 \
-        traffic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
+        traffic.exclude="tun0,lo,virbr,docker,vboxnet,veth,br-"\
         traffic.states=^down\
         traffic.showname=false\
         nic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
         nic.states=^down nic.format='{ssid}' \
-        disk.format='{percent:0>2.0f}%' disk.path=/home \
+        root.format='{percent:0>2.0f}%' root.path=/ \
+        home.format='{percent:0>2.0f}%' home.path=/home \
         cpu.format='{:0>2.0f}%' \
         memory.format='{percent:0>2.0f}%' \
-        datetime.format="%a, %d %b %H:%M" \
+        datetime.format="%a, %d %b %I:%M %P" \
         battery.showremaining=true
-
 
     colors {
         background $white
@@ -205,14 +231,6 @@ bar {
     }
 }
 
-# class                 border  bground text    indicator child_border
-client.focused          $blue   $blue   $white  $green  $blue
-client.focused_inactive $gray   $gray   $white  $gray   $gray
-client.unfocused        $gray   $gray   $white  $white  $gray
-client.urgent           $red    $red    $white  $red    $red
-client.placeholder      $gray   $gray   $white  $gray   $gray
-client.background       $white
-
 # Hide titlebar
 default_border pixel
 
@@ -220,8 +238,34 @@ default_border pixel
 focus_follows_mouse no
 
 # Assign programs to workspace
-# assign [class="Gitg"] 9
-# assign [class="Slack"] 10
+
+assign [class="(?i)google-chrome"] → $workspace1
+assign [class="(?i)chromium"] → $workspace1
+assign [class="(?i)$browser"] →  $workspace1
+
+#assign [class="(?i)$terminal"]	→	$workspace2
+
+assign [class="(?i)skype"] → $workspace4
+assign [class="(?i)trello"] → $workspace4
+assign [class="(?i)viber"] → $workspace4
+assign [class="(?i)WMail"] → $workspace4
+assign [class="(?i)Slack"] → $workspace4
+assign [class="(?i)GitKraken"] → $workspace10
+assign [class="(?i)jetbrains-studio"] → $workspace6
+
+# -------- float application  --------  use swaymsg -t get_tree | less in terminal
+for_window [window_role="pop-up"] floating enable
+for_window [window_role="bubble"] floating enable
+for_window [window_role="task_dialog"] floating enable
+for_window [window_role="Preferences"] floating enable
+for_window [window_role="pop-up"] floating enable
+for_window [window_role="scratchpad"] floating enable
+
+for_window [class="(?i)blueman"] floating enable
+for_window [app_id="(?i)pavucontrol"] floating enable, move position mouse
+for_window [app_id="(?i)blueberry.py"] floating enable, move position mouse
+for_window [class="(?i)pavucontrol" instance="pavucontrol-bar"] floating enable, move down $popup-height px
+
 
 # Hide borders when only one window is present
 hide_edge_borders smart
@@ -238,16 +282,37 @@ smart_gaps on
 gaps inner 4
 gaps outer 4
 
-output * background `find $wallpaper -type f -maxdepth 1 | shuf -n 1` fill
+output "*" background `find $wallpaper -maxdepth 1 -type f | shuf -n 1` fill
+
+set $laptop-display eDP-1
+# bindswitch --locked lid:off output $laptop-display disable
+# bindswitch --locked lid:on output $laptop-display enable
+
+# Display Position
+output $laptop-display resolution 1920x1080
+# OFFICE DELL (HDMI)
+output DP-3 resolution 1920x1080
+output DP-4 resolution 1920x1080
+# OFFICE AOC (VGA)
+output DP-5 resolution 1920x1080
+output DP-7 resolution 1920x1080
+# HOME DELL (VGA)
+output DP-2 resolution 1920x1080
 
 # Start notification daemon
-exec --no-startup-id mako
+exec --no-startup-id dunst
+exec --no-startup-id redshift
+exec --no-startup-id i3-msg 'workspace $workspace1; exec /usr/bin/chromium'
+exec --no-startup-id i3-msg 'workspace $workspace4; exec /usr/bin/slack'
+exec --no-startup-id i3-msg 'workspace $workspace4; exec /usr/bin/blueberry'
+exec --no-startup-id i3-msg 'workspace $workspace2; exec $terminal'
+exec --no-startup-id pactl load-module module-bluetooth-discover
 
 # Set theme in gsettings
 set $gnome-schema org.gnome.desktop.interface
 exec_always {
-    gsettings set $gnome-schema gtk-theme 'Flat-Remix-GTK-Darker'
-    gsettings set $gnome-schema icon-theme Flat-Remix-Light''
+    gsettings set $gnome-schema gtk-theme 'Arc-Darker'
+    gsettings set $gnome-schema icon-theme 'Flat-Remix-Blue-Light'
     gsettings set $gnome-schema cursor-theme 'Adwaita'
 }
 
@@ -258,6 +323,16 @@ exec swayidle \
     before-sleep $locker \
 
 # Enable tap on click for touchpad
-input "2:7:SynPS/2_Synaptics_TouchPad" {
+input "1739:30383:DELL07E6:00_06CB:76AF_Touchpad" {
     tap enabled
+    natural_scroll enabled
 }
+
+set $keyboard_config {
+    xkb_layout us
+    xkb_options caps:escape
+}
+
+# Change caps-lock to ESC
+input "1:1:AT_Translated_Set_2_keyboard" $keyboard_config
+input "9456:320:Metadot_-_Das_Keyboard_Das_Keyboard" $keyboard_config
