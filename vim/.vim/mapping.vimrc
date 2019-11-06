@@ -20,7 +20,7 @@ nmap <leader>q :BD<cr>
 " paste without overwriting the buffer
 map <leader>p c<C-R>0<Esc>
 
-map <leader>y :call CopyToWclip()<cr>
+" map <leader>y :call CopyToWclip()<cr>
 
 
 "Quickly edit/reload the vimrc file

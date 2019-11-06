@@ -1,7 +1,7 @@
 export ZSH=$HOME/.oh-my-zsh
 
 # ZSH_THEME="robbyrussell-custom"
-ZSH_THEME="ys"
+ZSH_THEME="${ZSH_THEME:-ys}"
 
 plugins=(
     git vi-mode yarn
