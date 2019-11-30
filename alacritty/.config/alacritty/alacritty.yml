@@ -45,15 +45,6 @@ scrolling:
   # scrollback is enabled (history > 0).
   multiplier: 3
 
-  # Faux Scrolling
-  #
-  # The `faux_multiplier` setting controls the number of lines the terminal
-  # should scroll when the alternate screen buffer is active. This is used
-  # to allow mouse scrolling for applications like `man`.
-  #
-  # Specifying `0` will disable faux scrolling.
-  faux_multiplier: 3
-
   # Scroll to the bottom when new text is written to the terminal.
   auto_scroll: false
 
@@ -128,38 +119,47 @@ font:
 debug.render_timer: false
 
 # If `true`, bold text is drawn using the bright color variants.
-draw_bold_text_with_bright_colors: true
+# draw_bold_text_with_bright_colors: true
 
 # color_start
-# one_dark.yaml
-# Colors (One Dark)
+# base16-gruvbox-light-hard.yml
+# Base16 Gruvbox light, hard - alacritty color config
+# Dawid Kurek (dawikur@gmail.com), morhetz (https://github.com/morhetz/gruvbox)
 colors:
   # Default colors
   primary:
-    background: '0x1e2127'
-    foreground: '0xabb2bf'
+    background: '0xf9f5d7'
+    foreground: '0x504945'
+
+  # Colors the cursor will use if `custom_cursor_colors` is true
+  cursor:
+    text: '0xf9f5d7'
+    cursor: '0x504945'
 
   # Normal colors
   normal:
-    black:   '0x1e2127'
-    red:     '0xe06c75'
-    green:   '0x98c379'
-    yellow:  '0xd19a66'
-    blue:    '0x61afef'
-    magenta: '0xc678dd'
-    cyan:    '0x56b6c2'
-    white:   '0xabb2bf'
+    black:   '0xf9f5d7'
+    red:     '0x9d0006'
+    green:   '0x79740e'
+    yellow:  '0xb57614'
+    blue:    '0x076678'
+    magenta: '0x8f3f71'
+    cyan:    '0x427b58'
+    white:   '0x504945'
 
   # Bright colors
   bright:
-    black:   '0x5c6370'
-    red:     '0xe06c75'
-    green:   '0x98c379'
-    yellow:  '0xd19a66'
-    blue:    '0x61afef'
-    magenta: '0xc678dd'
-    cyan:    '0x56b6c2'
-    white:   '0xffffff'
+    black:   '0xbdae93'
+    red:     '0xaf3a03'
+    green:   '0xebdbb2'
+    yellow:  '0xd5c4a1'
+    blue:    '0x665c54'
+    magenta: '0x3c3836'
+    cyan:    '0xd65d0e'
+    white:   '0x282828'
+
+draw_bold_text_with_bright_colors: false
+
 # color_end
 
 # Visual Bell

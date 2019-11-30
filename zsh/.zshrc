@@ -13,6 +13,7 @@ plugins=(
     # External plugins
     zsh-syntax-highlighting  # https://github.com/zsh-users/zsh-syntax-highlighting
     zsh-autosuggestions      # https://github.com/zsh-users/zsh-autosuggestions
+    # git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -87,4 +88,5 @@ fi
 
 # Colorscheme installation from https://github.com/chriskempson/base16-shell
 BASE16_SHELL=$HOME/.config/base16-shell/
+export BASE16_SHELL_HOOKS=$BASE16_SHELL/hooks
 [ -n "$PS1" ] && [ -s $BASE16_SHELL/profile_helper.sh ] && eval "$($BASE16_SHELL/profile_helper.sh)"

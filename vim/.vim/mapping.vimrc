@@ -31,7 +31,9 @@ nmap <silent> <leader>s :so $MYVIMRC<CR>
 cmap cd. cd %:p:h
 
 " For when you forget to sudo
-cmap w!! w !sudo tee %
+" cmap w!! w !sudo tee %
+cmap w!! w suda://%
+cmap e!! e suda://%
 
 " set foldmenthod indent
 cmap f!! setlocal foldmethod=indent

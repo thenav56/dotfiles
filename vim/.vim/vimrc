@@ -25,6 +25,7 @@ Plug 'sheerun/vim-polyglot'                 " A solid language packs for vim
 Plug 'kamykn/spelunker.vim'                 " Improved vim spelling plugin
 
 " Misc
+Plug 'lambdalisue/suda.vim'                 " Ask pass when needed
 Plug 'qpkorr/vim-bufkill'                   " Remove files from buffer
 Plug 'eugen0329/vim-esearch'                " Search
 Plug 'tpope/vim-commentary'                 " comment stuffs in/out
@@ -120,8 +121,8 @@ function CopyToWclip() range
 endfunction
 
 if filereadable(expand('~/.vimrc_background'))
-  let base16colorspace=256
-  source ~/.vimrc_background
+    let base16colorspace=256
+    source ~/.vimrc_background
 endif
 
 set termguicolors
@@ -187,6 +188,9 @@ command! -bang -nargs=* Rg
   \           : fzf#vim#with_preview({'options': '--delimiter : --nth 4..'}, 'right:50%:hidden', '?'),
   \   <bang>0)
 
+command! -bang -nargs=? -complete=dir Files
+  \ call fzf#vim#files(<q-args>, fzf#vim#with_preview(), <bang>0)
+
 "Spelunker config
 let g:enable_spelunker_vim = 1
 let g:spelunker_target_min_char_len = 3
@@ -196,3 +200,12 @@ augroup spelunker
   autocmd BufWinEnter,BufWritePost *.ts,*.tsx,*.vim,*.js,*.jsx,*.json,*.md call spelunker#check()
   " autocmd CursorHold *.ts,*.tsx,*.vim,*.js,*.jsx,*.json,*.md call spelunker#check_displayed_words()
 augroup END
+
+" vim-devicons
+let g:webdevicons_enable_nerdtree = 1
+let g:webdevicons_enable_startify = 1
+
+" Avoid unwanted square brackets on source vimrc
+if exists("g:loaded_webdevicons")
+    call webdevicons#refresh()
+endif

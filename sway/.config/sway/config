@@ -281,23 +281,33 @@ smart_gaps on
 gaps inner 4
 gaps outer 4
 
-output "*" background `find $wallpaper -maxdepth 1 -type f | shuf -n 1` fill
-
-set $laptop-display eDP-1
 # bindswitch --locked lid:off output $laptop-display disable
 # bindswitch --locked lid:on output $laptop-display enable
 
-# Display Position
-output $laptop-display resolution 1920x1080 position 0,0
+output eDP-1 {
+    resolution 1920x1080
+    position 0,0
+    background $wallpaper/876590.png fill
+}
+
+set $OFFICE_HDMI {
+    resolution 1920x1080
+    position 1920,0
+}
+
+set $OFFICE_VGA {
+    resolution 1920x1080
+    # position 3840,0
+}
+
 # OFFICE DELL (HDMI)
-output DP-1 resolution 1920x1080 position 1920,0
-output DP-3 resolution 1920x1080 position 1920,0
-output DP-4 resolution 1920x1080 position 1920,0
+output DP-1 $OFFICE_HDMI
+output DP-3 $OFFICE_HDMI
+output DP-4 $OFFICE_HDMI
+
 # OFFICE AOC (VGA)
-output DP-5 resolution 1920x1080 position 3840,0
-output DP-7 resolution 1920x1080 position 3840,0
-# HOME DELL (VGA)
-output DP-2 resolution 1920x1080 position 1920,0
+output DP-5 $OFFICE_VGA
+output DP-7 $OFFICE_VGA
 
 # Start notification daemon
 exec --no-startup-id dunst
@@ -328,11 +338,11 @@ input "1739:30383:DELL07E6:00_06CB:76AF_Touchpad" {
     natural_scroll enabled
 }
 
-set $keyboard_config {
+set $KEYBOARD_CONFIG {
     xkb_layout us
     xkb_options caps:escape
 }
 
 # Change caps-lock to ESC
-input "1:1:AT_Translated_Set_2_keyboard" $keyboard_config
-input "9456:320:Metadot_-_Das_Keyboard_Das_Keyboard" $keyboard_config
+input "1:1:AT_Translated_Set_2_keyboard" $KEYBOARD_CONFIG
+input "9456:320:Metadot_-_Das_Keyboard_Das_Keyboard" $KEYBOARD_CONFIG
