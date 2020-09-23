@@ -1,0 +1,10 @@
+#!/bin/bash
+
+
+# wget -O /tmp/wallpaper.jpg https://source.unsplash.com/3840x2160/?nature,water,abstract
+
+# wget -O /tmp/wallpaper.jpg https://source.unsplash.com/collection/395450/3840x2160/
+wget -O /tmp/wallpaper.jpg https://source.unsplash.com/3840x2160/?wallpaper,nature
+
+# swaymsg output "*" background /tmp/wallpaper.jpg fill
+swaymsg output \"Unknown Beyond TV 0x00000100\" background /tmp/wallpaper.jpg fill

@@ -23,7 +23,7 @@ set $bar_icon_font FontAwesome
 set $bar_font_size 8
 set $popup-height 34
 
-set $wallpaper ~/Pictures/wallpaper/
+set $wallpaper ~/Pictures/wallpaper
 set $locker ~/.config/sway/swaylock.sh
 set $terminal alacritty
 
@@ -128,13 +128,14 @@ bindsym $mod+Shift+0 move container to workspace $workspace10
 bindsym $mod+Return exec $terminal
 
 # start filemanager
-bindsym $mod+Shift+Return exec thunar
+bindsym $mod+Shift+Return exec caja
+bindsym $mod+Shift+w exec ~/.local/bin/unsplash-wallpaper-random
 
 # reload the configuration file
 bindsym $mod+Shift+c reload
 
 # Screenshot
-bindsym Print exec grim -g "$(slurp)" $HOME/grim_$(date +'%Y-%m-%d-%H%M%S.png')
+bindsym Print exec grim -g "$(slurp)" $HOME/Pictures/Screenshots/grim/$(date +'%Y-%m-%d-%H%M%S.png')
 
 # Pulse Audio controls
 bindsym XF86AudioRaiseVolume exec ~/.local/bin/pactl-limited +
@@ -179,7 +180,7 @@ mode "$exit_icon" {
 bindsym $mod+Shift+e mode "$exit_icon"
 
 # start rofi (replacement of dmenu)
-bindsym $mod+d exec "rofi -show drun"
+bindsym $mod+d exec "pkill rofi ; rofi -show drun"
 
 # Font for window titles. Will also be used by the bar unless a different font
 # is used in the bar {} block below.
@@ -202,12 +203,10 @@ client.background       $white
 bar {
     font pango:$bar_font, $bar_icon_font $bar_font_size
     position top
-    # tray_output none
-    # -t ~/.config/bumblebee-status/my-theme-dark.json
     # swaybar_command waybar
-    status_command bumblebee-status \
+    status_command /usr/bin/bumblebee-status \
         -t onedark-powerline\
-        -m traffic nic pasink redshift sensors disk:root disk:home memory cpu battery datetime \
+        -m traffic nic pasink caffeine sensors disk:root memory cpu battery datetime \
         -p interval=2.5 \
         traffic.exclude="tun0,lo,virbr,docker,vboxnet,veth,br-"\
         traffic.states=^down\
@@ -215,7 +214,6 @@ bar {
         nic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
         nic.states=^down nic.format='{ssid}' \
         root.format='{percent:0>2.0f}%' root.path=/ \
-        home.format='{percent:0>2.0f}%' home.path=/home \
         cpu.format='{:0>2.0f}%' \
         memory.format='{percent:0>2.0f}%' \
         datetime.format="%a, %d %b %I:%M %P" \
@@ -239,19 +237,20 @@ focus_follows_mouse no
 
 # Assign programs to workspace
 
-assign [class="(?i)google-chrome"] → $workspace1
-assign [class="(?i)chromium"] → $workspace1
-assign [class="(?i)$browser"] →  $workspace1
+assign [class="google-chrome"] → $workspace1
+assign [class="firefoxdeveloperedition"] → $workspace1
+assign [class="Chromium"] → $workspace1
+assign [class="browser"] →  $workspace1
 
 #assign [class="(?i)$terminal"]	→	$workspace2
 
-assign [class="(?i)skype"] → $workspace4
-assign [class="(?i)trello"] → $workspace4
-assign [class="(?i)viber"] → $workspace4
-assign [class="(?i)WMail"] → $workspace4
-assign [class="(?i)Slack"] → $workspace4
-assign [class="(?i)GitKraken"] → $workspace10
-assign [class="(?i)jetbrains-studio"] → $workspace6
+assign [class="skype"] → $workspace4
+assign [class="trello"] → $workspace4
+assign [class="viber"] → $workspace4
+assign [class="WMail"] → $workspace4
+assign [class="Slack"] → $workspace4
+assign [class="GitKraken"] → $workspace10
+assign [class="jetbrains-studio"] → $workspace6
 
 # -------- float application  --------  use swaymsg -t get_tree | less in terminal
 for_window [window_role="pop-up"] floating enable
@@ -261,10 +260,13 @@ for_window [window_role="Preferences"] floating enable
 for_window [window_role="pop-up"] floating enable
 for_window [window_role="scratchpad"] floating enable
 
+
+for_window [class="(?i)spotify"] floating enable
 for_window [class="(?i)blueman"] floating enable
 for_window [app_id="(?i)blueberry.py"] floating enable, move down $popup-height px
 for_window [app_id="(?i)pavucontrol"] floating enable, move down $popup-height px
 for_window [app_id="(?i)gnomecast"] floating enable, move down $popup-height px
+for_window [app_id="(?i)solaar"] floating enable, move down $popup-height px
 
 # Hide borders when only one window is present
 hide_edge_borders smart
@@ -284,39 +286,21 @@ gaps outer 4
 # bindswitch --locked lid:off output $laptop-display disable
 # bindswitch --locked lid:on output $laptop-display enable
 
-output eDP-1 {
-    resolution 1920x1080
-    position 0,0
-    background $wallpaper/876590.png fill
-}
+output "*" background `find $wallpaper -maxdepth 1 -type f | shuf -n 1` fill
+output "Unknown Beyond TV 0x00000100" background $wallpaper/951824.jpg fill
 
-set $OFFICE_HDMI {
-    resolution 1920x1080
-    position 1920,0
-}
-
-set $OFFICE_VGA {
-    resolution 1920x1080
-    # position 3840,0
-}
-
-# OFFICE DELL (HDMI)
-output DP-1 $OFFICE_HDMI
-output DP-3 $OFFICE_HDMI
-output DP-4 $OFFICE_HDMI
-
-# OFFICE AOC (VGA)
-output DP-5 $OFFICE_VGA
-output DP-7 $OFFICE_VGA
-
+# Takes care of output profiles
+exec kanshi
 # Start notification daemon
-exec --no-startup-id dunst
-exec --no-startup-id redshift
-exec --no-startup-id i3-msg 'workspace $workspace1; exec /usr/bin/chromium'
-exec --no-startup-id i3-msg 'workspace $workspace4; exec /usr/bin/slack'
-exec --no-startup-id i3-msg 'workspace $workspace4; exec /usr/bin/blueberry'
-exec --no-startup-id i3-msg 'workspace $workspace2; exec $terminal'
-exec --no-startup-id pactl load-module module-bluetooth-discover
+exec dunst
+# exec redshift
+exec solaar
+exec swaymsg 'workspace $workspace1; exec /usr/bin/firefox-developer-edition'
+# exec swaymsg 'workspace $workspace1; exec /usr/bin/chromium'
+exec swaymsg 'workspace $workspace4; exec /usr/bin/slack'
+exec swaymsg 'workspace $workspace4; exec /usr/bin/blueberry'
+exec swaymsg 'workspace $workspace2; exec $terminal'
+exec pactl load-module module-bluetooth-discover
 
 # Set theme in gsettings
 set $gnome-schema org.gnome.desktop.interface
@@ -333,7 +317,7 @@ exec swayidle \
     before-sleep $locker \
 
 # Enable tap on click for touchpad
-input "1739:30383:DELL07E6:00_06CB:76AF_Touchpad" {
+input "1739:30383:DELL08AF:00_06CB:76AF_Touchpad" {
     tap enabled
     natural_scroll enabled
 }
@@ -346,3 +330,4 @@ set $KEYBOARD_CONFIG {
 # Change caps-lock to ESC
 input "1:1:AT_Translated_Set_2_keyboard" $KEYBOARD_CONFIG
 input "9456:320:Metadot_-_Das_Keyboard_Das_Keyboard" $KEYBOARD_CONFIG
+input "type:keyboard" $KEYBOARD_CONFIG

@@ -1,0 +1,13 @@
+#!/bin/bash -e
+
+if ! lsmod | grep v4l2loopback > /dev/null; then
+    echo "Adding v42loopback module to kernel"
+    sudo modprobe v4l2loopback
+fi
+
+echo 2 | wf-recorder --muxer=v4l2 --force-yuv --codec=rawvideo --file=/dev/video3 &
+WF_RECORDER_PID=$!
+
+vlc v4l2:///dev/video3
+
+kill $WF_RECORDER_PID

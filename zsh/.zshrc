@@ -13,6 +13,7 @@ plugins=(
     # External plugins
     zsh-syntax-highlighting  # https://github.com/zsh-users/zsh-syntax-highlighting
     zsh-autosuggestions      # https://github.com/zsh-users/zsh-autosuggestions
+    # git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
     # git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 )
 
@@ -31,28 +32,46 @@ setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history 
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
+export GEM_HOME="$HOME/gems"
+export GOPATH="$HOME/.go"
 export PATH=${PATH}:${HOME}/.local/bin/
 export PATH=${PATH}:"/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl"
+export PATH=${PATH}:"$HOME/gems/bin:$HOME/.gem/ruby/2.6.0/bin"
+export PATH=${PATH}:"$GOPATH/bin"
 
-export EDITOR=vim
+export EDITOR=nvim
 export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 
 # You may need to manually set your language environment
 export LANG=en_US.UTF-8
 
+# NVR (Neovim remote command send)
+export NVIM_LISTEN_ADDRESS=/tmp/nvimsocket
+
 # this would bind ctrl + space to accept the current suggestion.
 bindkey '^ ' autosuggest-accept
+
+# Used by nvim and zsh for changing themes and alias day/night
+export BASE16_DAY_THEME='base16_gruvbox-light-hard'
+export BASE16_NIGHT_THEME='base16_irblack'
 
 alias vi=$EDITOR
 alias python=python3
 alias tmux="TERM=screen-256color-bce tmux"
 alias ssh='TERM=screen ssh'
-alias day='base16_gruvbox-light-hard'
-alias night='base16_gruvbox-dark-hard'
+alias day=$BASE16_DAY_THEME
+alias night=$BASE16_NIGHT_THEME
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
 alias start='swaymsg exec'
+alias bat='bat --theme base16'
+alias cat='bat --theme base16'
+alias lcat='lolcat'
+alias rgc='rg --color always'
+alias serverless='npx serverless'
+alias sls='npx serverless'
 
+# export WAYLAND_DISPLAY=true
 # Use wayland
 # export XDG_CURRENT_DESKTOP=Unity
 # export GDK_BACKEND=wayland
@@ -79,14 +98,28 @@ if [[ $TERM == xterm-termite ]]; then
 fi
 
 [ -f ~/.fzf.zsh  ] && source ~/.fzf.zsh
+[[ -r "/usr/share/z/z.sh" ]] && source /usr/share/z/z.sh
+
 # fzf + rg configuration
 if _has fzf && _has rg; then
-  export FZF_DEFAULT_COMMAND="rg -i --files --no-ignore --follow --hidden 2> /dev/null"
-  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
-  export FZF_ALT_C_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_DEFAULT_COMMAND="rg -i --files --no-ignore --follow --hidden 2> /dev/null"
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_ALT_C_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_THEME_CONFIG='
+    --color fg:#D8DEE9,bg:#2E3440,hl:#A3BE8C,fg+:#D8DEE9,bg+:#434C5E,hl+:#A3BE8C
+    --color pointer:#BF616A,info:#4C566A,spinner:#4C566A,header:#4C566A,prompt:#81A1C1,marker:#EBCB8B
+    '
+    export FZF_DEFAULT_OPTS=$FZF_THEME_CONFIG
 fi
 
 # Colorscheme installation from https://github.com/chriskempson/base16-shell
 BASE16_SHELL=$HOME/.config/base16-shell/
 export BASE16_SHELL_HOOKS=$BASE16_SHELL/hooks
 [ -n "$PS1" ] && [ -s $BASE16_SHELL/profile_helper.sh ] && eval "$($BASE16_SHELL/profile_helper.sh)"
+
+# Added by serverless binary installer
+export PATH="$HOME/.serverless/bin:$PATH"
+
+# tabtab source for packages
+# uninstall by removing these lines
+[[ -f ~/.config/tabtab/__tabtab.zsh ]] && . ~/.config/tabtab/__tabtab.zsh || true

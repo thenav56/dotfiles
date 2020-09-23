@@ -34,3 +34,23 @@ git clone https://github.com/aaron-williamson/base16-alacritty ~/.alacritty-them
 # Theme switcher for alacritty
 git clone https://github.com/toggle-corp/alacritty-colorscheme ~/alacritty-colorscheme
 ```
+
+## Sway troubleshoot
+```bash
+yay -S xorg-server-xwayland  # Application are not starting(freezing on startup)
+
+yay -S libappindicator-gtk3  # Tray icons not showing
+```
+
+## Brightness Issues
+
+Add this to /etc/udev/rules.d/backlight.rules
+```text
+ACTION=="add", SUBSYSTEM=="backlight", KERNEL=="acpi_video0", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
+ACTION=="add", SUBSYSTEM=="backlight", KERNEL=="acpi_video0", RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
+```
+
+Add current user to video group
+```bash
+sudo usermod -a -G video $LOGNAME
+```

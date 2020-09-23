@@ -1,0 +1,5 @@
+{
+  "pyls": {
+    "configurationSources": "['flake8']" # I've tried ["flake8"] etc
+  }
+}

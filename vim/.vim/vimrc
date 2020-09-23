@@ -47,7 +47,7 @@ set hidden                                          " Don't unload a buffer when
 set foldenable                                      " Set to display all folds open
 set remap                                           " Recognize mappings in mapped keys
 set nospell                                         " Disable spell correction
-set scroll=9                                        " Number of lines to scroll for Ctrl-U and Ctrl-D
+" set scroll=9                                        " Number of lines to scroll for Ctrl-U and Ctrl-D
 set scrolloff=5                                     " Minimal number of screen lines to keep above/below the cursor.
 set scrolljump=5                                    " Lines to scroll when cursor leaves screen
 set mousehide                                       " Hide mouse while typing

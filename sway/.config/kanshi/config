@@ -1,0 +1,27 @@
+{
+    # Office (OLD)
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,0
+    output "Dell Inc. S2318H/HX 4XPPC76H0PLT" mode 1920x1080 position 1920,0
+    output "Dell Inc. S2318H/HX 4XPPC8220PAB" mode 1920x1080 position 3840,0
+}
+{
+    # Office (NEW)
+    output "Unknown 0x5B2D 0x00000000" position 0,0
+    output "Dell Inc. DELL SE2419HR JRKHM13" position 1920,0
+    output "Dell Inc. DELL SE2419HR HFH7RZ2" position 3840,0
+}
+{
+    output "Dell Inc. S2318H/HX 4XPPC8220PAB" mode 1920x1080 position 0,0
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 1920,0
+}
+{
+    output "Unknown Beyond TV 0x00000100" mode 3840x2160 position 0,0
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 3840,0
+}
+{
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,0
+}
+{
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 1920,0
+    output "Dell Inc. S2318H/HX 4XPPC76H0PLT" mode 1920x1080 position 0,0
+}
