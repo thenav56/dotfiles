@@ -5,6 +5,7 @@
 --glob=!{**/.venv,**/.git,**/node_modules,**/coverage,**/.cache,*vim/plugged,*vim/tmp,**/.tox,**/.serverless,**/.*venv}/*
 
 --glob=!*{.pyc}
+--glob=!*{**/.pytest_cache,**/mypy_cache}
 
 # Set the colors.
 --colors=line:none

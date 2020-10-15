@@ -121,41 +121,41 @@ debug.render_timer: false
 # draw_bold_text_with_bright_colors: true
 
 # color_start
-# base16-irblack.yml
-# Base16 IR Black - alacritty color config
-# Timothée Poisot (http://timotheepoisot.fr)
+# base16-oceanicnext.yml
+# Base16 OceanicNext - alacritty color config
+# https://github.com/voronianski/oceanic-next-color-scheme
 colors:
   # Default colors
   primary:
-    background: '0x000000'
-    foreground: '0xb5b3aa'
+    background: '0x1b2b34'
+    foreground: '0xc0c5ce'
 
   # Colors the cursor will use if `custom_cursor_colors` is true
   cursor:
-    text: '0x000000'
-    cursor: '0xb5b3aa'
+    text: '0x1b2b34'
+    cursor: '0xc0c5ce'
 
   # Normal colors
   normal:
-    black:   '0x000000'
-    red:     '0xff6c60'
-    green:   '0xa8ff60'
-    yellow:  '0xffffb6'
-    blue:    '0x96cbfe'
-    magenta: '0xff73fd'
-    cyan:    '0xc6c5fe'
-    white:   '0xb5b3aa'
+    black:   '0x1b2b34'
+    red:     '0xec5f67'
+    green:   '0x99c794'
+    yellow:  '0xfac863'
+    blue:    '0x6699cc'
+    magenta: '0xc594c5'
+    cyan:    '0x5fb3b3'
+    white:   '0xc0c5ce'
 
   # Bright colors
   bright:
-    black:   '0x6c6c66'
-    red:     '0xe9c062'
-    green:   '0x242422'
-    yellow:  '0x484844'
-    blue:    '0x918f88'
-    magenta: '0xd9d7cc'
-    cyan:    '0xb18a3d'
-    white:   '0xfdfbee'
+    black:   '0x65737e'
+    red:     '0xf99157'
+    green:   '0x343d46'
+    yellow:  '0x4f5b66'
+    blue:    '0xa7adba'
+    magenta: '0xcdd3de'
+    cyan:    '0xab7967'
+    white:   '0xd8dee9'
 
 draw_bold_text_with_bright_colors: false
 

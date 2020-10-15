@@ -27,9 +27,9 @@ elif [ "$1" = "-" ] ; then
     volume=$((volume < min_volume ? min_volume : volume))
 elif [ "$1" = "mute-toggle" ] ; then
     pactl set-sink-mute $sink toggle
-    dunstify -r "$notify_id" -u low -a volume -i $icon_name Volume "Muted $volume%"
+    # dunstify -r "$notify_id" -u low -a volume -i $icon_name Volume "Muted $volume%"
     exit 0
 fi
 
 pactl set-sink-mute "$sink" 0 && pactl set-sink-volume "$sink" "$volume%"
-dunstify -r "$notify_id" -u low -a volume -i $icon_name Volume "$action $volume%"
+# dunstify -r "$notify_id" -u low -a volume -i $icon_name Volume "$action $volume%"
