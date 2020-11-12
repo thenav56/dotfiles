@@ -63,7 +63,7 @@ set directory=~/.config/nvim/tmp/swap                       " Directory for vim 
 set updatetime=4000                                 " Time in ms after which swap will be updated
 set updatecount=200                                 " Number of characters typed to cause a swap file update
 set undofile                                        " Automatically save and restore undo history
-set undodir=~/.config/nvim/tmp/undo                         " Directory for vim undo
+set undodir=~/.config/nvim/tmp/undo                 " Directory for vim undo
 set undolevels=1000                                 " Over 1000 levels of undo
 set undoreload=10000                                " Maximum number lines to save for undo on a buffer reload
 set backup                                          " Enable backup
@@ -162,8 +162,8 @@ let g:jsx_ext_required = 0
 let g:ale_go_golangci_lint_package = 1
 
 " Change error symbols
-let g:ale_sign_error = '=>'
-let g:ale_sign_warning = '->'
+let g:ale_sign_error = '🤣'
+let g:ale_sign_warning = '😂'
 
 " Check on file open
 let g:ale_lint_on_enter = 1

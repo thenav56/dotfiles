@@ -11,3 +11,4 @@ WF_RECORDER_PID=$!
 vlc v4l2:///dev/video3
 
 kill $WF_RECORDER_PID
+exit 0

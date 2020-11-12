@@ -22,4 +22,6 @@
     files = !git diff --name-only $(git merge-base HEAD "${REVIEW_BASE:-$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')}")
     stat = !git diff --stat $(git merge-base HEAD "${REVIEW_BASE:-$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')}")
 [pull]
-	rebase = false
+    rebase = false
+[diff]
+    tool = meld

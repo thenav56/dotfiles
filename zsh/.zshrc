@@ -54,7 +54,7 @@ bindkey '^ ' autosuggest-accept
 
 # Used by nvim and zsh for changing themes and alias day/night
 export BASE16_DAY_THEME='base16_gruvbox-light-hard'
-export BASE16_NIGHT_THEME='base16_irblack'
+export BASE16_NIGHT_THEME='base16_solarflare'
 
 alias vi=$EDITOR
 alias python=python3

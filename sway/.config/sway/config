@@ -243,7 +243,7 @@ focus_follows_mouse no
 
 assign [class="google-chrome"] → $workspace1
 assign [class="firefoxdeveloperedition"] → $workspace1
-assign [class="Chromium"] → $workspace1
+# assign [class="Chromium"] → $workspace1
 assign [class="browser"] →  $workspace1
 
 #assign [class="(?i)$terminal"]	→	$workspace2

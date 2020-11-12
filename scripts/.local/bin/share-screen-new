@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# SOURCE: https://git.sr.ht/~juro/dotfiles/tree/master/.start/screenshare
+# Screen sharing for legacy applications on wayland
+# works by playing a stream of the selected display using
+# VLC (on XWayland) to a headless display. The VLC will
+# be recognized by X screen sharing software and can be
+# used to share the output selected earlier
+
+# create virtual display
+TARGET=$(swaymsg -t get_workspaces | jq -r '.[] | select(.name == "share") | .output')
+if [ -z "$TARGET" ]; then
+    echo "Creating headless output...."
+    # create workspace "share" that will be on the created output
+    # assuming that user does not have a workspace called "share"
+    # and thus can't focus it accidentially
+
+    # just assume that there will be no additional output created in between
+    # those two commands
+    TARGET=HEADLESS-$(($(swaymsg -t get_outputs | jq -r '.[] | select(.make == "headless") | .name' | tail -1 | sed 's/^HEADLESS-//')+1))
+    swaymsg "workspace share output $TARGET"
+    swaymsg "create_output"
+
+    # move output far away so it can't be focused by the mouse
+    swaymsg "output $TARGET pos 5000 5000"
+fi
+
+OUTPUT="$(swaymsg -t get_outputs | jq -r '.[] | select(.name != "'"$TARGET"'") | .name + ": " + .make + " " + .model' | BEMENU_BACKEND=curses bemenu | awk -F: '{print $1}')"
+test -z "$OUTPUT" && echo 'No ouput found. exiting....' && exit 1
+TITLE="pipe:Output $OUTPUT"
+
+OUTPUT_MODE=$(swaymsg -t get_outputs | jq -r '.[] | select(.name=="eDP-1") | (.current_mode.width|tostring) + "x" + (.current_mode.height|tostring)')
+swaymsg "output $TARGET mode $OUTPUT_MODE"
+
+trap 'kill $(jobs -p)' EXIT
+SDL_VIDEODRIVER=x11 wf-recorder -o $OUTPUT -c rawvideo -m sdl -f "$TITLE" &
+while ! swaymsg '[title="'"$TITLE"'"] move to output '"$TARGET"; do sleep .1; done
+    swaymsg '[title="'"$TITLE"'"] fullscreen'
+wait

@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -xe
 
 INSTANCE_ID=$INSTANCE_ID
 INSTANCE_USER=${INSTANCE_USER:=ec2-user}
