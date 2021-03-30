@@ -1,136 +1,284 @@
-* {
-    border: none;
-    border-radius: 0;
-    font-family: Hack, FontAwesome, sans-serif;
-    font-size: 12px;
-    min-height: 0;
-}
 
-window#waybar {
-    background: rgba(43, 48, 59, 0.5);
-    border-bottom: 3px solid rgba(100, 114, 125, 0.5);
-    color: #ffffff;
-}
+/* =============================================================================
+ *
+ * Waybar configuration
+ *
+ * Configuration reference: https://github.com/Alexays/Waybar/wiki/Configuration
+ *
+ * =========================================================================== */
 
-/* https://github.com/Alexays/Waybar/wiki/FAQ#the-workspace-buttons-have-a-strange-hover-effect */
-#workspaces button {
-    padding: 0 5px;
-    background: transparent;
-    color: #ffffff;
-    border-bottom: 3px solid transparent;
-}
+/* -----------------------------------------------------------------------------
+ * Keyframes
+ * -------------------------------------------------------------------------- */
 
-#workspaces button.focused {
-    background: #64727D;
-    border-bottom: 3px solid #ffffff;
-}
+@keyframes blink-warning {
+    70% {
+        color: @light;
+    }
 
-#workspaces button.urgent {
-    background-color: #eb4d4b;
-}
-
-#mode {
-    background: #64727D;
-    border-bottom: 3px solid #ffffff;
-}
-
-#clock, #battery, #cpu, #memory, #temperature, #backlight, #network, #pulseaudio, #custom-media, #tray, #mode, #idle_inhibitor {
-    padding: 0 10px;
-    margin: 0 5px;
-}
-
-#clock {
-    background-color: #64727D;
-}
-
-#battery {
-    background-color: #ffffff;
-    color: #000000;
-}
-
-#battery.charging {
-    color: #ffffff;
-    background-color: #26A65B;
-}
-
-@keyframes blink {
     to {
-        background-color: #ffffff;
-        color: #000000;
+        color: @light;
+        background-color: @warning;
     }
 }
 
-#battery.critical:not(.charging) {
-    background: #f53c3c;
-    color: #ffffff;
-    animation-name: blink;
-    animation-duration: 0.5s;
+@keyframes blink-critical {
+    70% {
+      color: @light;
+    }
+
+    to {
+        color: @light;
+        background-color: @critical;
+    }
+}
+
+
+/* -----------------------------------------------------------------------------
+ * Styles
+ * -------------------------------------------------------------------------- */
+
+/* COLORS */
+
+/* Nord */
+@define-color light #eceff4;
+@define-color dark #2e3440;
+@define-color warning #ebcb8b;
+@define-color critical #d08770;
+@define-color mode #4c566a;
+@define-color workspaces #5e81ac;
+@define-color workspacesfocused #81a1c1;
+@define-color sound #d8dee9;
+@define-color network #4c566a;
+@define-color memory #88c0d0;
+@define-color cpu #434c5e;
+@define-color temp #d8dee9;
+@define-color disk #5e81ac;
+@define-color battery #88c0d0;
+@define-color date #2e3440;
+@define-color time #eceff4;
+
+/* Reset all styles */
+* {
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* The whole bar */
+#waybar {
+    background: transparent;
+    color: @light;
+    font-family: Iosevka, xos4 Terminus, FiraCode, Noto Sans;
+    font-size: 10pt;
+    font-weight: bold;
+}
+
+/* Each module */
+#battery,
+#clock,
+#cpu,
+#disk,
+#memory,
+#mode,
+#network,
+#pulseaudio,
+#temperature,
+#custom-alsa,
+#tray {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* Each module that should blink */
+#mode,
+#memory,
+#temperature,
+#battery {
     animation-timing-function: linear;
     animation-iteration-count: infinite;
     animation-direction: alternate;
 }
 
-#cpu {
-    background: #2ecc71;
-    color: #000000;
+/* Each critical module */
+#memory.critical,
+#cpu.critical,
+#temperature.critical,
+#battery.critical {
+    color: @critical;
 }
 
-#memory {
-    background: #9b59b6;
+/* Each critical that should blink */
+#mode,
+#memory.critical,
+#temperature.critical,
+#battery.critical.discharging {
+    animation-name: blink-critical;
+    animation-duration: 2s;
 }
 
-#backlight {
-    background: #90b1b1;
+/* Each warning */
+#network.disconnected,
+#memory.warning,
+#cpu.warning,
+#temperature.warning,
+#battery.warning {
+    color: @warning;
+}
+
+/* Each warning that should blink */
+#battery.warning.discharging {
+    animation-name: blink-warning;
+    animation-duration: 3s;
+}
+
+/* And now modules themselves in their respective order */
+
+#mode { /* Shown current Sway mode (resize etc.) */
+	color: @light;
+	background: @mode;
+}
+
+/* Workspaces stuff */
+#workspaces button {
+	font-weight: bold; /* Somewhy the bar-wide setting is ignored*/
+	padding-left: 5px;
+	padding-right: 5px;
+	color: @dark;
+	background: @workspaces;
+}
+
+#workspaces button.focused {
+    background: @workspacesfocused;
+}
+
+/*#workspaces button.urgent {
+	border-color: #c9545d;
+	color: #c9545d;
+}*/
+
+#window {
+	margin-right: 40px;
+	margin-left: 40px;
+}
+
+#custom-alsa {
+	background: @sound;
+	color: @dark;
 }
 
 #network {
-    background: #2980b9;
+    background: @network;
+    color: @light;
 }
 
-#network.disconnected {
-    background: #f53c3c;
+#memory {
+    background: @memory;
+    color: @dark;
 }
 
-#pulseaudio {
-    background: #f1c40f;
-    color: #000000;
-}
-
-#pulseaudio.muted {
-    background: #90b1b1;
-    color: #2a5c45;
-}
-
-#custom-media {
-    background: #66cc99;
-    color: #2a5c45;
-}
-
-.custom-spotify {
-    background: #66cc99;
-}
-
-.custom-vlc {
-    background: #ffa000;
+#cpu {
+    background: @cpu;
+    color: @light;
 }
 
 #temperature {
-    background: #f0932b;
+    background: @temp;
+    color: @dark;
 }
 
-#temperature.critical {
-    background: #eb4d4b;
+#disk {
+    background: @disk;
+    color: @light;
+}
+
+#battery {
+    background: @battery;
+    color: @dark;
 }
 
 #tray {
-    background-color: #2980b9;
+    background: @date;
 }
 
-#idle_inhibitor {
-    background-color: #2d3436;
+#clock.date {
+    background: @date;
+    color: @light;
 }
 
-#idle_inhibitor.activated {
-    background-color: #ecf0f1;
-    color: #2d3436;
+#clock.time {
+    background: @time;
+    color: @dark;
 }
+
+#pulseaudio { /* Unsused but kept for those who needs it */
+    background: @sound;
+    color: @dark
+}
+
+#pulseaudio.muted {
+    /* No styles */
+}
+
+#custom-arrow1 {
+    font-size: 16px;
+    color: @sound;
+    background: transparent;
+}
+
+#custom-arrow2 {
+    font-size: 16px;
+    color: @network;
+    background: @sound;
+}
+
+#custom-arrow3 {
+    font-size: 16px;
+    color: @memory;
+    background: @network;
+}
+
+#custom-arrow4 {
+    font-size: 16px;
+    color: @cpu;
+    background: @memory;
+}
+
+#custom-arrow5 {
+    font-size: 16px;
+    color: @temp;
+    background: @cpu;
+}
+
+#custom-arrow6 {
+    font-size: 16px;
+    color: @disk;
+    background: @temp;
+}
+
+#custom-arrow7 {
+    font-size: 16px;
+    color: @battery;
+    background: @disk;
+}
+
+#custom-arrow8 {
+    font-size: 16px;
+    color: @date;
+    background: @battery;
+}
+
+#custom-arrow9 {
+    font-size: 16px;
+    color: @time;
+    background: @date;
+}
+
+#custom-arrow10 {
+    font-size: 16px;
+    color: @workspaces;
+    background: transparent;
+}
+

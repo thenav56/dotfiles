@@ -65,7 +65,8 @@ bindsym $mod+v split v
 
 # enter fullscreen mgode for the focused container
 bindsym $mod+f fullscreen toggle
-bindsym $mod+shift+f bar mode toggle
+# bindsym $mod+shift+f bar mode toggle
+bindsym $mod+shift+f exec killall -SIGUSR1 waybar
 
 # change container layout (stacked, +tabbed, toggle split)
 bindsym $mod+s layout stacking
@@ -207,21 +208,21 @@ client.background       $white
 bar {
     font pango:$bar_font, $bar_icon_font $bar_font_size
     position top
-    # swaybar_command waybar
-    status_command /usr/bin/bumblebee-status \
-        -t onedark-powerline\
-        -m traffic nic pasink caffeine sensors disk:root memory cpu battery datetime \
-        -p interval=2.5 \
-        traffic.exclude="tun0,lo,virbr,docker,vboxnet,veth,br-"\
-        traffic.states=^down\
-        traffic.showname=false\
-        nic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
-        nic.states=^down nic.format='{ssid}' \
-        root.format='{percent:0>2.0f}%' root.path=/ \
-        cpu.format='{:0>2.0f}%' \
-        memory.format='{percent:0>2.0f}%' \
-        datetime.format="%a, %d %b %I:%M %P" \
-        battery.showremaining=true
+    swaybar_command waybar
+    # status_command /usr/bin/bumblebee-status \
+    #     -t onedark-powerline\
+    #     -m traffic nic pasink caffeine sensors disk:root memory cpu battery datetime \
+    #     -p interval=2.5 \
+    #     traffic.exclude="tun0,lo,virbr,docker,vboxnet,veth,br-"\
+    #     traffic.states=^down\
+    #     traffic.showname=false\
+    #     nic.exclude="lo,virbr,docker,vboxnet,veth,br-"\
+    #     nic.states=^down nic.format='{ssid}' \
+    #     root.format='{percent:0>2.0f}%' root.path=/ \
+    #     cpu.format='{:0>2.0f}%' \
+    #     memory.format='{percent:0>2.0f}%' \
+    #     datetime.format="%a, %d %b %I:%M %P" \
+    #     battery.showremaining=true
 
     colors {
         background $white
@@ -273,6 +274,7 @@ for_window [app_id="(?i)blueberry.py"] floating enable, move down $popup-height 
 for_window [app_id="(?i)pavucontrol"] floating enable, move down $popup-height px
 for_window [app_id="(?i)gnomecast"] floating enable, move down $popup-height px
 for_window [app_id="(?i)solaar"] floating enable, move down $popup-height px
+for_window [app_id="(?i)auther"] floating enable, move down $popup-height px
 
 # Hide borders when only one window is present
 hide_edge_borders smart

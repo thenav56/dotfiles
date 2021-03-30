@@ -1,88 +1,134 @@
+
+// =============================================================================
+//
+// Waybar configuration (https://hg.sr.ht/~begs/dotfiles)
+//
+// Configuration reference: https://github.com/Alexays/Waybar/wiki/Configuration
+//
+// =============================================================================
+
 {
-    "layer": "top", // Waybar at top layer
-    "position": "top", // Waybar position (top|bottom|left|right)
-    "height": 20, // Waybar height
-    // "width": 1280, // Waybar width
-    // Choose the order of the modules
-    "modules-left": ["sway/workspaces", "sway/mode", "custom/media", "sway/window"],
-    "modules-center": [],
-    "modules-right": ["idle_inhibitor", "pulseaudio", "network", "cpu", "memory", "temperature", "backlight", "battery", "battery#bat2", "clock", "tray"],
-    // Modules configuration
-    // "sway/workspaces": {
-    //     "disable-scroll": true,
-    //     "all-outputs": true,
-    //     "format": "{name}: {icon}",
-    //     "format-icons": {
-    //         "1": "",
-    //         "2": "",
-    //         "3": "",
-    //         "4": "",
-    //         "5": "",
-    //         "urgent": "",
-    //         "focused": "",
-    //         "default": ""
-    //     }
-    // },
-    "sway/mode": {
-        "format": "<span style=\"italic\">{}</span>"
+    // -------------------------------------------------------------------------
+    // Global configuration
+    // -------------------------------------------------------------------------
+
+    "layer": "top",
+    "position": "top",
+    "height": 21,
+
+    "modules-left": [
+        "sway/mode",
+        "sway/workspaces",
+        "custom/arrow10",
+        "sway/window"
+    ],
+
+    "modules-right": [
+        "custom/arrow1",
+        "custom/alsa",
+        "custom/arrow2",
+        "network",
+        "custom/arrow3",
+        "memory",
+        "custom/arrow4",
+        "cpu",
+        "custom/arrow5",
+        "temperature",
+        "custom/arrow6",
+        "disk",
+        "custom/arrow7",
+        "battery",
+        "custom/arrow8",
+        "tray",
+        "clock#date",
+        "custom/arrow9",
+        "clock#time"
+    ],
+
+    // -------------------------------------------------------------------------
+    // Modules
+    // -------------------------------------------------------------------------
+
+    "battery": {
+        "interval": 1,
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": " {capacity}%", // Icon: bolt
+        "format-discharging": "{icon} {capacity}%",
+        "format-icons": [
+            "", // Icon: battery-full
+            "", // Icon: battery-three-quarters
+            "", // Icon: battery-half
+            "", // Icon: battery-quarter
+            ""  // Icon: battery-empty
+        ],
+        "tooltip": false
     },
-    "idle_inhibitor": {
-        "format": "{icon}",
-        "format-icons": {
-            "activated": "",
-            "deactivated": ""
+
+    "clock#time": {
+        "interval": 10,
+        "format": "{:%I:%M %P}",
+        "tooltip": false
+    },
+
+    "clock#date": {
+        "interval": 20,
+        "format": "{:%a, %d %b}", // Icon: calendar-alt
+        "tooltip-format": "{:%Y-%m-%d | %H:%M}",
+        //"tooltip-format": "{:%e %B %Y}"
+        "tooltip": false
+    },
+
+    "cpu": {
+        "interval": 5,
+        "tooltip": false,
+        "format": " {usage}%", // Icon: microchip
+        "states": {
+          "warning": 70,
+          "critical": 90
         }
     },
-    "tray": {
-        // "icon-size": 21,
-        // "spacing": 10
-    },
-    "clock": {
-        "tooltip-format": "{:%Y-%m-%d | %H:%M}",
-        "format": "{:%a, %d %b %I:%M %P}"
-    },
-    "cpu": {
-        "format": "{usage}% "
-    },
+
     "memory": {
-        "format": "{}% "
-    },
-    "temperature": {
-        "thermal-zone": 0,
-        // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
-        "critical-threshold": 80,
-        // "format-critical": "{temperatureC}°C ",
-        "format": "{temperatureC}°C "
-    },
-    "backlight": {
-        // "device": "intel_backlight",
-        "format": "{percent}% {icon}",
-        "format-icons": ["", ""]
-    },
-    "battery": {
+        "interval": 5,
+        "format": " {}%", // Icon: memory
         "states": {
-            "good": 95,
-            "warning": 60,
-            "critical": 25
-        },
-        "format": "{capacity}% {icon} ({time})",
-        // "format-good": "", // An empty format will hide the module
-        // "format-full": "",
-        "format-icons": ["", "", "", "", ""]
+            "warning": 70,
+            "critical": 90
+        }
     },
-    "battery#bat2": {
-        "bat": "BAT2"
-    },
+
     "network": {
-        // "interface": "wlp2s0", // (Optional) To force the use of this interface
-        "format-wifi": " {essid} ({signalStrength}%)",
-        "format-ethernet": "{ifname}: {ipaddr}/{cidr} ",
-        "format-disconnected": "Disconnected ⚠"
+        "interval": 5,
+        "format-wifi": " {essid} ({signalStrength}%) 🔺{bandwidthUpBits} 🔻{bandwidthDownBits}",  // Icon: wifi
+        "format-ethernet": " {ifname}",
+        "format-disconnected": "Disconnected",
+        "tooltip": false
     },
+
+    "sway/mode": {
+        "format": "<span style=\"italic\"> {}</span>", // Icon: expand-arrows-alt
+        "tooltip": false
+    },
+
+    "sway/window": {
+        "format": "{}",
+        "max-length": 100,
+        "tooltip": false
+    },
+
+    "disk": {
+        "interval": 30,
+        "format": "{free} {percentage_used}% 💿",
+        "path": "/"
+    },
+
     "pulseaudio": {
-        //"scroll-step": 1,
-        "format": "{volume}% {icon}",
-        "format-bluetooth": "{volume}% {icon}",
+        "scroll-step": 1,
+        "format": "{icon} {volume}%",
+        "format-bluetooth": "{icon} {volume}%",
         "format-muted": "",
         "format-icons": {
             "headphones": "",
@@ -95,15 +141,85 @@
         },
         "on-click": "pavucontrol"
     },
-    "custom/media": {
-        "format": "{icon} {}",
-        "return-type": "json",
-        "max-length": 40,
-        "format-icons": {
-            "spotify": "",
-            "default": "🎜"
-        },
-        "escape": true,
-        "exec": "$HOME/.config/waybar/mediaplayer.py 2> /dev/null" // Script in resources folder
+
+    "temperature": {
+        "critical-threshold": 90,
+        "interval": 5,
+        //"format": "{icon} {temperatureC}°C",
+	    "format": "{icon} {temperatureC}°",
+        "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+        "format-icons": [
+            "", // Icon: temperature-empty
+            "", // Icon: temperature-quarter
+            "", // Icon: temperature-half
+            "", // Icon: temperature-three-quarters
+            ""  // Icon: temperature-full
+        ],
+        "tooltip": false
+    },
+
+    "custom/alsa": {
+        "exec": "amixer get Master | sed -nre 's/.*\\[off\\].*/ muted/p; s/.*\\[(.*%)\\].*/ \\1/p'",
+        "on-click": "amixer set Master toggle; pkill -x -RTMIN+11 waybar",
+        "on-scroll-up": "amixer set Master 1+; pkill -x -RTMIN+11 waybar",
+        "on-scroll-down": "amixer set Master 1-; pkill -x -RTMIN+11 waybar",
+        "signal": 11,
+        "interval": 10,
+        "tooltip": false
+    },
+
+    "tray": {
+        "icon-size": 17
+        //"spacing": 10
+    },
+
+    "custom/arrow1": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow2": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow3": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow4": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow5": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow6": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow7": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow8": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow9": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "custom/arrow10": {
+        "format": "",
+        "tooltip": false
     }
 }

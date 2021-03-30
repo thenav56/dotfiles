@@ -34,6 +34,8 @@ swaymsg "output $TARGET mode $OUTPUT_MODE"
 
 trap 'kill $(jobs -p)' EXIT
 SDL_VIDEODRIVER=x11 wf-recorder -o $OUTPUT -c rawvideo -m sdl -f "$TITLE" &
-while ! swaymsg '[title="'"$TITLE"'"] move to output '"$TARGET"; do sleep .1; done
-    swaymsg '[title="'"$TITLE"'"] fullscreen'
+# wait for window to open
+while [ -z "$id" ]; do id=$(swaymsg -t subscribe '["window"]' | jq -r --unbuffered 'select(.change == "new") | select(.container.window_properties.class == "wf-recorder") | .container.id'); done
+swaymsg "[con_id=$id]" move to output "$TARGET"
+swaymsg "[con_id=$id]" fullscreen
 wait

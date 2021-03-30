@@ -1,0 +1,4 @@
+#!/bin/sh
+
+arg=$(echo $1 | sed 's/ /%20/g')
+curl -s -o /dev/null "https://maker.ifttt.com/trigger/script_completed/with/key/TJS1_z6lSCLpJ1MIdJvYp?value1=$arg"

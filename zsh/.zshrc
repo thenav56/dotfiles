@@ -9,6 +9,7 @@ plugins=(
     zsh_reload wd
     django fancy-ctrl-z shrink-path
     colored-man-pages rsync
+    zsh-completions  # https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-completions
 
     # External plugins
     zsh-syntax-highlighting  # https://github.com/zsh-users/zsh-syntax-highlighting
@@ -18,6 +19,8 @@ plugins=(
 )
 
 source $ZSH/oh-my-zsh.sh
+fpath=($HOME/.config/zsh-completions/ $fpath)
+autoload -U compinit && compinit
 
 # History Configuration
 HISTSIZE=10000000
@@ -38,6 +41,7 @@ export PATH=${PATH}:${HOME}/.local/bin/
 export PATH=${PATH}:"/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl"
 export PATH=${PATH}:"$HOME/gems/bin:$HOME/.gem/ruby/2.6.0/bin"
 export PATH=${PATH}:"$GOPATH/bin"
+export PATH=${PATH}:"/home/linuxbrew/.linuxbrew/bin"
 
 export EDITOR=nvim
 export VISUAL=$EDITOR
@@ -70,6 +74,7 @@ alias lcat='lolcat'
 alias rgc='rg --color always'
 alias serverless='npx serverless'
 alias sls='npx serverless'
+alias yay="yay --sudoflags='-B'"
 
 # export WAYLAND_DISPLAY=true
 # Use wayland
@@ -119,7 +124,3 @@ export BASE16_SHELL_HOOKS=$BASE16_SHELL/hooks
 
 # Added by serverless binary installer
 export PATH="$HOME/.serverless/bin:$PATH"
-
-# tabtab source for packages
-# uninstall by removing these lines
-[[ -f ~/.config/tabtab/__tabtab.zsh ]] && . ~/.config/tabtab/__tabtab.zsh || true

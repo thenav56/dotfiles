@@ -100,6 +100,8 @@ set nowrap                                          " Don't wrap long lines
 set clipboard+=unnamedplus                           "vim uses system clipboard to copy/paste
 set splitbelow                                      "split below
 set splitright
+set title
+set titlestring=%m\ %F
 
 " Map leader to ,
 let mapleader = ','
@@ -190,7 +192,7 @@ let g:esearch = {
  \            'backend':    'system',
  \            'out':        'qflist',
  \            'batch_size': 1000,
- \            'use':        ['visual', 'word_under_cursor', 'hlsearch', 'last'],
+ \            'prefill': ['cword', 'hlsearch', 'last', 'clipboard'],
  \           }
 
 let esearch#cmdline#help_prompt = 0
