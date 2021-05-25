@@ -64,8 +64,8 @@ alias vi=$EDITOR
 alias python=python3
 alias tmux="TERM=screen-256color-bce tmux"
 alias ssh='TERM=screen ssh'
-alias day=$BASE16_DAY_THEME
-alias night=$BASE16_NIGHT_THEME
+alias day="$BASE16_DAY_THEME; git config --global split-diffs.theme-name github-light"
+alias night="$BASE16_NIGHT_THEME; git config --global split-diffs.theme-name github-dark-dim"
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
 alias start='swaymsg exec'
 alias bat='bat --theme base16'

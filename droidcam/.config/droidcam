@@ -5,4 +5,6 @@ audio=0
 video=1
 size=0x0
 confirm_close=1
+vertical_flip=0
+horizontal_flip=0
 type=0

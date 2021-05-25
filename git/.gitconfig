@@ -3,7 +3,12 @@
     name = thenav56
 [core]
     hooksPath = ~/.git-templates/hooks
-    pager = diff-so-fancy | less --tabs=4 -RFX
+    ; pager = diff-so-fancy | less --tabs=4 -RFX
+    pager = git-split-diffs --color | less --tabs=4 -RFX
+[commit]
+    verbose = true
+[split-diffs]
+	theme-name = github-dark-dim
 [color]
     ui = true
 [color.diff-highlight]
@@ -23,5 +28,9 @@
     stat = !git diff --stat $(git merge-base HEAD "${REVIEW_BASE:-$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')}")
 [pull]
     rebase = false
+    ff = only
 [diff]
     tool = meld
+[gui]
+	fontui = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0
+	fontdiff = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0

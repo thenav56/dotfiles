@@ -2,7 +2,7 @@
 --max-columns=150
 
 # Using glob patterns to include/exclude files or folders
---glob=!{**/.venv,**/.git,**/node_modules,**/coverage,**/.cache,*vim/plugged,*vim/tmp,**/.tox,**/.serverless,**/.*venv}/*
+--glob=!{**/.venv,**/.git,**/node_modules,**/coverage,**/.cache,*vim/plugged,*vim/tmp,**/.tox,**/.serverless,**/.*venv,**/.wine/}/*
 
 --glob=!*{.pyc}
 --glob=!*{**/.pytest_cache,**/mypy_cache}

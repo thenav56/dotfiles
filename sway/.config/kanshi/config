@@ -1,13 +1,19 @@
 {
     # Office (NEW)
+    output "Dell Inc. DELL S2421HN 8HH1W13" mode 1920x1080 position 0,0
+    output "Dell Inc. DELL S2421HN GGSW023" mode 1920x1080 position 1920,0
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 3840,0
+}
+{
+    # Office (TEMP Monitors)
     output "Unknown 0x5B2D 0x00000000" position 0,0
-    output "Dell Inc. DELL S2421HN 8HH1W13" position 1920,0
-    output "Dell Inc. DELL S2421HN GGSW023" position 3840,0
+    output "Dell Inc. DELL SE2419HR 25QPQZ2" position 1920,0
+    output "Dell Inc. DELL SE2419HR J7Z1X23" position 3840,0
 }
 
 {
     # Home [Office Monitor]
-    output "Dell Inc. S2318H/HX 4XPPC76H0PLT" mode 1920x1080 position 0,0
+    output "Dell Inc. DELL S2421HN GGSW023" position 0,0
     output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 1920,0
 }
 {

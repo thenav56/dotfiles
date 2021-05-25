@@ -127,6 +127,7 @@ bindsym $mod+Shift+0 move container to workspace $workspace10
 
 # start terminal
 bindsym $mod+Return exec $terminal
+# bindsym $mod+Shift+m exec $terminal
 
 # start filemanager
 bindsym $mod+Shift+Return exec caja
@@ -326,6 +327,10 @@ exec swayidle \
     timeout $lock_after 'systemctl suspend, mode default' \
     before-sleep $locker \
 
+# Timeout issues fix
+exec systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
+exec hash dbus-update-activation-environment 2>/dev/null && dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK
+
 # Enable tap on click for touchpad
 input "1739:30383:DELL08AF:00_06CB:76AF_Touchpad" {
     tap enabled
@@ -337,7 +342,7 @@ set $KEYBOARD_CONFIG {
     xkb_options caps:escape
 }
 
-# Change caps-lock to ESC
+# Change caps-lock to ESC (swaymsg -t get_inputs)
 input "1:1:AT_Translated_Set_2_keyboard" $KEYBOARD_CONFIG
 input "9456:320:Metadot_-_Das_Keyboard_Das_Keyboard" $KEYBOARD_CONFIG
 input "type:keyboard" $KEYBOARD_CONFIG
