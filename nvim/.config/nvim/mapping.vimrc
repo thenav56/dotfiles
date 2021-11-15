@@ -58,8 +58,9 @@ nmap <silent> <leader>k <Plug>(ale_previous_wrap)
 nmap <silent> <leader>j <Plug>(ale_next_wrap)
 
 "NerdTree ignore
-nmap <leader>n :NERDTreeFind <CR>
-noremap <tab> :NERDTreeToggle <CR>
+" nmap <leader>n :NERDTreeFind <CR>
+" noremap <tab> :NERDTreeToggle <CR>
+noremap <tab> :CHADopen <CR>
 
 inoremap <expr> <Tab> pumvisible() ? "\<C-n>" : "\<Tab>"
 inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
