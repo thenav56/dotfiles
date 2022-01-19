@@ -32,5 +32,5 @@
 [diff]
     tool = meld
 [gui]
-	fontui = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0
-	fontdiff = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0
+    fontui = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0
+    fontdiff = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0

@@ -11,10 +11,6 @@ set $right l
 set $exit_icon : [Shift+P]oweroff [H]ibernate, [S]uspend, [Shift+L]ogout [L]ock and [Shift+R]eboot
 set $resize_icon 
 
-# time in seconds
-set $black_after 1200
-set $lock_after 2400
-
 set $primary_font Hack
 set $title_font_size 10
 
@@ -25,6 +21,7 @@ set $popup-height 34
 
 set $wallpaper ~/Pictures/wallpaper
 set $locker ~/.config/sway/swaylock.sh
+set $swayidle ~/.config/sway/swayidle.sh
 set $terminal alacritty
 
 # Use Mouse+$mod to drag floating windows to their wanted position
@@ -67,6 +64,11 @@ bindsym $mod+v split v
 bindsym $mod+f fullscreen toggle
 # bindsym $mod+shift+f bar mode toggle
 bindsym $mod+shift+f exec killall -SIGUSR1 waybar
+
+# On/off displays
+# TODO: use toggle, this is done but not released https://github.com/swaywm/sway/issues/5929
+# bindsym $mod+shift+d exec swaymsg "output * dpms toggle"
+bindsym $mod+shift+d exec swaymsg "output * dpms on"
 
 # change container layout (stacked, +tabbed, toggle split)
 bindsym $mod+s layout stacking
@@ -244,7 +246,7 @@ focus_follows_mouse no
 # Assign programs to workspace
 
 assign [class="google-chrome"] → $workspace1
-assign [class="firefoxdeveloperedition"] → $workspace1
+assign [app_id="firefoxdeveloperedition"] → $workspace1
 # assign [class="Chromium"] → $workspace1
 assign [class="browser"] →  $workspace1
 
@@ -295,22 +297,24 @@ gaps outer 4
 # bindswitch --locked lid:off output $laptop-display disable
 # bindswitch --locked lid:on output $laptop-display enable
 
-output "*" background `find $wallpaper -maxdepth 1 -type f | shuf -n 1` fill
-output "Unknown Beyond TV 0x00000100" background $wallpaper/951824.jpg fill
+output "*" background /home/navin/Pictures/wallpaper/macos-monterey.jpg fill
+# exec ~/.azotebg
+# output "Unknown Beyond TV 0x00000100" background $wallpaper/951824.jpg fill
 
 # Takes care of output profiles
-exec kanshi
+exec_always 'pkill kanshi ; kanshi'
+# exec_always "systemctl --user restart kanshi.service"
 # Start notification daemon
 exec mako
 # exec dunst
 # exec redshift
-exec solaar
-exec swaymsg 'workspace $workspace1; exec /usr/bin/firefox-developer-edition'
+exec solaar -w hide
+# FIXME: exec swaymsg 'workspace $workspace1; exec /usr/bin/firefox-developer-edition'
 # exec swaymsg 'workspace $workspace1; exec /usr/bin/chromium'
-exec swaymsg 'workspace $workspace4; exec /usr/bin/slack'
+# FIXME: exec swaymsg 'workspace $workspace4; exec /usr/bin/slack'
 # exec swaymsg 'workspace $workspace4; exec /usr/bin/thunderbird '
-exec swaymsg 'workspace $workspace4; exec /usr/bin/blueberry'
-exec swaymsg 'workspace $workspace2; exec $terminal'
+# FIXME: exec swaymsg 'workspace $workspace4; exec /usr/bin/blueberry'
+# FIXME: exec swaymsg 'workspace $workspace2; exec $terminal'
 exec pactl load-module module-bluetooth-discover
 
 # Set theme in gsettings
@@ -322,10 +326,7 @@ exec_always {
 }
 
 # Turn off screen and Sleep after certain timeout
-exec swayidle \
-    timeout $black_after 'swaymsg "output * dpms off"' resume 'swaymsg "output * dpms on"' \
-    timeout $lock_after 'systemctl suspend, mode default' \
-    before-sleep $locker \
+# exec $swayidle $locker
 
 # Timeout issues fix
 exec systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK

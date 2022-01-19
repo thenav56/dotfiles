@@ -2,3 +2,5 @@ nvim/.config/nvim/plugged/
 nvim/.config/nvim/tmp/
 base16-kitty/
 vim/.vim/autoload/
+aws-session-manager-plugin
+!aws-session-manager-plugin/PKGBUILD

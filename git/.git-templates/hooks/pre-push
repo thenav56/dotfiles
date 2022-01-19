@@ -24,4 +24,10 @@ fi
 if [[ "$BRANCH" =~ $PROTECTED_BRANCHES ]]; then
     prompt "Are you sure you want to push to $BRANCH ? (y/n): "
 fi
+
+# Run from active git repo
+set -eu
+hook_name="$(basename "$0")"
+hook_script=".git/hooks/$hook_name"
+[ -e "$hook_script" ] && "$hook_script"
 exit 0

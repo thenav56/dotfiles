@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# TODO
+echo `pwd` >> /tmp/custom-mypy.txt
+echo $@ >> /tmp/custom-mypy.txt
+docker-compose exec -T serve mypy $@

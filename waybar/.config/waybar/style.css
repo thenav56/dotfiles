@@ -71,7 +71,7 @@
 #waybar {
     background: transparent;
     color: @light;
-    font-family: Iosevka, xos4 Terminus, FiraCode, Noto Sans;
+    font-family: Iosevka, FontAwesome, xos4 Terminus, FiraCode, Noto Sans;
     font-size: 10pt;
     font-weight: bold;
 }
@@ -200,6 +200,10 @@
 }
 
 #tray {
+    background: @date;
+}
+
+#idle_inhibitor {
     background: @date;
 }
 

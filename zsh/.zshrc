@@ -5,6 +5,7 @@ ZSH_THEME="${ZSH_THEME:-ys}"
 
 plugins=(
     git vi-mode yarn
+    poetry
     docker docker-compose
     zsh_reload wd
     django fancy-ctrl-z shrink-path
@@ -42,10 +43,12 @@ export PATH=${PATH}:"/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/lib/jvm/defaul
 export PATH=${PATH}:"$HOME/gems/bin:$HOME/.gem/ruby/2.6.0/bin"
 export PATH=${PATH}:"$GOPATH/bin"
 export PATH=${PATH}:"/home/linuxbrew/.linuxbrew/bin"
+export PIPENV_PYTHON="$PYENV_ROOT/shims/python"
 
 export EDITOR=nvim
 export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
+export DOCKER_BUILDKIT=1
 
 # You may need to manually set your language environment
 export LANG=en_US.UTF-8
@@ -64,8 +67,8 @@ alias vi=$EDITOR
 alias python=python3
 alias tmux="TERM=screen-256color-bce tmux"
 alias ssh='TERM=screen ssh'
-alias day="$BASE16_DAY_THEME; git config --global split-diffs.theme-name github-light"
-alias night="$BASE16_NIGHT_THEME; git config --global split-diffs.theme-name github-dark-dim"
+alias day="$BASE16_DAY_THEME; git config --global split-diffs.theme-name github-light; gsettings set org.gnome.desktop.interface gtk-theme Arc"
+alias night="$BASE16_NIGHT_THEME; git config --global split-diffs.theme-name github-dark-dim; gsettings set org.gnome.desktop.interface gtk-theme Arc-Dark"
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
 alias start='swaymsg exec'
 alias bat='bat --theme base16'
@@ -75,6 +78,7 @@ alias rgc='rg --color always'
 alias serverless='npx serverless'
 alias sls='npx serverless'
 alias yay="yay --sudoflags='-B'"
+alias docker-images="docker images --format '{{.Size}}\t{{.Repository}}:{{.Tag}}\t{{.ID}}' | sort -hr | column -t"
 
 # export WAYLAND_DISPLAY=true
 # Use wayland
@@ -102,7 +106,8 @@ if [[ $TERM == xterm-termite ]]; then
   __vte_osc7
 fi
 
-[ -f ~/.fzf.zsh  ] && source ~/.fzf.zsh
+_has fzf && source /usr/share/fzf/key-bindings.zsh
+
 [[ -r "/usr/share/z/z.sh" ]] && source /usr/share/z/z.sh
 
 # fzf + rg configuration
@@ -124,3 +129,12 @@ export BASE16_SHELL_HOOKS=$BASE16_SHELL/hooks
 
 # Added by serverless binary installer
 export PATH="$HOME/.serverless/bin:$PATH"
+
+export PATH="$HOME/.poetry/bin:$PATH"
+
+if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
+
+source /home/navin/.config/broot/launcher/bash/br
+[[ -r "/opt/git-subrepo/.rc" ]] && source /opt/git-subrepo/.rc
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

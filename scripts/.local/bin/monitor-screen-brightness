@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# TO list devices
+# sudo ddcutil detect
+
+sudo modprobe i2c-dev
+
+for id in 8
+do
+    sudo ddcutil --bus $id setvcp 10 $1 # monitor brightness
+done
+
+# light -S $(expr $(expr $1 - 30) | 1)

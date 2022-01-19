@@ -1,31 +1,14 @@
-{
-    # Office (NEW)
-    output "Dell Inc. DELL S2421HN 8HH1W13" mode 1920x1080 position 0,0
-    output "Dell Inc. DELL S2421HN GGSW023" mode 1920x1080 position 1920,0
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 3840,0
-}
-{
-    # Office (TEMP Monitors)
-    output "Unknown 0x5B2D 0x00000000" position 0,0
-    output "Dell Inc. DELL SE2419HR 25QPQZ2" position 1920,0
-    output "Dell Inc. DELL SE2419HR J7Z1X23" position 3840,0
+profile "Home" {
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,0
+    output "BenQ Corporation BenQ EX2710 Y9L01353019" mode 1920x1080@120Hz position 1920,0
 }
 
-{
-    # Home [Office Monitor]
-    output "Dell Inc. DELL S2421HN GGSW023" position 0,0
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 1920,0
-}
-{
-    # Home [PS4 Monitor]
-    output "Dell Inc. S2318H/HX 4XPPC8220PAB" mode 1920x1080 position 0,0
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 1920,0
+profile "Office" {
+    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,560
+    output "Dell Inc. DELL S2421HN 8HH1W13" mode 1920x1080 position 1920,560
+    output "Dell Inc. DELL P2419H 5DK5PD3" mode 1920x1080 position 3840,0 transform 270
 }
 
-{
-    output "Unknown Beyond TV 0x00000100" mode 1920x1080 position 0,0
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 1920,0
-}
-{
+profile "laptop-only" {
     output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,0
 }
