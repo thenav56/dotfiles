@@ -28,6 +28,7 @@
         "custom/alsa",
         "custom/arrow2",
         "network",
+        "custom/vpn",
         "custom/arrow3",
         "memory",
         "custom/arrow4",
@@ -104,6 +105,7 @@
     "network": {
         "interval": 5,
         "format-wifi": " {essid} ({signalStrength}%) 🔺{bandwidthUpBits} 🔻{bandwidthDownBits}",  // Icon: wifi
+        "interface": "wlan0", // remove this when this is fixed https://github.com/Alexays/Waybar/issues/1392
         "format-ethernet": " {ifname}",
         "format-disconnected": "Disconnected",
         "tooltip": false
@@ -180,6 +182,15 @@
             "activated": "👁️",
             "deactivated": "😵"
         }
+    },
+
+    "custom/vpn":{
+        "format": "{icon}",
+        "tooltip-format": "{icon}",
+        "exec": "$HOME/.config/waybar/modules/vpn_echo.sh",
+        "return-type": "json",
+        "interval": 5,
+        "format-icons": ["","🔒"]
     },
 
     "custom/arrow1": {

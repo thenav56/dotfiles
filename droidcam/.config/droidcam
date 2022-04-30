@@ -1,10 +1,10 @@
 v4
-ip=192.168.88.86
+ip=192.168.1.64
 port=4747
 audio=0
 video=1
 size=0x0
 confirm_close=1
-vertical_flip=0
+vertical_flip=1
 horizontal_flip=0
 type=0

@@ -149,6 +149,8 @@ bindsym Print exec grim -g "$(slurp)" $HOME/Pictures/Screenshots/grim/$(date +'%
 bindsym XF86AudioRaiseVolume exec ~/.local/bin/pactl-limited +
 bindsym XF86AudioLowerVolume exec ~/.local/bin/pactl-limited -
 bindsym XF86AudioMute exec ~/.local/bin/pactl-limited mute-toggle
+bindsym XF86AudioPlay exec playerctl play-pause
+bindsym XF86AudioStop exec playerctl stop
 
 # Sreen brightness controls
 bindsym XF86MonBrightnessUp exec light -A 7
@@ -267,7 +269,6 @@ for_window [window_role="pop-up"] floating enable
 for_window [window_role="bubble"] floating enable
 for_window [window_role="task_dialog"] floating enable
 for_window [window_role="Preferences"] floating enable
-for_window [window_role="pop-up"] floating enable
 for_window [window_role="scratchpad"] floating enable
 
 

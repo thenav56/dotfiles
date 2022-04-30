@@ -6,17 +6,16 @@ ZSH_THEME="${ZSH_THEME:-ys}"
 plugins=(
     git vi-mode yarn
     poetry
-    docker docker-compose
-    zsh_reload wd
-    django fancy-ctrl-z shrink-path
+    docker docker-compose wd
+    fancy-ctrl-z shrink-path
     colored-man-pages rsync
     zsh-completions  # https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-completions
 
     # External plugins
+    # git clone <repo> ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/<plugin-name>
     zsh-syntax-highlighting  # https://github.com/zsh-users/zsh-syntax-highlighting
     zsh-autosuggestions      # https://github.com/zsh-users/zsh-autosuggestions
-    # git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-    # git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+    history-sync  # https://github.com/wulfgarpro/history-sync.git
 )
 
 source $ZSH/oh-my-zsh.sh
@@ -36,6 +35,12 @@ setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history 
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
+# ZSH History configs
+ZSH_HISTORY_FILE="${HOME}/.zsh_history"
+ZSH_HISTORY_PROJ="${HOME}/.zsh_history_github"
+ZSH_HISTORY_FILE_ENC="${ZSH_HISTORY_PROJ}/zsh_history"
+GIT_COMMIT_MSG="latest $(date)"
+
 export GEM_HOME="$HOME/gems"
 export GOPATH="$HOME/.go"
 export PATH=${PATH}:${HOME}/.local/bin/
@@ -44,6 +49,7 @@ export PATH=${PATH}:"$HOME/gems/bin:$HOME/.gem/ruby/2.6.0/bin"
 export PATH=${PATH}:"$GOPATH/bin"
 export PATH=${PATH}:"/home/linuxbrew/.linuxbrew/bin"
 export PIPENV_PYTHON="$PYENV_ROOT/shims/python"
+export GPG_TTY=`tty`
 
 export EDITOR=nvim
 export VISUAL=$EDITOR
@@ -106,7 +112,8 @@ if [[ $TERM == xterm-termite ]]; then
   __vte_osc7
 fi
 
-_has fzf && source /usr/share/fzf/key-bindings.zsh
+# [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+_has fzf && source /usr/share/fzf/key-bindings.zsh || source /usr/share/doc/fzf/examples/key-bindings.zsh
 
 [[ -r "/usr/share/z/z.sh" ]] && source /usr/share/z/z.sh
 
@@ -136,5 +143,3 @@ if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 
 source /home/navin/.config/broot/launcher/bash/br
 [[ -r "/opt/git-subrepo/.rc" ]] && source /opt/git-subrepo/.rc
-
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

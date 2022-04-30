@@ -84,6 +84,7 @@
 #memory,
 #mode,
 #network,
+#custom-vpn,
 #pulseaudio,
 #temperature,
 #custom-alsa,
@@ -170,6 +171,11 @@
 }
 
 #network {
+    background: @network;
+    color: @light;
+}
+
+#custom-vpn {
     background: @network;
     color: @light;
 }

@@ -1,12 +1,16 @@
 [user]
-    email = ayernavin@togglecorp.com
+    email = ayernavin@gmail.com
     name = thenav56
+    signingkey = 94AE2018
 [core]
     hooksPath = ~/.git-templates/hooks
     ; pager = diff-so-fancy | less --tabs=4 -RFX
     pager = git-split-diffs --color | less --tabs=4 -RFX
+[merge]
+    conflictStyle = zdiff3
 [commit]
     verbose = true
+    gpgsign = true
 [split-diffs]
 	theme-name = github-dark-dim
 [color]
@@ -30,7 +34,7 @@
     rebase = false
     ff = only
 [diff]
-    tool = meld
+    tool = histogram
 [gui]
     fontui = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0
     fontdiff = -family Ubuntu -size 9 -weight normal -slant roman -underline 0 -overstrike 0
