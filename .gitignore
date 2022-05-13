@@ -1,5 +1,6 @@
 nvim/.config/nvim/plugged/
 nvim/.config/nvim/tmp/
+nvim/.config/nvim/colorscheme.vim
 base16-kitty/
 vim/.vim/autoload/
 aws-session-manager-plugin

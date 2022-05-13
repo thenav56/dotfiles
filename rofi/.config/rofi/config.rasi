@@ -1,0 +1,25 @@
+configuration {
+    click-to-exit: true;
+    fake-transparency: false;
+    font: "M+ 1m 13";
+    fullscreen: false;
+    hide-scrollbar: true;
+    combi-modi: "window,run,drun";
+    modi: "window,run,drun";
+    padding: 10;
+    separator-style: none;
+    show-match: false;
+    sidebar-mode: false;
+    terminal: "alacritty";
+    show-icons: true;
+}
+@theme "/usr/share/rofi/themes/android_notification.rasi"
+
+listview {
+    lines: 10;
+    columns: 2;
+}
+
+window {
+    width: 60%;
+}

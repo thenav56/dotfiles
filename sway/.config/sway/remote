@@ -1,7 +1,7 @@
 # i3 config file (v4)
 
 # Set modifier key
-set $mod Mod1
+set $mod Mod4
 
 set $left h
 set $down j
@@ -92,16 +92,16 @@ bindsym $mod+Shift+minus move scratchpad
 bindsym $mod+minus scratchpad show
 
 #workspaces
-set $workspace1 "1"
-set $workspace2 "2"
-set $workspace3 "3"
-set $workspace4 "4"
-set $workspace5 "5"
-set $workspace6 "6"
-set $workspace7 "7"
-set $workspace8 "8"
-set $workspace9 "9"
-set $workspace10 "10"
+set $workspace1 "1:"
+set $workspace2 "2:"
+set $workspace3 "3:"
+set $workspace4 "4:"
+set $workspace5 "5:"
+set $workspace6 "6:"
+set $workspace7 "7:"
+set $workspace8 "8:"
+set $workspace9 "9:"
+set $workspace10 "10:"
 
 # switch to workspace
 bindsym $mod+1 workspace $workspace1
@@ -279,7 +279,6 @@ for_window [app_id="(?i)pavucontrol"] floating enable, move down $popup-height p
 for_window [app_id="(?i)gnomecast"] floating enable, move down $popup-height px
 for_window [app_id="(?i)solaar"] floating enable, move down $popup-height px
 for_window [app_id="(?i)auther"] floating enable, move down $popup-height px
-for_window [title="Firefox Developer Edition — Sharing Indicator"] floating enable, resize set width 80px height 55px;
 
 # Hide borders when only one window is present
 hide_edge_borders smart
@@ -300,6 +299,7 @@ gaps outer 4
 # bindswitch --locked lid:on output $laptop-display enable
 
 output "*" background /home/navin/Pictures/wallpaper/macos-monterey.jpg fill
+output HEADLESS-1 res 1920x1080
 # exec ~/.azotebg
 # output "Unknown Beyond TV 0x00000100" background $wallpaper/951824.jpg fill
 
@@ -307,7 +307,7 @@ output "*" background /home/navin/Pictures/wallpaper/macos-monterey.jpg fill
 exec_always 'pkill kanshi ; kanshi'
 # exec_always "systemctl --user restart kanshi.service"
 # Start notification daemon
-exec mako --output HDMI-A-2
+exec mako
 # exec dunst
 # exec redshift
 exec solaar -w hide
@@ -333,6 +333,9 @@ exec_always {
 # Timeout issues fix
 exec systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
 exec hash dbus-update-activation-environment 2>/dev/null && dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK
+
+exec wayvnc
+
 
 # Enable tap on click for touchpad
 input "1739:30383:DELL08AF:00_06CB:76AF_Touchpad" {

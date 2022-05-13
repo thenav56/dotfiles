@@ -36,9 +36,10 @@
         "custom/arrow5",
         "temperature",
         "custom/arrow6",
-        "disk",
+        "disk#root",
+        "disk#encrypted",
+        "disk#hd",
         "custom/arrow7",
-        "battery",
         "custom/arrow8",
         "tray",
         "idle_inhibitor",
@@ -50,24 +51,6 @@
     // -------------------------------------------------------------------------
     // Modules
     // -------------------------------------------------------------------------
-
-    "battery": {
-        "interval": 1,
-        "states": {
-            "warning": 30,
-            "critical": 15
-        },
-        "format": " {capacity}%", // Icon: bolt
-        "format-discharging": "{icon} {capacity}%",
-        "format-icons": [
-            "", // Icon: battery-full
-            "", // Icon: battery-three-quarters
-            "", // Icon: battery-half
-            "", // Icon: battery-quarter
-            ""  // Icon: battery-empty
-        ],
-        "tooltip": false
-    },
 
     "clock#time": {
         "interval": 10,
@@ -122,10 +105,22 @@
         "tooltip": false
     },
 
-    "disk": {
+    "disk#root": {
         "interval": 30,
-        "format": "{free} {percentage_used}% 💿",
+        "format": "{free} {percentage_used}% ",
         "path": "/"
+    },
+
+    "disk#encrypted": {
+        "interval": 30,
+        "format": "{free} {percentage_used}% ",
+        "path": "/mnt/encrypted_data"
+    },
+
+    "disk#hd": {
+        "interval": 30,
+        "format": "{free} {percentage_used}% ",
+        "path": "/mnt/data"
     },
 
     "pulseaudio": {

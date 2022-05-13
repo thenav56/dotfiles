@@ -1,14 +1,5 @@
-profile "Home" {
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,0
-    output "BenQ Corporation BenQ EX2710 Y9L01353019" mode 1920x1080@120Hz position 1920,0
-}
-
-profile "Office" {
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,560
-    output "Dell Inc. DELL S2421HN 8HH1W13" mode 1920x1080 position 1920,560
-    output "Dell Inc. DELL P2419H 5DK5PD3" mode 1920x1080 position 3840,0 transform 270
-}
-
-profile "laptop-only" {
-    output "Unknown 0x5B2D 0x00000000" mode 1920x1080 position 0,0
+profile "office" {
+    output "Dell Inc. DELL S2421HN 8HH1W13" mode 1920x1080 position 0,0 transform 90
+    output "Dell Inc. DELL S2421HN HDTW023" mode 1920x1080 position 1080,683
+    output "Dell Inc. DELL P2419H 5DK5PD3" mode 1920x1080 position 3000,0 transform 270
 }

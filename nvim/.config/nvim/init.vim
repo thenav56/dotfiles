@@ -105,7 +105,7 @@ set softtabstop=4                                   " number of spaces to insert
 set autoindent                                      " Auto indentation
 set smartindent                                     " Do clever auto indentation
 set nowrap                                          " Don't wrap long lines
-set clipboard+=unnamedplus                           "vim uses system clipboard to copy/paste
+set clipboard+=unnamed,unnamedplus                           "vim uses system clipboard to copy/paste
 set splitbelow                                      "split below
 set splitright
 " set title  # with LSP, Alacritty crashes
@@ -130,15 +130,7 @@ function CopyToWclip() range
   echo system("echo -n ".shellescape(s:get_visual_selection())." | wl-copy --type text/plain")
 endfunction
 
-if filereadable(expand('~/.vimrc_background'))
-    let base16colorspace=256
-    source ~/.vimrc_background
-    if g:colors_name[7:] == $BASE16_NIGHT_THEME[7:]
-        let $FZF_DEFAULT_OPTS=''
-    else
-        let $FZF_DEFAULT_OPTS=$FZF_THEME_CONFIG
-    endif
-endif
+source ~/.config/nvim/colorscheme.vim
 
 set termguicolors
 let lightlineP="one"
@@ -242,6 +234,11 @@ let g:webdevicons_enable_startify = 1
 " Avoid unwanted square brackets on source vimrc
 if exists("g:loaded_webdevicons")
     call webdevicons#refresh()
+endif
+
+if filereadable(expand("~/.vimrc_background"))
+  let base16colorspace=256
+  source ~/.vimrc_background
 endif
 
 " ALE Revive

@@ -127,11 +127,8 @@ debug.render_timer: false
 # If `true`, bold text is drawn using the bright color variants.
 # draw_bold_text_with_bright_colors: true
 
-# color_start
-# base16-solarflare.yml
-# Base16 Solar Flare - alacritty color config
-# Chuck Harmston (https://chuck.harmston.ch)
 colors:
+  # COLORSCHEME: base16-solarflare.yml
   # Default colors
   primary:
     background: '0x18262f'
@@ -144,25 +141,25 @@ colors:
 
   # Normal colors
   normal:
-    black:   '0x18262f'
-    red:     '0xef5253'
-    green:   '0x7cc844'
-    yellow:  '0xe4b51c'
-    blue:    '0x33b5e1'
+    black: '0x18262f'
+    red: '0xef5253'
+    green: '0x7cc844'
+    yellow: '0xe4b51c'
+    blue: '0x33b5e1'
     magenta: '0xa363d5'
-    cyan:    '0x52cbb0'
-    white:   '0xa6afb8'
+    cyan: '0x52cbb0'
+    white: '0xa6afb8'
 
   # Bright colors
   bright:
-    black:   '0x667581'
-    red:     '0xe66b2b'
-    green:   '0x222e38'
-    yellow:  '0x586875'
-    blue:    '0x85939e'
+    black: '0x667581'
+    red: '0xe66b2b'
+    green: '0x222e38'
+    yellow: '0x586875'
+    blue: '0x85939e'
     magenta: '0xe8e9ed'
-    cyan:    '0xd73c9a'
-    white:   '0xf5f7fa'
+    cyan: '0xd73c9a'
+    white: '0xf5f7fa'
 
 draw_bold_text_with_bright_colors: false
 
@@ -209,7 +206,7 @@ bell:
 # All available `mods` and `action` values are documented in the key binding
 # section.
 mouse_bindings:
-  - { mouse: Middle, action: PasteSelection }
+  - {mouse: Middle, action: PasteSelection}
 
 mouse:
   # Click settings
@@ -217,8 +214,8 @@ mouse:
   # The `double_click` and `triple_click` settings control the time
   # alacritty should wait for accepting multiple clicks as one double
   # or triple click.
-  double_click: { threshold: 300 }
-  triple_click: { threshold: 300 }
+  double_click: {threshold: 300}
+  triple_click: {threshold: 300}
 
   # If this is `true`, the cursor is temporarily hidden when typing.
   hide_when_typing: false
@@ -347,109 +344,109 @@ live_config_reload: true
 #   - ~AppKeypad
 #   - AppKeypad
 key_bindings:
-  - { key: T,        mods: Control|Shift,    action: SpawnNewInstance    }
-  - { key: V,        mods: Control|Shift,    action: Paste               }
-  - { key: C,        mods: Control|Shift,    action: Copy                }
-  - { key: Paste,                   action: Paste                        }
-  - { key: Copy,                    action: Copy                         }
-  - { key: Q,        mods: Command, action: Quit                         }
-  - { key: W,        mods: Command, action: Quit                         }
-  - { key: Insert,   mods: Shift,   action: PasteSelection               }
-  - { key: Key0,     mods: Control, action: ResetFontSize                }
-  - { key: Equals,   mods: Control, action: IncreaseFontSize             }
-  - { key: Minus,    mods: Control, action: DecreaseFontSize             }
-  - { key: Home,                    chars: "\x1bOH",   mode: AppCursor   }
-  - { key: Home,                    chars: "\x1b[H",   mode: ~AppCursor  }
-  - { key: End,                     chars: "\x1bOF",   mode: AppCursor   }
-  - { key: End,                     chars: "\x1b[F",   mode: ~AppCursor  }
-  - { key: PageUp,   mods: Shift,   chars: "\x1b[5;2~"                   }
-  - { key: PageUp,   mods: Control, chars: "\x1b[5;5~"                   }
-  - { key: PageUp,                  chars: "\x1b[5~"                     }
-  - { key: PageDown, mods: Shift,   chars: "\x1b[6;2~"                   }
-  - { key: PageDown, mods: Control, chars: "\x1b[6;5~"                   }
-  - { key: PageDown,                chars: "\x1b[6~"                     }
-  - { key: Tab,      mods: Shift,   chars: "\x1b[Z"                      }
-  - { key: Back,                    chars: "\x7f"                        }
-  - { key: Back,     mods: Alt,     chars: "\x1b\x7f"                    }
-  - { key: Insert,                  chars: "\x1b[2~"                     }
-  - { key: Delete,                  chars: "\x1b[3~"                     }
-  - { key: Left,     mods: Shift,   chars: "\x1b[1;2D"                   }
-  - { key: Left,     mods: Control, chars: "\x1b[1;5D"                   }
-  - { key: Left,     mods: Alt,     chars: "\x1b[1;3D"                   }
-  - { key: Left,                    chars: "\x1b[D",   mode: ~AppCursor  }
-  - { key: Left,                    chars: "\x1bOD",   mode: AppCursor   }
-  - { key: Right,    mods: Shift,   chars: "\x1b[1;2C"                   }
-  - { key: Right,    mods: Control, chars: "\x1b[1;5C"                   }
-  - { key: Right,    mods: Alt,     chars: "\x1b[1;3C"                   }
-  - { key: Right,                   chars: "\x1b[C",   mode: ~AppCursor  }
-  - { key: Right,                   chars: "\x1bOC",   mode: AppCursor   }
-  - { key: Up,       mods: Shift,   chars: "\x1b[1;2A"                   }
-  - { key: Up,       mods: Control, chars: "\x1b[1;5A"                   }
-  - { key: Up,       mods: Alt,     chars: "\x1b[1;3A"                   }
-  - { key: Up,                      chars: "\x1b[A",   mode: ~AppCursor  }
-  - { key: Up,                      chars: "\x1bOA",   mode: AppCursor   }
-  - { key: Down,     mods: Shift,   chars: "\x1b[1;2B"                   }
-  - { key: Down,     mods: Control, chars: "\x1b[1;5B"                   }
-  - { key: Down,     mods: Alt,     chars: "\x1b[1;3B"                   }
-  - { key: Down,                    chars: "\x1b[B",   mode: ~AppCursor  }
-  - { key: Down,                    chars: "\x1bOB",   mode: AppCursor   }
-  - { key: F1,                      chars: "\x1bOP"                      }
-  - { key: F2,                      chars: "\x1bOQ"                      }
-  - { key: F3,                      chars: "\x1bOR"                      }
-  - { key: F4,                      chars: "\x1bOS"                      }
-  - { key: F5,                      chars: "\x1b[15~"                    }
-  - { key: F6,                      chars: "\x1b[17~"                    }
-  - { key: F7,                      chars: "\x1b[18~"                    }
-  - { key: F8,                      chars: "\x1b[19~"                    }
-  - { key: F9,                      chars: "\x1b[20~"                    }
-  - { key: F10,                     chars: "\x1b[21~"                    }
-  - { key: F11,                     chars: "\x1b[23~"                    }
-  - { key: F12,                     chars: "\x1b[24~"                    }
-  - { key: F1,       mods: Shift,   chars: "\x1b[1;2P"                   }
-  - { key: F2,       mods: Shift,   chars: "\x1b[1;2Q"                   }
-  - { key: F3,       mods: Shift,   chars: "\x1b[1;2R"                   }
-  - { key: F4,       mods: Shift,   chars: "\x1b[1;2S"                   }
-  - { key: F5,       mods: Shift,   chars: "\x1b[15;2~"                  }
-  - { key: F6,       mods: Shift,   chars: "\x1b[17;2~"                  }
-  - { key: F7,       mods: Shift,   chars: "\x1b[18;2~"                  }
-  - { key: F8,       mods: Shift,   chars: "\x1b[19;2~"                  }
-  - { key: F9,       mods: Shift,   chars: "\x1b[20;2~"                  }
-  - { key: F10,      mods: Shift,   chars: "\x1b[21;2~"                  }
-  - { key: F11,      mods: Shift,   chars: "\x1b[23;2~"                  }
-  - { key: F12,      mods: Shift,   chars: "\x1b[24;2~"                  }
-  - { key: F1,       mods: Control, chars: "\x1b[1;5P"                   }
-  - { key: F2,       mods: Control, chars: "\x1b[1;5Q"                   }
-  - { key: F3,       mods: Control, chars: "\x1b[1;5R"                   }
-  - { key: F4,       mods: Control, chars: "\x1b[1;5S"                   }
-  - { key: F5,       mods: Control, chars: "\x1b[15;5~"                  }
-  - { key: F6,       mods: Control, chars: "\x1b[17;5~"                  }
-  - { key: F7,       mods: Control, chars: "\x1b[18;5~"                  }
-  - { key: F8,       mods: Control, chars: "\x1b[19;5~"                  }
-  - { key: F9,       mods: Control, chars: "\x1b[20;5~"                  }
-  - { key: F10,      mods: Control, chars: "\x1b[21;5~"                  }
-  - { key: F11,      mods: Control, chars: "\x1b[23;5~"                  }
-  - { key: F12,      mods: Control, chars: "\x1b[24;5~"                  }
-  - { key: F1,       mods: Alt,     chars: "\x1b[1;6P"                   }
-  - { key: F2,       mods: Alt,     chars: "\x1b[1;6Q"                   }
-  - { key: F3,       mods: Alt,     chars: "\x1b[1;6R"                   }
-  - { key: F4,       mods: Alt,     chars: "\x1b[1;6S"                   }
-  - { key: F5,       mods: Alt,     chars: "\x1b[15;6~"                  }
-  - { key: F6,       mods: Alt,     chars: "\x1b[17;6~"                  }
-  - { key: F7,       mods: Alt,     chars: "\x1b[18;6~"                  }
-  - { key: F8,       mods: Alt,     chars: "\x1b[19;6~"                  }
-  - { key: F9,       mods: Alt,     chars: "\x1b[20;6~"                  }
-  - { key: F10,      mods: Alt,     chars: "\x1b[21;6~"                  }
-  - { key: F11,      mods: Alt,     chars: "\x1b[23;6~"                  }
-  - { key: F12,      mods: Alt,     chars: "\x1b[24;6~"                  }
-  - { key: F1,       mods: Super,   chars: "\x1b[1;3P"                   }
-  - { key: F2,       mods: Super,   chars: "\x1b[1;3Q"                   }
-  - { key: F3,       mods: Super,   chars: "\x1b[1;3R"                   }
-  - { key: F4,       mods: Super,   chars: "\x1b[1;3S"                   }
-  - { key: F5,       mods: Super,   chars: "\x1b[15;3~"                  }
-  - { key: F6,       mods: Super,   chars: "\x1b[17;3~"                  }
-  - { key: F7,       mods: Super,   chars: "\x1b[18;3~"                  }
-  - { key: F8,       mods: Super,   chars: "\x1b[19;3~"                  }
-  - { key: F9,       mods: Super,   chars: "\x1b[20;3~"                  }
-  - { key: F10,      mods: Super,   chars: "\x1b[21;3~"                  }
-  - { key: F11,      mods: Super,   chars: "\x1b[23;3~"                  }
-  - { key: F12,      mods: Super,   chars: "\x1b[24;3~"                  }
+  - {key: T, mods: Control|Shift, action: SpawnNewInstance}
+  - {key: V, mods: Control|Shift, action: Paste}
+  - {key: C, mods: Control|Shift, action: Copy}
+  - {key: Paste, action: Paste}
+  - {key: Copy, action: Copy}
+  - {key: Q, mods: Command, action: Quit}
+  - {key: W, mods: Command, action: Quit}
+  - {key: Insert, mods: Shift, action: PasteSelection}
+  - {key: Key0, mods: Control, action: ResetFontSize}
+  - {key: Equals, mods: Control, action: IncreaseFontSize}
+  - {key: Minus, mods: Control, action: DecreaseFontSize}
+  - {key: Home, chars: "\eOH", mode: AppCursor}
+  - {key: Home, chars: "\e[H", mode: ~AppCursor}
+  - {key: End, chars: "\eOF", mode: AppCursor}
+  - {key: End, chars: "\e[F", mode: ~AppCursor}
+  - {key: PageUp, mods: Shift, chars: "\e[5;2~"}
+  - {key: PageUp, mods: Control, chars: "\e[5;5~"}
+  - {key: PageUp, chars: "\e[5~"}
+  - {key: PageDown, mods: Shift, chars: "\e[6;2~"}
+  - {key: PageDown, mods: Control, chars: "\e[6;5~"}
+  - {key: PageDown, chars: "\e[6~"}
+  - {key: Tab, mods: Shift, chars: "\e[Z"}
+  - {key: Back, chars: "\x7F"}
+  - {key: Back, mods: Alt, chars: "\e\x7F"}
+  - {key: Insert, chars: "\e[2~"}
+  - {key: Delete, chars: "\e[3~"}
+  - {key: Left, mods: Shift, chars: "\e[1;2D"}
+  - {key: Left, mods: Control, chars: "\e[1;5D"}
+  - {key: Left, mods: Alt, chars: "\e[1;3D"}
+  - {key: Left, chars: "\e[D", mode: ~AppCursor}
+  - {key: Left, chars: "\eOD", mode: AppCursor}
+  - {key: Right, mods: Shift, chars: "\e[1;2C"}
+  - {key: Right, mods: Control, chars: "\e[1;5C"}
+  - {key: Right, mods: Alt, chars: "\e[1;3C"}
+  - {key: Right, chars: "\e[C", mode: ~AppCursor}
+  - {key: Right, chars: "\eOC", mode: AppCursor}
+  - {key: Up, mods: Shift, chars: "\e[1;2A"}
+  - {key: Up, mods: Control, chars: "\e[1;5A"}
+  - {key: Up, mods: Alt, chars: "\e[1;3A"}
+  - {key: Up, chars: "\e[A", mode: ~AppCursor}
+  - {key: Up, chars: "\eOA", mode: AppCursor}
+  - {key: Down, mods: Shift, chars: "\e[1;2B"}
+  - {key: Down, mods: Control, chars: "\e[1;5B"}
+  - {key: Down, mods: Alt, chars: "\e[1;3B"}
+  - {key: Down, chars: "\e[B", mode: ~AppCursor}
+  - {key: Down, chars: "\eOB", mode: AppCursor}
+  - {key: F1, chars: "\eOP"}
+  - {key: F2, chars: "\eOQ"}
+  - {key: F3, chars: "\eOR"}
+  - {key: F4, chars: "\eOS"}
+  - {key: F5, chars: "\e[15~"}
+  - {key: F6, chars: "\e[17~"}
+  - {key: F7, chars: "\e[18~"}
+  - {key: F8, chars: "\e[19~"}
+  - {key: F9, chars: "\e[20~"}
+  - {key: F10, chars: "\e[21~"}
+  - {key: F11, chars: "\e[23~"}
+  - {key: F12, chars: "\e[24~"}
+  - {key: F1, mods: Shift, chars: "\e[1;2P"}
+  - {key: F2, mods: Shift, chars: "\e[1;2Q"}
+  - {key: F3, mods: Shift, chars: "\e[1;2R"}
+  - {key: F4, mods: Shift, chars: "\e[1;2S"}
+  - {key: F5, mods: Shift, chars: "\e[15;2~"}
+  - {key: F6, mods: Shift, chars: "\e[17;2~"}
+  - {key: F7, mods: Shift, chars: "\e[18;2~"}
+  - {key: F8, mods: Shift, chars: "\e[19;2~"}
+  - {key: F9, mods: Shift, chars: "\e[20;2~"}
+  - {key: F10, mods: Shift, chars: "\e[21;2~"}
+  - {key: F11, mods: Shift, chars: "\e[23;2~"}
+  - {key: F12, mods: Shift, chars: "\e[24;2~"}
+  - {key: F1, mods: Control, chars: "\e[1;5P"}
+  - {key: F2, mods: Control, chars: "\e[1;5Q"}
+  - {key: F3, mods: Control, chars: "\e[1;5R"}
+  - {key: F4, mods: Control, chars: "\e[1;5S"}
+  - {key: F5, mods: Control, chars: "\e[15;5~"}
+  - {key: F6, mods: Control, chars: "\e[17;5~"}
+  - {key: F7, mods: Control, chars: "\e[18;5~"}
+  - {key: F8, mods: Control, chars: "\e[19;5~"}
+  - {key: F9, mods: Control, chars: "\e[20;5~"}
+  - {key: F10, mods: Control, chars: "\e[21;5~"}
+  - {key: F11, mods: Control, chars: "\e[23;5~"}
+  - {key: F12, mods: Control, chars: "\e[24;5~"}
+  - {key: F1, mods: Alt, chars: "\e[1;6P"}
+  - {key: F2, mods: Alt, chars: "\e[1;6Q"}
+  - {key: F3, mods: Alt, chars: "\e[1;6R"}
+  - {key: F4, mods: Alt, chars: "\e[1;6S"}
+  - {key: F5, mods: Alt, chars: "\e[15;6~"}
+  - {key: F6, mods: Alt, chars: "\e[17;6~"}
+  - {key: F7, mods: Alt, chars: "\e[18;6~"}
+  - {key: F8, mods: Alt, chars: "\e[19;6~"}
+  - {key: F9, mods: Alt, chars: "\e[20;6~"}
+  - {key: F10, mods: Alt, chars: "\e[21;6~"}
+  - {key: F11, mods: Alt, chars: "\e[23;6~"}
+  - {key: F12, mods: Alt, chars: "\e[24;6~"}
+  - {key: F1, mods: Super, chars: "\e[1;3P"}
+  - {key: F2, mods: Super, chars: "\e[1;3Q"}
+  - {key: F3, mods: Super, chars: "\e[1;3R"}
+  - {key: F4, mods: Super, chars: "\e[1;3S"}
+  - {key: F5, mods: Super, chars: "\e[15;3~"}
+  - {key: F6, mods: Super, chars: "\e[17;3~"}
+  - {key: F7, mods: Super, chars: "\e[18;3~"}
+  - {key: F8, mods: Super, chars: "\e[19;3~"}
+  - {key: F9, mods: Super, chars: "\e[20;3~"}
+  - {key: F10, mods: Super, chars: "\e[21;3~"}
+  - {key: F11, mods: Super, chars: "\e[23;3~"}
+  - {key: F12, mods: Super, chars: "\e[24;3~"}

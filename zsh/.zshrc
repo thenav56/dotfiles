@@ -55,6 +55,7 @@ export EDITOR=nvim
 export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 
 # You may need to manually set your language environment
 export LANG=en_US.UTF-8
@@ -66,8 +67,10 @@ export NVIM_LISTEN_ADDRESS=/tmp/nvimsocket
 bindkey '^ ' autosuggest-accept
 
 # Used by nvim and zsh for changing themes and alias day/night
+export BASE16_SHELL_HOOKS=$HOME/.config/base16-shell/hooks
 export BASE16_DAY_THEME='base16_gruvbox-light-hard'
 export BASE16_NIGHT_THEME='base16_solarflare'
+export BASE16_NIGHT_ALT_THEME='base16_dracula'
 
 alias vi=$EDITOR
 alias python=python3
@@ -75,6 +78,7 @@ alias tmux="TERM=screen-256color-bce tmux"
 alias ssh='TERM=screen ssh'
 alias day="$BASE16_DAY_THEME; git config --global split-diffs.theme-name github-light; gsettings set org.gnome.desktop.interface gtk-theme Arc"
 alias night="$BASE16_NIGHT_THEME; git config --global split-diffs.theme-name github-dark-dim; gsettings set org.gnome.desktop.interface gtk-theme Arc-Dark"
+alias night_alt="$BASE16_NIGHT_ALT_THEME; git config --global split-diffs.theme-name github-dark-dim; gsettings set org.gnome.desktop.interface gtk-theme Arc-Dark"
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
 alias start='swaymsg exec'
 alias bat='bat --theme base16'
@@ -85,6 +89,7 @@ alias serverless='npx serverless'
 alias sls='npx serverless'
 alias yay="yay --sudoflags='-B'"
 alias docker-images="docker images --format '{{.Size}}\t{{.Repository}}:{{.Tag}}\t{{.ID}}' | sort -hr | column -t"
+alias rrsync="rsync --stats --numeric-ids --info=progress2 -avxHAX"
 
 # export WAYLAND_DISPLAY=true
 # Use wayland
@@ -122,17 +127,18 @@ if _has fzf && _has rg; then
     export FZF_DEFAULT_COMMAND="rg -i --files --no-ignore --follow --hidden 2> /dev/null"
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
     export FZF_ALT_C_COMMAND="$FZF_DEFAULT_COMMAND"
-    export FZF_THEME_CONFIG='
-    --color fg:#D8DEE9,bg:#2E3440,hl:#A3BE8C,fg+:#D8DEE9,bg+:#434C5E,hl+:#A3BE8C
-    --color pointer:#BF616A,info:#4C566A,spinner:#4C566A,header:#4C566A,prompt:#81A1C1,marker:#EBCB8B
-    '
+    # export FZF_THEME_CONFIG='
+    # --color fg:#D8DEE9,bg:#2E3440,hl:#A3BE8C,fg+:#D8DEE9,bg+:#434C5E,hl+:#A3BE8C
+    # --color pointer:#BF616A,info:#4C566A,spinner:#4C566A,header:#4C566A,prompt:#81A1C1,marker:#EBCB8B
+    # '
     export FZF_DEFAULT_OPTS=$FZF_THEME_CONFIG
 fi
 
-# Colorscheme installation from https://github.com/chriskempson/base16-shell
-BASE16_SHELL=$HOME/.config/base16-shell/
-export BASE16_SHELL_HOOKS=$BASE16_SHELL/hooks
-[ -n "$PS1" ] && [ -s $BASE16_SHELL/profile_helper.sh ] && eval "$($BASE16_SHELL/profile_helper.sh)"
+# Base16 Shell
+BASE16_SHELL="$HOME/.config/base16-shell/"
+[ -n "$PS1" ] && \
+    [ -s "$BASE16_SHELL/profile_helper.sh" ] && \
+        eval "$("$BASE16_SHELL/profile_helper.sh")"
 
 # Added by serverless binary installer
 export PATH="$HOME/.serverless/bin:$PATH"
@@ -141,5 +147,6 @@ export PATH="$HOME/.poetry/bin:$PATH"
 
 if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 
-source /home/navin/.config/broot/launcher/bash/br
+# source /home/navin/.config/broot/launcher/bash/br
 [[ -r "/opt/git-subrepo/.rc" ]] && source /opt/git-subrepo/.rc
+[ -f ~/.fzf.colors ] && source ~/.fzf.colors

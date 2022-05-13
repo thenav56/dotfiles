@@ -34,7 +34,7 @@ function! LightlineReadOnly()
 endfunction
 
 function! LightlineGitBranch()
-    return fugitive#head() !=# '' ? 'B: ' . fugitive#head()  : ''
+    return FugitiveHead() !=# '' ? 'B: ' . FugitiveHead()  : ''
 endfunction
 
 function! LightlineFilename()
