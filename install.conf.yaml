@@ -1,0 +1,41 @@
+- defaults:
+    link:
+      relink: true
+      create: true
+
+- clean: ['~']
+
+- link:
+    ~/.dotfiles: ""
+    ~/.zshrc: config/zshrc
+    ~/.p10k.zsh: config/p10k.zsh
+    ~/.ripgreprc: config/ripgreprc
+    ~/.vnc/config:
+      path: config/vnc.config
+    ~/.gitconfig:
+      path: config/git/git.conf
+    ~/.config/i3/config:
+      path: config/i3.config
+    ~/.config/picom/picom.conf:
+      path: config/picom.conf
+    ~/.config/nvim/:
+      path: config/neovim/
+    ~/.config/polybar/config.ini:
+      path: config/polybar.ini
+    ~/.config/kitty/kitty.conf:
+      path: config/kitty.conf
+    ~/.config/dunst/dunstrc:
+      path: config/dunst.conf
+    ~/.config/rofi/:
+      path: config/rofi/
+    ~/.config/atuin/config.toml:
+      path: config/atuin.toml
+
+- create:
+    - ~/.config/nvim/tmp/undo
+    - ~/.config/nvim/tmp/backup
+    - ~/.config/nvim/tmp/swap
+
+- shell:
+  - [git submodule update --init --recursive, Installing submodules]
+  - [nvim +PlugInstall +qall < /dev/tty, Installing neovim plugins]
