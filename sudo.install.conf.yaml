@@ -10,15 +10,10 @@
     # VNC. Note: Other configs are in install.conf.yaml
     /etc/tigervnc/vncserver.users:
       path: system/tigervpn/vncserver.users
-        # Netword: https://wiki.archlinux.org/title/systemd-networkd
-    # -- NOT WORKING
-    # /etc/systemd/network/:
-    #   path: system/networkd/
-    # -- NOT WORKING
-    # Resolved https://wiki.archlinux.org/title/systemd-resolved
-    # /etc/systemd/resolved.conf.d/:
-    #  path: system/resolved/
 
 
 - shell:
   - [ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf, Link for resolved]
+  # - [ln system/networkd/20-wired.network /etc/systemd/network/20-wired.network, Networkd wired config]
+  # - [ln system/networkd/25-wireless.network /etc/systemd/network/25-wireless.network, Networkd wireless config]
+  # - [ln system/resolved/dns_over_tls.conf /etc/systemd/resolved.conf.d/dns_over_tls.conf, Resolved dns config]
