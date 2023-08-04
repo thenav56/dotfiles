@@ -16,4 +16,6 @@
   - [ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf, Link for resolved]
   # - [ln system/networkd/20-wired.network /etc/systemd/network/20-wired.network, Networkd wired config]
   # - [ln system/networkd/25-wireless.network /etc/systemd/network/25-wireless.network, Networkd wireless config]
-  # - [ln system/resolved/dns_over_tls.conf /etc/systemd/resolved.conf.d/dns_over_tls.conf, Resolved dns config]
+  - [mkdir -p /etc/systemd/resolved.conf.d/, Create Resolved dns config directory]
+  - [ln -f system/resolved/dns_over_tls.conf /etc/systemd/resolved.conf.d/dns_over_tls.conf, Resolved dns config]
+  - [systemctl enable --now systemd-resolved, Resolved dns config]
