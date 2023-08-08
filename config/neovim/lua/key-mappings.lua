@@ -25,3 +25,6 @@ map('n', '<C-J>', '<C-W><C-J>', { silent = true, remap = false })
 map('n', '<C-K>', '<C-W><C-K>', { silent = true, remap = false })
 map('n', '<C-L>', '<C-W><C-L>', { silent = true, remap = false })
 map('n', '<C-H>', '<C-W><C-H>', { silent = true, remap = false })
+
+-- Delete Buffer withouting impacting splits
+map('n', '<leader>q', ':bdelete<CR>', { silent = true })

@@ -5,7 +5,15 @@ return {
     {'junegunn/fzf.vim'},
     {'lambdalisue/suda.vim'},
     {'sheerun/vim-polyglot'},
-    { "lukas-reineke/indent-blankline.nvim" },
+    {'lukas-reineke/indent-blankline.nvim'},
+    -- git
+    {'tpope/vim-fugitive'},
+    {
+        'lewis6991/gitsigns.nvim',
+        config = function()
+            require('plugin-configs/_gitsigns')
+        end,
+    },
     {
         'nvim-lualine/lualine.nvim',
         config = function()
@@ -14,11 +22,12 @@ return {
         dependencies = { 'nvim-tree/nvim-web-devicons', opt = true },
     },
     {
+        -- File nagivator
         "ms-jpq/chadtree",
         branch = "chad",
         build = "python3 -m chadtree deps",
         config = function()
-            api.nvim_set_var("chadtree_settings", {["keymap.secondary"] = {"<2-leftmouse>"}})
+            require('plugin-configs/_chadtree')
         end,
         dependencies = {
             {
@@ -32,16 +41,14 @@ return {
         'williamboman/mason.nvim',
         build = ':MasonUpdate', -- :MasonUpdate updates registry contents
         config = function()
-            require('mason').setup()
+            require('plugin-configs/_mason')
         end,
     },
     {
         -- Manage external dependencies for lsp
         'williamboman/mason-lspconfig.nvim',
         config = function()
-            require('mason-lspconfig').setup {
-                automatic_installation = true,
-            }
+            require('plugin-configs/_mason-lspconfig')
         end,
         dependencies = {
             'williamboman/mason.nvim',
