@@ -69,6 +69,9 @@ export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
+
+# MANUAL using bat
+export MANROFFOPT="-c"
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
 alias ls=exa
@@ -84,3 +87,9 @@ function zvm_after_init() {
 }
 if type "zoxide" > /dev/null; then eval "$(zoxide init zsh)"; fi
 if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
+
+# Base16 Shell
+BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
+[ -n "$PS1" ] && \
+    [ -s "$BASE16_SHELL/profile_helper.sh" ] && \
+        source "$BASE16_SHELL/profile_helper.sh"
