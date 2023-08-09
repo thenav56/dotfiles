@@ -4,7 +4,6 @@ local util = require('lspconfig/util')
 local autocmd = vim.api.nvim_create_autocmd
 local augroup = vim.api.nvim_create_augroup
 local map = vim.keymap.set
-local api = vim.api
 local lsp = vim.lsp
 local fn = vim.fn
 local inspect = vim.inspect
@@ -63,6 +62,12 @@ cmp.setup.cmdline(':', {
 -- The nvim-cmp almost supports LSP's capabilities so You should advertise it to LSP servers..
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
 
+-- Diagnostic signs
+local signs = { Error = "⛔", Warn = "⚠️", Hint = "💡", Info = "ℹ️ " }
+for type, icon in pairs(signs) do
+  local hl = "DiagnosticSign" .. type
+  vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = hl })
+end
 
 local function get_python_path(workspace)
   -- Use activated virtualenv.
@@ -97,7 +102,17 @@ lspconfig.dockerls.setup {capabilities = capabilities}
 lspconfig.eslint.setup {capabilities = capabilities}
 lspconfig.html.setup {capabilities = capabilities}
 lspconfig.jsonls.setup {capabilities = capabilities}
-lspconfig.lua_ls.setup {capabilities = capabilities}
+lspconfig.lua_ls.setup {
+  capabilities = capabilities,
+  settings = {
+    Lua = {
+      diagnostics = {
+        -- Get the language server to recognize the `vim` global
+        globals = {'vim', 'exepath'},
+      },
+    },
+  },
+}
 lspconfig.sqlls.setup {capabilities = capabilities}
 lspconfig.stylelint_lsp.setup {
   capabilities = capabilities,

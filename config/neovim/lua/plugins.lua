@@ -1,11 +1,17 @@
-local api = vim.api
-
 return {
     {'junegunn/fzf'},
     {'junegunn/fzf.vim'},
     {'lambdalisue/suda.vim'},
     {'sheerun/vim-polyglot'},
     {'lukas-reineke/indent-blankline.nvim'},
+    {'mhinz/vim-startify'},
+    {
+        'numToStr/Comment.nvim',
+        config = function()
+            require('plugin-configs/_Comment')
+        end,
+        lazy = false,
+    },
     -- git
     {'tpope/vim-fugitive'},
     {

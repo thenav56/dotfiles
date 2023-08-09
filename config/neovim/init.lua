@@ -12,5 +12,5 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require 'options'
-require('lazy').setup('plugins', opts)
+require('lazy').setup('plugins')
 require 'key-mappings'
