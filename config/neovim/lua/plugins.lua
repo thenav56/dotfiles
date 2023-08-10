@@ -4,6 +4,13 @@ return {
     {'lambdalisue/suda.vim'},
     {'sheerun/vim-polyglot'},
     {'lukas-reineke/indent-blankline.nvim'},
+    {
+        -- GnuPG decrypt/encrypt gpg files
+        'jamessan/vim-gnupg',
+        config = function()
+            require('plugin-configs/_vim-gnupg')
+        end,
+    },
     {'mhinz/vim-startify'},
     {
         'numToStr/Comment.nvim',

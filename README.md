@@ -121,3 +121,6 @@ After suspend https://github.com/betterlockscreen/betterlockscreen#systemd
 ```bash
 systemctl enable --now betterlockscreen@$USER
 ```
+
+## Replace
+Search for `REPLACE` and replace the values accordingly
