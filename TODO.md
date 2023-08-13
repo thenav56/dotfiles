@@ -1,6 +1,6 @@
-- TODO CAPS->ESC Not working properly
+- CAPS->ESC Not working properly
 - nvim
-    - TODO clipboard not working properly
+    - clipboard not working properly
         - install xclip fixed - Check again? - WORKING FINE
     - LATER lsp
     - ...
@@ -33,16 +33,19 @@
 - yay
     - File based packages setup? or just keep track?
 - polybar
-- TODO: gitconfig
+- gitconfig
 - atuin
     - Remove from history?
 
 - i3
-    - TODO Lock
-    - 
-- ENCRYPTION?
-    - FULL?
-    - PARTIAL?
+    - Lock
+    - TODO Auto lock
+    - TODO Auto suspend
+
+- Wake on lan
+    - Added a section in README.md
+- ENCRYPTION
+    - TODO PARTIAL
 
 ## Maybe use sway instead?
 - https://soyuka.me/make-screen-sharing-wayland-sway-work/

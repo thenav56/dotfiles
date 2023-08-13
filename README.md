@@ -2,11 +2,12 @@
 
 ```bash
 ./install
-
-./sudo-install
 ```
 
 ## Manual
+
+### SSH
+TODO
 
 ### Network
 #### DNS configuration
@@ -88,7 +89,20 @@ Sample:
 
 > NOTE: If enabling WOL is available through BIOS then use that instead
 
-https://wiki.archlinux.org/title/Wake-on-LAN#systemd.link
+<https://wiki.archlinux.org/title/Wake-on-LAN#systemd.link>
+
+Create new file `/etc/systemd/network/50-wired.link`
+```
+[Match]
+MACAddress=aa:bb:cc:dd:ee:ff
+
+[Link]
+NamePolicy=kernel database onboard slot path
+MACAddressPolicy=persistent
+WakeOnLan=magic
+```
+> NOTE: Replace "aa:bb:cc:dd:ee:ff" with your ethernet card MACAddress. Use `ip addr`
+
 
 ### Remote access using VNC
 #### Virtual
@@ -121,6 +135,77 @@ After suspend https://github.com/betterlockscreen/betterlockscreen#systemd
 ```bash
 systemctl enable --now betterlockscreen@$USER
 ```
+
+## Encryption
+[LUKS](https://access.redhat.com/solutions/100463)
+
+### On partitions
+<https://wiki.archlinux.org/title/dm-crypt/Encrypting_an_entire_system#LUKS_on_a_partition>
+
+Why?
+> With seperate partition, we can decrypt and mount this after boot which is helpfull
+> when we can't physically turn on the system. For eg: Using WOL or a friend turns on the system.
+
+Create a separate partitions
+- 10-100GB should be sufficient for most of the cases
+- Check current uses by using [dua](https://github.com/Byron/dua-cli) or [gdu](https://github.com/dundee/gdu) or [ncdu](https://linux.die.net/man/1/ncdu) on your home directory.
+
+
+Use for what?
+- Sensitive applications
+    - Browsers (Heavy)
+    - Credentials (Light)
+        - AWS
+        - docker
+        - github
+        - gpg
+    - Project's secrets (Light)
+    - Database dumps (Heavy)
+
+Assuming the new partition is /dev/sdb3
+> NOTE: Make sure update your current user password to better one
+
+> NOTE: Use you current password for the partition encyption to avoid forgeting or avoiding
+> entering password twice faster login
+TODO: More notes
+
+Create encrypted partition
+```bash
+# Enable encyption on the parition using cryptsetup
+sudo cryptsetup -y -v luksFormat /dev/sda3
+# Then map the parition as virtual parition using cryptsetup
+sudo cryptsetup open /dev/sda3 root
+# Format the mapped parition using mkfs.ext4
+sudo mkfs.ext4 /dev/mapper/root
+# Mount the new mapped partition
+sudo mount --mkdir /dev/mapper/root /mnt/encrypted/
+
+# Now check if all is okay
+# -- Create a sample file
+echo 'hi-there' | sudo tee /mnt/encrypted/test-file.txt
+# -- Unmount
+sudo umount /mnt/encrypted/
+# -- Close encyption virtual partition
+sudo cryptsetup close root
+# -- Open again
+sudo cryptsetup open /dev/sda3 root
+# -- Mount again
+sudo mount /dev/mapper/root /mnt/encrypted/
+# -- Check the file content
+sudo cat /mnt/encrypted/test-file.txt
+```
+
+Auto mount partition
+> NOTE: Not using fstab as it is needed before starting linux
+> We will encrypt during login instead using PAM
+TODO
+MAYBE NOT THIS ONE? Follow this <https://wiki.archlinux.org/title/Dm-crypt/Mounting_at_login>\
+
+### Full Disk
+Nothing here
+
+## Backup
+TODO
 
 ## Replace
 Search for `REPLACE` and replace the values accordingly

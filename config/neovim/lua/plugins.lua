@@ -5,6 +5,10 @@ return {
     {'sheerun/vim-polyglot'},
     {'lukas-reineke/indent-blankline.nvim'},
     {
+        -- help you read complex code by showing diff level of parentheses in diff color !!
+        -- 'andymass/vim-matchup'
+    },
+    {
         -- GnuPG decrypt/encrypt gpg files
         'jamessan/vim-gnupg',
         config = function()
