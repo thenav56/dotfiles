@@ -4,3 +4,6 @@
 [submodule "config/vim/autoload"]
 	path = config/vim/autoload
 	url = https://github.com/junegunn/vim-plug
+[submodule "base16/shell"]
+	path = base16/shell
+	url = https://github.com/chriskempson/base16-shell.git
