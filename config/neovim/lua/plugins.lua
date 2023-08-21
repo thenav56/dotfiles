@@ -9,13 +9,26 @@ return {
         -- 'andymass/vim-matchup'
     },
     {
+        -- spell check
+        'kamykn/spelunker.vim',
+        config = function()
+            require('plugin-configs/_spelunker')
+        end,
+    },
+    {
         -- GnuPG decrypt/encrypt gpg files
         'jamessan/vim-gnupg',
         config = function()
             require('plugin-configs/_vim-gnupg')
         end,
     },
-    {'mhinz/vim-startify'},
+    {
+        'goolord/alpha-nvim',
+        dependencies = { 'nvim-tree/nvim-web-devicons' },
+        config = function ()
+            require('plugin-configs/_alpha-nvim')
+        end
+    },
     {
         'numToStr/Comment.nvim',
         config = function()

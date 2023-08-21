@@ -3,8 +3,7 @@ local map = vim.keymap.set
 -- set current file location as pwd
 map('c', 'cd.', 'cd %:p:h')
 
--- open/reload init.lua
-map('n', '<leader>s', ':so $MYVIMRC<CR>', { silent = true })
+-- open init.lua
 map('n', '<leader>e', ':e $MYVIMRC<CR>', { silent = true })
 
 

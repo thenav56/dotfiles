@@ -5,7 +5,6 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
-
 ### Added by Zinit's installer
 if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
     print -P "%F{33} %F{220}Installing %F{33}ZDHARMA-CONTINUUM%F{220} Initiative Plugin Manager (%F{33}zdharma-continuum/zinit%F{220})…%f"
@@ -81,7 +80,9 @@ alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
 
 # The plugin will auto execute this zvm_after_init function
 function zvm_after_init() {
-    if type "atuin" > /dev/null; then eval "$(atuin init zsh --disable-up-arrow)"; fi
+    if type "atuin" > /dev/null; then
+        eval "$(atuin init zsh --disable-up-arrow)";
+    fi
 
     # this would bind ctrl + space to accept the current suggestion.
     bindkey '^ ' autosuggest-accept
@@ -90,12 +91,18 @@ if type "zoxide" > /dev/null; then eval "$(zoxide init zsh)"; fi
 if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 
 # Base16 Shell
+export BASE16_SHELL_HOOKS="$HOME/.dotfiles/base16/shell-hooks/"
+export BASE16_THEME_VALUE_FILE="$HOME/.bash16_theme_value"
 BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
-[ -n "$PS1" ] && \
-    [ -s "$BASE16_SHELL/profile_helper.sh" ] && \
-        source "$BASE16_SHELL/profile_helper.sh"
+[ -n "$PS1" ] &&
+    [ -s "$BASE16_SHELL/profile_helper.sh" ] && source "$BASE16_SHELL/profile_helper.sh"
 
-# Include sensitive or individual configs
+# Try to load FZF
+FZF_KEY_BINDINGS="/usr/share/fzf/key-bindings.zsh"
+FZF_COMPLETION="/usr/share/fzf/key-bindings.zsh"
+[ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
+[ -s "$FZF_COMPLETION" ] && source "$FZF_COMPLETION"
+
+# Include sensitive configs
 ADDITIONAL_ZSH_CONFIGS="$HOME/.zsh-additional-rc"
-[ -f "$ADDITIONAL_ZSH_CONFIGS" ] && \
-    source "$ADDITIONAL_ZSH_CONFIGS"
+[ -f "$ADDITIONAL_ZSH_CONFIGS" ] && source "$ADDITIONAL_ZSH_CONFIGS"

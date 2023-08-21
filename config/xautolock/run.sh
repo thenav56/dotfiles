@@ -11,7 +11,7 @@ fi
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 NOTIFICATION_CMD=$SCRIPT_DIR/notify.sh
-LOCK_CMD='betterlockscreen -l dim'
+LOCK_CMD="${1:-betterlockscreen -l dim}"
 
 # Start xautolock
 xautolock \

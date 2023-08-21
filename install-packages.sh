@@ -1,69 +1,14 @@
-yay -S \
-    arc-gtk-theme \
-    atuin \
-    base \
-    base-devel \
-    bat \
-    betterlockscreen \
-    btop \
-    caja \
-    code \
-    docker \
-    docker-compose \
-    dunst \
-    exa \
-    fd \
-    feh \
-    firefox-developer-edition \
-    fx \
-    fzf \
-    git \
-    google-chrome \
-    gvim \
-    i3-wm \
-    iwd \
-    jq \
-    kitty \
-    lazygit \
-    libxcb \
-    lua \
-    lxappearance \
-    man-db \
-    neovim \
-    ngrep \
-    nodejs-git-split-diffs \
-    noto-fonts \
-    noto-fonts-cjk \
-    noto-fonts-emoji \
-    noto-fonts-extra \
-    picom \
-    polybar \
-    pyenv \
-    ripgrep \
-    rofi \
-    slack-desktop \
-    tigervnc \
-    tmux \
-    tree \
-    ttf-font-awesome \
-    ttf-font-icons \
-    ttf-hack-nerd \
-    ttf-ionicons \
-    x11vnc \
-    xclip \
-    xorg-server \
-    xorg-xinit \
-    yay-bin \
-    zoxide \
-    zsh \
-    ly \
-    sudo \
-    grub \
-    openssh \
-    go \
-    flake8 \
-    efibootmgr
+#!/usr/bin/env bash
 
-# Additional
-# pavucontrol
-# pulseaudio
+BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if ! type "yay" > /dev/null; then
+    echo 'Installing yay first'
+    sudo pacman -S --needed git base-devel
+    git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
+    cd /tmp/yay-bin
+    yes | makepkg -si
+fi
+
+# TO UPDATE: yay -Qqe > ~/.dotfiles/arch-packages.txt
+yes | yay --needed -S $(cat $BASEDIR/arch-packages.txt)
