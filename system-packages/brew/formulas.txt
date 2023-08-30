@@ -1,0 +1,16 @@
+atuin
+bash
+bat
+exa
+gnupg
+lazygit
+neovim-remote
+ngrep
+pinentry-mac
+pipx
+pyright
+ripgrep
+unzip
+watch
+zip
+zoxide

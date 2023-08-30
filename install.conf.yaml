@@ -1,0 +1,28 @@
+- defaults:
+    link:
+      relink: true
+      create: true
+
+- clean: ['~']
+
+- link:
+    ~/.dotfiles: ""
+    ~/.zshrc: config/zshrc
+    ~/.p10k.zsh: config/p10k.zsh
+    ~/.ripgreprc: config/ripgreprc
+    ~/.gitconfig:
+      path: config/git/git.conf
+    ~/.config/nvim/:
+      path: config/neovim/
+    ~/.config/kitty/:
+      path: config/kitty/
+    ~/.config/atuin/config.toml:
+      path: config/atuin.toml
+
+- create:
+    - ~/.local/share/nvim/tmp/undo
+    - ~/.local/share/nvim/tmp/backup
+    - ~/.local/share/nvim/tmp/swap
+
+- shell:
+  - [git submodule update --init --recursive, Installing submodules]

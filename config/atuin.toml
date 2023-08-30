@@ -1,0 +1,11 @@
+## For more options: https://atuin.sh/docs/config
+# For security check
+# - https://atuin.sh/docs/config#history_filter
+# - https://atuin.sh/docs/config#secrets_filter
+
+## possible values: prefix, fulltext, fuzzy, skim
+search_mode = "fuzzy"
+
+## which style to use
+## possible values: auto, full, compact
+style = "compact"
