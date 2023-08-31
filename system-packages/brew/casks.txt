@@ -1,0 +1,7 @@
+firefox
+font-hack-nerd-font
+kitty
+logseq
+monitorcontrol
+rectangle
+unnaturalscrollwheels

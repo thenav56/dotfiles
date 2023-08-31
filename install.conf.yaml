@@ -1,0 +1,37 @@
+- defaults:
+    link:
+      relink: true
+      create: true
+
+- clean: ['~']
+
+- link:
+    ~/.dotfiles: ""
+    ~/.zshrc: config/zshrc
+    ~/.p10k.zsh: config/p10k.zsh
+    ~/.ripgreprc: config/ripgreprc
+    ~/.gitconfig:
+      path: config/git/git.conf
+    ~/.config/nvim/:
+      path: config/neovim/
+    ~/.config/kitty/:
+      path: config/kitty/
+    # tmux
+    ~/.config/tmux/tmux.conf:
+      path: config/tmux.conf
+    ~/.config/tmux/plugins/tpm/:
+      path: tools/tmux-tpm/
+    ~/.config/atuin/config.toml:
+      path: config/atuin.toml
+    # Scripts
+    ~/.local/bin:
+      glob: true
+      path: commands/**
+
+- create:
+    - ~/.local/share/nvim/tmp/undo
+    - ~/.local/share/nvim/tmp/backup
+    - ~/.local/share/nvim/tmp/swap
+
+- shell:
+  - [git submodule update --init --recursive, Installing submodules]
