@@ -1,7 +1,9 @@
 atuin
 bash
 bat
+coreutils
 exa
+fzf
 gnupg
 lazygit
 neovim-remote
@@ -10,6 +12,7 @@ pinentry-mac
 pipx
 pyright
 ripgrep
+tmux
 unzip
 watch
 zip

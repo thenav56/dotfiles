@@ -107,6 +107,20 @@ FZF_COMPLETION="/usr/share/fzf/key-bindings.zsh"
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
 [ -s "$FZF_COMPLETION" ] && source "$FZF_COMPLETION"
 
-# Include sensitive configs
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # MacOS
+    alias date=gdate
+    export DAILY_JOURNAL_DIR="$HOME/Library/Mobile Documents/iCloud~com~logseq~logseq/Documents/my kb/journals"
+else
+    # Linux
+    export DAILY_JOURNAL_DIR=$HOME/toggle/tc/tc-knowledge-base/journals
+fi
+
+# Journal helper
+function journal(){
+    $EDITOR $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "$*").md
+}
+
+# Include sensitive/ovewrite configs/env
 ADDITIONAL_ZSH_CONFIGS="$HOME/.zsh-additional-rc"
 [ -f "$ADDITIONAL_ZSH_CONFIGS" ] && source "$ADDITIONAL_ZSH_CONFIGS"

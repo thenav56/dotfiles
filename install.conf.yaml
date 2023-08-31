@@ -16,8 +16,17 @@
       path: config/neovim/
     ~/.config/kitty/:
       path: config/kitty/
+    # tmux
+    ~/.config/tmux/tmux.conf:
+      path: config/tmux.conf
+    ~/.config/tmux/plugins/tpm/:
+      path: tools/tmux-tpm/
     ~/.config/atuin/config.toml:
       path: config/atuin.toml
+    # Scripts
+    ~/.local/bin:
+      glob: true
+      path: commands/**
 
 - create:
     - ~/.local/share/nvim/tmp/undo

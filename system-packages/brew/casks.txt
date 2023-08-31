@@ -1,3 +1,4 @@
+firefox
 font-hack-nerd-font
 kitty
 logseq

@@ -5,3 +5,6 @@
 - [ ] VNC Shortcut
 - [ ] Kitty
     - Scrollback pager DONE
+- tmux WIP
+    - config PATIAL-DONE
+    - Powerlevel10k console output warning message DONE
