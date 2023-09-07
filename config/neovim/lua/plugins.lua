@@ -1,6 +1,17 @@
 return {
     {'junegunn/fzf'},
     {'junegunn/fzf.vim'},
+    {
+        -- fuzzy search
+        'nvim-telescope/telescope.nvim',
+        dependencies = {
+            'nvim-lua/plenary.nvim',
+            'nvim-telescope/telescope-live-grep-raw.nvim',
+        },
+        config = function()
+            require('plugin-configs/_telescope')
+        end,
+    },
     {'lambdalisue/suda.vim'},
     {'sheerun/vim-polyglot'},
     {'lukas-reineke/indent-blankline.nvim'},

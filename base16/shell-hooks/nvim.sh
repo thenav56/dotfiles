@@ -6,9 +6,9 @@ do
     # Only for parent node
     if [[ $servername == *.0 ]]; then
         echo ' -' $servername
-        nvr -s --servername $servername \
+        nvr -s \
+            --servername $servername \
             --nostart \
-            --remote-send \
-            "<ESC>:colorscheme base16-$BASE16_THEME<ENTER>"
+            -cc "colorscheme base16-$BASE16_THEME" &
     fi
 done

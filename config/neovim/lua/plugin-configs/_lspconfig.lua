@@ -97,6 +97,21 @@ lspconfig.pyright.setup {
         config.settings.python.pythonPath = get_python_path(config.root_dir)
     end
 }
+-- https://github.com/williamboman/mason-lspconfig.nvim/blob/main/lua/mason-lspconfig/server_configurations/pylsp/README.md
+lspconfig.pylsp.setup {
+  capabilities = capabilities,
+  -- https://github.com/python-lsp/python-lsp-server/blob/develop/CONFIGURATION.md
+  settings = {
+    pylsp = {
+      configurationSources = {"flake8"},
+      plugins = {
+        flake8 = {
+          enabled = true,
+        }
+      }
+    }
+  }
+}
 lspconfig.tsserver.setup {capabilities = capabilities}
 lspconfig.graphql.setup {capabilities = capabilities}
 lspconfig.bashls.setup {capabilities = capabilities}

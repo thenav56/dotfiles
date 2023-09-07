@@ -22,8 +22,8 @@
       path: config/neovim/
     ~/.config/polybar/config.ini:
       path: config/polybar.ini
-    ~/.config/kitty/kitty.conf:
-      path: config/kitty.conf
+    ~/.config/kitty/:
+      path: config/kitty
     ~/.config/dunst/dunstrc:
       path: config/dunst.conf
     ~/.config/rofi/:

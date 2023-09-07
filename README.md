@@ -199,13 +199,19 @@ Auto mount partition
 > NOTE: Not using fstab as it is needed before starting linux
 > We will encrypt during login instead using PAM
 TODO
-MAYBE NOT THIS ONE? Follow this <https://wiki.archlinux.org/title/Dm-crypt/Mounting_at_login>\
+MAYBE NOT THIS ONE? Follow this
+- https://wiki.archlinux.org/title/pam_mount [I am using this one]
+    - Maybe use configuration in dot file https://wiki.archlinux.org/title/pam_mount#Local_(per-user)_configuration
+- https://wiki.archlinux.org/title/Dm-crypt/Mounting_at_login
 
 ### Full Disk
 Nothing here
 
 ## Backup
 TODO
+To read:
+- https://borgbackup.readthedocs.io/en/stable/deployment/central-backup-server.html
+- https://borgbackup.readthedocs.io/en/stable/deployment/hosting-repositories.html
 
 ## Replace
 Search for `REPLACE` and replace the values accordingly

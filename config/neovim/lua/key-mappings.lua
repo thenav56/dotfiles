@@ -15,8 +15,6 @@ map('', 'k', 'v:count == 0 ? "gk" : "k"', { silent = true, expr = true })
 map('', '<tab>', ':CHADopen<CR>', { silent = true, remap = false })
 
 -- FZF
-map('n', ';', ':Buffers<CR>', { silent = true })
-map('n', '<C-P>', ':Files<CR>', { silent = true })
 map('n', '<leader>bs', ':History<CR>', { silent = true })
 
 -- Navigation
@@ -32,4 +30,4 @@ map('n', '<leader>q', ':bdelete<CR>', { silent = true })
 map('n', '<leader><space>', ':nohlsearch<CR>', { silent = true, remap = false })
 
 -- Full text search
-map('n', '<leader>fa', ':Rg<CR>', { silent = true, remap = false })
+-- map('n', '<leader>fa', ':Rg<CR>', { silent = true, remap = false })
