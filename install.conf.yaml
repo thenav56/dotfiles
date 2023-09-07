@@ -30,11 +30,15 @@
       path: config/rofi/
     ~/.config/atuin/config.toml:
       path: config/atuin.toml
+    ~/.local/bin/:
+      glob: true
+      path: commands/**
 
 - create:
     - ~/.config/nvim/tmp/undo
     - ~/.config/nvim/tmp/backup
     - ~/.config/nvim/tmp/swap
+    - ~/.local/bin
 
 - shell:
   - [git submodule update --init --recursive, Installing submodules]

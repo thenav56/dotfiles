@@ -63,6 +63,7 @@ setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording en
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
 # Environment variables
+export PATH=$PATH:~/.local/bin/
 export EDITOR=nvim
 export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
@@ -76,6 +77,7 @@ export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 
 alias ls=exa
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
+alias bat='bat --theme base16'
 
 
 # The plugin will auto execute this zvm_after_init function
@@ -90,7 +92,30 @@ function zvm_after_init() {
 if type "zoxide" > /dev/null; then eval "$(zoxide init zsh)"; fi
 if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 
-# Base16 Shell
+# Theme
+# NOTE: Change using export GTK_DAY_THEME="Awesome-theme" in ~/.zsh-additional-rc
+export GTK_DAY_THEME="Arc"
+export GTK_NIGHT_THEME="Arc-Dark"
+export GH_DAY_THEME="github-light"
+export GH_NIGHT_THEME="github-dark-dim"
+export BASE16_DAY_THEME="base16_gruvbox-light-soft"
+export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
+# -- Functions
+function day(){
+    # NOTE: gtk not working
+    eval "gsettings set org.gnome.desktop.interface gtk-theme $GTK_DAY_THEME"
+    eval "$BASE16_DAY_THEME"
+    eval "git config --global split-diffs.theme-name $GH_DAY_THEME"
+}
+
+function night(){
+    # NOTE: gtk not working
+    eval "gsettings set org.gnome.desktop.interface gtk-theme $GTK_NIGHT_THEME"
+    eval "$BASE16_NIGHT_THEME"
+    eval "git config --global split-diffs.theme-name $GH_NIGHT_THEME"
+}
+
+# -- Base16 Shell
 export BASE16_SHELL_HOOKS="$HOME/.dotfiles/base16/shell-hooks/"
 export BASE16_THEME_VALUE_FILE="$HOME/.bash16_theme_value"
 BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
@@ -102,6 +127,18 @@ FZF_KEY_BINDINGS="/usr/share/fzf/key-bindings.zsh"
 FZF_COMPLETION="/usr/share/fzf/key-bindings.zsh"
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
 [ -s "$FZF_COMPLETION" ] && source "$FZF_COMPLETION"
+
+
+
+# Journal helper
+# NOTE: Add export DAILY_JOURNAL_DIR=<PATH> in ~/.zsh-additional-rc
+function journal(){
+    $EDITOR $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "$*").md
+}
+
+# Include sensitive/ovewrite configs/env
+ADDITIONAL_ZSH_CONFIGS="$HOME/.zsh-additional-rc"
+[ -f "$ADDITIONAL_ZSH_CONFIGS" ] && source "$ADDITIONAL_ZSH_CONFIGS"
 
 # Include sensitive configs
 ADDITIONAL_ZSH_CONFIGS="$HOME/.zsh-additional-rc"
