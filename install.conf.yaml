@@ -38,4 +38,3 @@
 
 - shell:
   - [git submodule update --init --recursive, Installing submodules]
-  - [nvim +PlugInstall +qall < /dev/tty, Installing neovim plugins]

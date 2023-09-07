@@ -1,0 +1,11 @@
+betterlockscreen
+cndrvcups-lb
+google-chrome
+lazydocker
+libjbig-shared
+neovim-remote
+nodejs-git-split-diffs
+nvm
+slack-desktop
+ttf-font-icons
+yay-bin

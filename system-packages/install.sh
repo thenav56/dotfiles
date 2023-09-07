@@ -1,6 +1,7 @@
+
 #!/usr/bin/env bash
 
-BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
 
 if ! type "yay" > /dev/null; then
     echo 'Installing yay first'
@@ -10,5 +11,7 @@ if ! type "yay" > /dev/null; then
     yes | makepkg -si
 fi
 
-# TO UPDATE: yay -Qqe > ~/.dotfiles/arch-packages.txt
-yes | yay --needed -S $(cat $BASEDIR/arch-packages.txt)
+# TO UPDATE: ~/.dotfiles/system-packages/update.sh
+yes | yay --needed -S $(cat $BASEDIR/native-packages.txt)
+
+yay --needed -S --noconfirm $(cat $BASEDIR/aur-packages.txt)

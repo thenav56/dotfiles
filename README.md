@@ -207,6 +207,10 @@ MAYBE NOT THIS ONE? Follow this
 ### Full Disk
 Nothing here
 
+## Swap
+https://wiki.archlinux.org/title/swap#Swap_file
+
+
 ## Backup
 TODO
 To read:
