@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -xe
+
+echo $DAILY_JOURNAL_DIR
+
+if [ -z "$DAILY_JOURNAL_DIR" ]; then
+    echo "DAILY_JOURNAL_DIR needs to be defined"
+    exit 1
+fi
+
+cd "$DAILY_JOURNAL_DIR"
+git pull
+~/.dotfiles/commands/git-auto -p -o -d ./
+
+# vim: syntax=bas

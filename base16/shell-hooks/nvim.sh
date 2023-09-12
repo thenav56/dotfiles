@@ -9,6 +9,7 @@ do
         nvr -s \
             --servername $servername \
             --nostart \
-            -cc "colorscheme base16-$BASE16_THEME" &
+            --remote-send \
+            "<ESC>:colorscheme base16-$BASE16_THEME<ENTER>"
     fi
 done

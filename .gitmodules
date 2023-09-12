@@ -10,3 +10,6 @@
 [submodule "base16/kitty"]
 	path = base16/kitty
 	url = https://github.com/kdrag0n/base16-kitty.git
+[submodule "tools/tmux-tpm"]
+	path = tools/tmux-tpm
+	url = https://github.com/tmux-plugins/tpm

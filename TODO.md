@@ -49,3 +49,18 @@
 
 ## Maybe use sway instead?
 - https://soyuka.me/make-screen-sharing-wayland-sway-work/
+
+Issues
+- picom not starting
+
+# MacOS
+- [ ] SSH WIP
+- [ ] GPG DONE
+- [ ] brew packages DONE
+- [ ] CTRL+SHIFT+TAB not working on VNC
+- [ ] VNC Shortcut
+- [ ] Kitty
+    - Scrollback pager DONE
+- tmux WIP
+    - config PATIAL-DONE
+    - Powerlevel10k console output warning message DONE

@@ -10,29 +10,42 @@
     ~/.zshrc: config/zshrc
     ~/.p10k.zsh: config/p10k.zsh
     ~/.ripgreprc: config/ripgreprc
-    ~/.vnc/config:
-      path: config/vnc.config
     ~/.gitconfig:
       path: config/git/git.conf
-    ~/.config/i3/config:
-      path: config/i3.config
-    ~/.config/picom/picom.conf:
-      path: config/picom.conf
-    ~/.config/nvim/:
-      path: config/neovim/
-    ~/.config/polybar/config.ini:
-      path: config/polybar.ini
     ~/.config/kitty/:
       path: config/kitty
-    ~/.config/dunst/dunstrc:
-      path: config/dunst.conf
-    ~/.config/rofi/:
-      path: config/rofi/
+    ~/.config/nvim/:
+      path: config/neovim/
     ~/.config/atuin/config.toml:
       path: config/atuin.toml
+    # tmux
+    ~/.config/tmux/tmux.conf:
+      path: config/tmux.conf
+    ~/.config/tmux/plugins/tpm/:
+      path: tools/tmux-tpm/
+    # Scripts
     ~/.local/bin/:
       glob: true
       path: commands/**
+    # Linux only
+    ~/.vnc/config:
+      if: '[ `uname` != Darwin ]'
+      path: config/vnc.config
+    ~/.config/i3/config:
+      if: '[ `uname` != Darwin ]'
+      path: config/i3.config
+    ~/.config/picom/picom.conf:
+      if: '[ `uname` != Darwin ]'
+      path: config/picom.conf
+    ~/.config/polybar/config.ini:
+      if: '[ `uname` != Darwin ]'
+      path: config/polybar.ini
+    ~/.config/dunst/dunstrc:
+      if: '[ `uname` != Darwin ]'
+      path: config/dunst.conf
+    ~/.config/rofi/:
+      if: '[ `uname` != Darwin ]'
+      path: config/rofi/
 
 - create:
     - ~/.config/nvim/tmp/undo

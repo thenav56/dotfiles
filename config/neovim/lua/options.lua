@@ -6,7 +6,7 @@ g.maplocalleader = '\\'
 
 opt.termguicolors = true
 opt.synmaxcol = 250                                 -- syntax highlighting line size limit
-opt.compatible  = false                                    -- Don't behave very Vi compatible
+opt.compatible = false                                    -- Don't behave very Vi compatible
 opt.encoding = 'UTF-8'                                -- Set character encoding
 opt.lazyredraw = true                                      -- Don't draw while executing macros
 opt.hidden = true                                          -- Don't unload a buffer when no longer show in window
@@ -52,16 +52,4 @@ opt.undodir = '~/.local/share/nvim/undo,/tmp'                     -- Directory f
 opt.backupdir = '~/.local/share/nvim/backup,/tmp'                 -- Set backup dir
 opt.directory = '~/.local/share/nvim/swap,/tmp'                   -- Directory for vim swap
 
--- FORMATTING
-opt.backspace = 'indent,eol,start'                    -- Smart backspace
-opt.tabstop = 4                                     -- Number of spaces a <Tab> in text stands for
-opt.shiftwidth = 4                                  -- Number of spaces used for each step of indent
-opt.smarttab = true                                       -- a <Tab> is an indent inserts 'shiftwidth' spaces
-opt.expandtab = true                                      -- Set <Tab> to spaces in Insert mode
-opt.softtabstop = 4                                 -- number of spaces to insert for a <Tab>
-opt.autoindent = true                                     -- Auto indentation
-opt.smartindent = true                                    -- Do clever auto indentation
-opt.wrap = false                                         -- Don't wrap long lines
-opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
-opt.title = true
-opt.titlestring = '%m %F'
+-- Other configs are at ./post-options.lua
