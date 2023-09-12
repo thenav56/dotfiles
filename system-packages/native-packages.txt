@@ -64,7 +64,6 @@ openssh
 patch
 pavucontrol
 picom
-pipewire-pulse
 pkgconf
 polybar
 pyenv
