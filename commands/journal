@@ -2,19 +2,25 @@
 
 set -x
 
-echo $DAILY_JOURNAL_DIR
+DATE_CMD=date
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # MacOS
+    DATE_CMD=gdate
+fi
+
+
 ARGS=$*
 if [ -s "$DAILY_JOURNAL_DIR" ] ; then
     if [ "$ARGS" == "current" ] ; then
         $EDITOR -o \
-            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "yesterday").md \
-            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "today").md
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d yesterday).md" \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d today).md"
     elif [ "$ARGS" == "next" ] ; then
         $EDITOR -o \
-            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "today").md \
-            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "tomorrow").md
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d today).md" \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d tomorrow).md"
     else
-        $EDITOR $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "$ARGS").md
+        $EDITOR "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d "$ARGS").md"
     fi
 else
     echo "Please set valid DAILY_JOURNAL_DIR at ~/.zsh-additional-rc"

@@ -142,7 +142,6 @@ BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # MacOS
-    alias date=gdate
     # -- FZF
     FZF_KEY_BINDINGS="$(brew --prefix)/opt/fzf/shell/key-bindings.zsh"
     FZF_COMPLETION="$(brew --prefix)/opt/fzf/shell/completion.zsh"
