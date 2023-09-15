@@ -22,7 +22,7 @@ DESKTOP=${1:-i3}
 ssh $NAV_MACHINE_SSH_HOST -t 'whoami'
 
 if [[ "$DESKTOP" == "i3" ]] ; then
-    ssh -N -L localhost:5900:localhost:5901 $NAV_MACHINE_SSH_HOST
+    ssh -L localhost:5900:localhost:5900 -t $NAV_MACHINE_SSH_HOST-dot 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none'
 else
     ssh \
         $NAV_MACHINE_SSH_HOST \

@@ -110,23 +110,25 @@ export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
 # -- Functions
 function day(){
     # NOTE: gtk not working
-    eval "gsettings set org.gnome.desktop.interface gtk-theme $GTK_DAY_THEME"
     eval "$BASE16_DAY_THEME"
     eval "git config --global split-diffs.theme-name $GH_DAY_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e \
             'tell app "System Events" to tell appearance preferences to set dark mode to false'
+    else
+        eval "gsettings set org.gnome.desktop.interface gtk-theme $GTK_DAY_THEME"
     fi
 }
 
 function night(){
     # NOTE: gtk not working
-    eval "gsettings set org.gnome.desktop.interface gtk-theme $GTK_NIGHT_THEME"
     eval "$BASE16_NIGHT_THEME"
     eval "git config --global split-diffs.theme-name $GH_NIGHT_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e \
             'tell app "System Events" to tell appearance preferences to set dark mode to true'
+    else
+        eval "gsettings set org.gnome.desktop.interface gtk-theme $GTK_NIGHT_THEME"
     fi
 }
 

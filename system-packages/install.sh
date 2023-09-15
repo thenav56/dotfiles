@@ -1,17 +1,18 @@
-
 #!/usr/bin/env bash
 
 BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
 
-if ! type "yay" > /dev/null; then
-    echo 'Installing yay first'
-    sudo pacman -S --needed git base-devel
-    git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
-    cd /tmp/yay-bin
-    yes | makepkg -si
+
+cd $BASEDIR
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo 'System detected: MacOS'
+    # Mac: brew
+    $BASEDIR/brew/install.sh
+else
+    echo 'System detected: Arch'
+    # Arch
+    $BASEDIR/arch/install.sh
 fi
 
-# TO UPDATE: ~/.dotfiles/system-packages/update.sh
-yes | yay --needed -S $(cat $BASEDIR/native-packages.txt)
-
-yay --needed -S --noconfirm $(cat $BASEDIR/aur-packages.txt)
+# Install npm first
+npm install -g git-split-diffs

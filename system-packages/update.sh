@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
+#
+BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-set -x
 
-BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
-
-yay -Qqne > $BASEDIR/native-packages.txt
-yay -Qqme > $BASEDIR/aur-packages.txt
+cd $BASEDIR
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo 'System detected: MacOS'
+    # Mac
+    ./brew/update-info.sh
+else
+    echo 'System detected: Arch'
+    # Arch
+    ./arch/update-info.sh
+fi
