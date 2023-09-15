@@ -16,6 +16,12 @@ return {
     {'sheerun/vim-polyglot'},
     {'lukas-reineke/indent-blankline.nvim'},
     {
+        'norcalli/nvim-colorizer.lua',
+        config = function()
+            require'colorizer'.setup()
+        end,
+    },
+    {
         -- help you read complex code by showing diff level of parentheses in diff color !!
         -- 'andymass/vim-matchup'
     },

@@ -65,6 +65,7 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 # Environment variables
 export PATH=$PATH:"$HOME/.local/bin/"
 export EDITOR=nvim
+export ZVM_VI_EDITOR=$EDITOR
 export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
@@ -111,7 +112,7 @@ export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
 function day(){
     # NOTE: gtk not working
     eval "$BASE16_DAY_THEME"
-    eval "git config --global split-diffs.theme-name $GH_DAY_THEME"
+    eval "git config --file ~/.git-additional.config split-diffs.theme-name $GH_DAY_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e \
             'tell app "System Events" to tell appearance preferences to set dark mode to false'
@@ -123,7 +124,7 @@ function day(){
 function night(){
     # NOTE: gtk not working
     eval "$BASE16_NIGHT_THEME"
-    eval "git config --global split-diffs.theme-name $GH_NIGHT_THEME"
+    eval "git config --file ~/.git-additional.config split-diffs.theme-name $GH_NIGHT_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e \
             'tell app "System Events" to tell appearance preferences to set dark mode to true'
@@ -151,16 +152,6 @@ else
     FZF_KEY_BINDINGS="/usr/share/fzf/key-bindings.zsh"
     FZF_COMPLETION="/usr/share/fzf/completion.zsh"
 fi
-
-# Journal helper
-function journal(){
-    # Set DAILY_JOURNAL_DIR using ~/.zsh-additional-rc
-    if [ -s "$DAILY_JOURNAL_DIR" ] ; then
-        $EDITOR $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "$*").md
-    else
-        echo "Please set valid DAILY_JOURNAL_DIR"
-    fi
-}
 
 # Include sensitive/ovewrite configs/env
 ADDITIONAL_ZSH_CONFIGS="$HOME/.zsh-additional-rc"

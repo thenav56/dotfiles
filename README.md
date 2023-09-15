@@ -220,6 +220,16 @@ To read:
 ## Replace
 Search for `REPLACE` and replace the values accordingly
 
+## Defaults
+- Browsers
+    ```bash
+    # list using ls /usr/share/applications/
+    xdg-settings set default-web-browser firefoxdeveloperedition.desktop
+    ```
+
+## Font
+<https://www.nerdfonts.com/cheat-sheet>
+
 - MacOS
     - GPG
         - Setup: <https://gist.github.com/phortuin/cf24b1cca3258720c71ad42977e1ba57>

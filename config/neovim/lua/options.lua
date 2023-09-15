@@ -21,6 +21,7 @@ opt.mouse = 'a'                                       -- Enable mouse for all mo
 opt.incsearch = true                                      -- Show match for partly typed search command
 opt.hlsearch = true                                       -- Highlight search
 opt.smartcase = true                                       -- Uses case insensitive search
+opt.ignorecase = true                                       -- Uses case insensitive search
 opt.splitbelow = true                                     -- A new window is put below the current one
 opt.splitright = true                                     -- A new window is put right of the current one
 opt.history = 100                                   -- Set number of command line history remembered

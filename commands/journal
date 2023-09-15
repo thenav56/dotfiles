@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -x
+
+echo $DAILY_JOURNAL_DIR
+ARGS=$*
+if [ -s "$DAILY_JOURNAL_DIR" ] ; then
+    if [ "$ARGS" == "current" ] ; then
+        $EDITOR -o \
+            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "yesterday").md \
+            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "today").md
+    elif [ "$ARGS" == "next" ] ; then
+        $EDITOR -o \
+            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "today").md \
+            $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "tomorrow").md
+    else
+        $EDITOR $DAILY_JOURNAL_DIR/$(date +%Y_%m_%d -d "$ARGS").md
+    fi
+else
+    echo "Please set valid DAILY_JOURNAL_DIR at ~/.zsh-additional-rc"
+fi

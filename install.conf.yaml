@@ -39,7 +39,7 @@
       path: config/picom.conf
     ~/.config/polybar/config.ini:
       if: '[ `uname` != Darwin ]'
-      path: config/polybar.ini
+      path: config/polybar/polybar.ini
     ~/.config/dunst/dunstrc:
       if: '[ `uname` != Darwin ]'
       path: config/dunst.conf
