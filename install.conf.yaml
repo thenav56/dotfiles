@@ -18,6 +18,8 @@
       path: config/neovim/
     ~/.config/atuin/config.toml:
       path: config/atuin.toml
+    ~/.ssh/config:
+      path: config/ssh.conf
     # tmux
     ~/.config/tmux/tmux.conf:
       path: config/tmux.conf
@@ -53,5 +55,22 @@
     - ~/.config/nvim/tmp/swap
     - ~/.local/bin
 
+- create:
+    ~/.ssh:
+      mode: 0700
+    ~/.ssh/keys/:
+      mode: 0700
+    ~/.ssh/config.d/:
+      mode: 0700
+
+
+        ~/dotfiles/additional-template/.zsh-additional-rc
 - shell:
   - [git submodule update --init --recursive, Installing submodules]
+  # Configurable non-tracked files templates
+  -
+    - '[ -f ~/.zsh-additional-rc ] || cat ~/.dotfiles/additional-template/.zsh-additional-rc >> ~/.zsh-additional-rc'
+    - Initialize zsh additional configs
+  -
+    - '[ -f ~/.git-additional.config ] || cat ~/.dotfiles/additional-template/.git-additional.config >> ~/.git-additional.config'
+    - Initialize git additional configs

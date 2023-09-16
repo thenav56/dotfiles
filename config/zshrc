@@ -153,5 +153,7 @@ else
 fi
 
 # Include sensitive/ovewrite configs/env
+# export DAILY_JOURNAL_DIR="$HOME/<path>/journals"
+# export DAILY_JOURNAL_REPO_DIR="$HOME/<path>/"
 ADDITIONAL_ZSH_CONFIGS="$HOME/.zsh-additional-rc"
 [ -f "$ADDITIONAL_ZSH_CONFIGS" ] && source "$ADDITIONAL_ZSH_CONFIGS"

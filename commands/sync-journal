@@ -2,15 +2,13 @@
 
 set -xe
 
-echo $DAILY_JOURNAL_DIR
+echo $DAILY_JOURNAL_REPO_DIR
 
-if [ -z "$DAILY_JOURNAL_DIR" ]; then
-    echo "DAILY_JOURNAL_DIR needs to be defined"
+if [ -z "$DAILY_JOURNAL_REPO_DIR" ]; then
+    echo 'Please set valid export DAILY_JOURNAL_REPO_DIR=$HOME/path at ~/.zsh-additional-rc'
     exit 1
 fi
 
-cd "$DAILY_JOURNAL_DIR"
+cd "$DAILY_JOURNAL_REPO_DIR"
 git pull
 ~/.dotfiles/commands/git-auto -p -o -d ./
-
-# vim: syntax=bas

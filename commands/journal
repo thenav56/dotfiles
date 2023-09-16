@@ -23,5 +23,5 @@ if [ -s "$DAILY_JOURNAL_DIR" ] ; then
         $EDITOR "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d "$ARGS").md"
     fi
 else
-    echo "Please set valid DAILY_JOURNAL_DIR at ~/.zsh-additional-rc"
+    echo 'Please set valid export DAILY_JOURNAL_REPO_DIR=$HOME/path at ~/.zsh-additional-rc'
 fi
