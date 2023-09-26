@@ -8,7 +8,12 @@ SOCKETS_PATH='/tmp/kitty.sock'
 function update_kitty() {
     echo " - $KITTY_LISTEN_ON"
     echo "font_family $KITTY_CUSTOM_FONT" > $HOME/.config/kitty/base16_hooks.conf
-    kill -SIGUSR1 $(pidof kitty)
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        kill -SIGUSR1 $(ps -A | grep kitty | awk '{print $1}')
+    else
+        kill -SIGUSR1 $(pidof kitty)
+    fi
     sleep 0.5
     kitty @ set-colors -ac $HOME/.dotfiles/base16/kitty/colors/base16-$BASE16_THEME-256.conf &> /dev/null
 }

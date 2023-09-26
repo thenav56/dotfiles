@@ -50,9 +50,6 @@
       path: config/rofi/
 
 - create:
-    - ~/.config/nvim/tmp/undo
-    - ~/.config/nvim/tmp/backup
-    - ~/.config/nvim/tmp/swap
     - ~/.local/bin
 
 - create:
@@ -67,6 +64,9 @@
         ~/dotfiles/additional-template/.zsh-additional-rc
 - shell:
   - [git submodule update --init --recursive, Installing submodules]
+  -
+    - envsubst < ~/.dotfiles/config/kitty/macos-launch-services-cmdline-template > ~/.dotfiles/config/kitty/macos-launch-services-cmdline
+    - Generation kitty macos-launch-services-cmdline
   # Configurable non-tracked files templates
   -
     - '[ -f ~/.zsh-additional-rc ] || cat ~/.dotfiles/additional-template/.zsh-additional-rc >> ~/.zsh-additional-rc'

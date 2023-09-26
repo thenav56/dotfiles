@@ -24,7 +24,7 @@ yay -S <package-name>
 # List non AUR, non dependencies packages
 yay -Qne
 
-# List non ARU, non dependencies packages
+# List ARU, non dependencies packages
 yay -Qme
 ```
 > NOTE: You can replace `yay` with `sudo pacman`, but it will not install AUR packages
@@ -37,6 +37,10 @@ Learn vim
 vimtutor
 ```
 
+```
+# Update treesitter
+:TSUpdateSync
+```
 
 ## Custom Scripts
 TODO

@@ -1,0 +1,2 @@
+--single-instance
+--config $HOME/.config/kitty/kitty-mac.conf

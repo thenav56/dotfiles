@@ -111,8 +111,15 @@ export BASE16_DAY_THEME="base16_gruvbox-light-hard"
 export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
 export VIM_BASE16_DAY_THEME="gruvbox-light-hard"
 export VIM_BASE16_NIGHT_THEME="gruvbox-dark-soft"
-export KITTY_DAY_FONT="CaskaydiaCove NF"
-export KITTY_NIGHT_FONT="CaskaydiaCove NF Light"
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    export KITTY_DAY_FONT="CaskaydiaCove Nerd Font Mono"
+    export KITTY_NIGHT_FONT="CaskaydiaCove Nerd Font Mono Light"
+else
+    export KITTY_DAY_FONT="CaskaydiaCove NF"
+    export KITTY_NIGHT_FONT="CaskaydiaCove NF Light"
+fi
+
 # -- Functions
 function day(){
     # NOTE: gtk not working
