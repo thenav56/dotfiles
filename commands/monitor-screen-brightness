@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -x
+
+MONITOR_IDS=$(ddcutil detect | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
+
+for id in $MONITOR_IDS
+do
+    ddcutil --bus $id setvcp 10 $1 & # monitor brightness
+done

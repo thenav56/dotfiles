@@ -198,6 +198,13 @@ g.spelunker_white_list_for_user = {
     'yaml',
     -- Misc
     'enketo',
+    'stdout',
+    'stdin',
+    'Mixin',
+    'asgiref',
+    -- -- Qber project
+    'qbank',
+    'Qber',
 }
 
 local file_patterns = '*.ts,*.tsx,*.vim,*.js,*.jsx,*.json,*.md,*.py'

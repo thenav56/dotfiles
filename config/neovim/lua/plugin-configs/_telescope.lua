@@ -24,6 +24,9 @@ require("telescope").setup {
     live_grep = {
       mappings = common_mappings,
     },
+    grep_string = {
+      mappings = common_mappings,
+    },
     buffers = {
       mappings = common_mappings,
     },
@@ -38,8 +41,14 @@ require("telescope").setup {
 
 telescope.load_extension('live_grep_args')
 
+-- Copied from https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/util/init.lua#L20C10-L20C65
+if require("lazy.core.config").spec.plugins['noice.nvim'] ~= nil then
+    telescope.load_extension('noice')
+end
+
 vim.keymap.set('n', '<leader>ff', function() builtin.find_files({ hidden = true }) end, { silent = true })
 vim.keymap.set('n', '<leader>fa', builtin.live_grep, { silent = true })
+vim.keymap.set('n', '<leader>fs', builtin.grep_string, { silent = true })
 vim.keymap.set('n', '<leader>fb', builtin.oldfiles, { silent = true })
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, { silent = true })
 vim.keymap.set('n', ';', function() builtin.buffers({ sort_lastused = true }) end, { silent = true })

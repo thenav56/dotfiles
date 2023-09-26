@@ -1,6 +1,18 @@
 return {
     {'junegunn/fzf'},
     {'junegunn/fzf.vim'},
+    -- {
+    --     "folke/noice.nvim",
+    --     config = function()
+    --         require('plugin-configs/_nvim-notify')
+    --         require('plugin-configs/_noice')
+    --     end,
+    --     dependencies = {
+    --         "MunifTanjim/nui.nvim",
+    --         "rcarriga/nvim-notify",
+    --     }
+    -- },
+    -- {'eugen0329/vim-esearch'},
     {
         -- fuzzy search
         'nvim-telescope/telescope.nvim',
@@ -13,6 +25,7 @@ return {
         end,
     },
     {'lambdalisue/suda.vim'},
+    {'romainl/vim-qf'},
     {'sheerun/vim-polyglot'},
     {'lukas-reineke/indent-blankline.nvim'},
     {

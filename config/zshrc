@@ -77,9 +77,10 @@ gpgconf --launch gpg-agent
 
 # MANUAL using bat
 export MANROFFOPT="-c"
-export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+export MANPAGER="sh -c 'col -bx | bat --theme base16 -l man -p'"
 
 alias ls=eza
+alias cat="bat --theme base16"
 alias ll='eza -la --git'
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
 
@@ -108,9 +109,15 @@ export GH_DAY_THEME="github-light"
 export GH_NIGHT_THEME="github-dark-dim"
 export BASE16_DAY_THEME="base16_gruvbox-light-hard"
 export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
+export VIM_BASE16_DAY_THEME="gruvbox-light-hard"
+export VIM_BASE16_NIGHT_THEME="gruvbox-dark-soft"
+export KITTY_DAY_FONT="CaskaydiaCove NF"
+export KITTY_NIGHT_FONT="CaskaydiaCove NF Light"
 # -- Functions
 function day(){
     # NOTE: gtk not working
+    export KITTY_CUSTOM_FONT=$KITTY_DAY_FONT
+    export VIM_BASE16_THEME=$VIM_BASE16_DAY_THEME
     eval "$BASE16_DAY_THEME"
     eval "git config --file ~/.git-additional.config split-diffs.theme-name $GH_DAY_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -123,6 +130,8 @@ function day(){
 
 function night(){
     # NOTE: gtk not working
+    export KITTY_CUSTOM_FONT=$KITTY_NIGHT_FONT
+    export VIM_BASE16_THEME=$VIM_BASE16_NIGHT_THEME
     eval "$BASE16_NIGHT_THEME"
     eval "git config --file ~/.git-additional.config split-diffs.theme-name $GH_NIGHT_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -136,6 +145,7 @@ function night(){
 # -- Base16 Shell
 export BASE16_SHELL_HOOKS="$HOME/.dotfiles/base16/shell-hooks/"
 export BASE16_THEME_VALUE_FILE="$HOME/.bash16_theme_value"
+export BASE16_THEME_VIM_FILE="$HOME/.bash16_theme_vim_value"
 BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
 [ -n "$PS1" ] &&
     [ -s "$BASE16_SHELL/profile_helper.sh" ] && source "$BASE16_SHELL/profile_helper.sh"
