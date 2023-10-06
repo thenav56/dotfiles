@@ -1,10 +1,63 @@
 #!/usr/bin/env bash
 
 set -x
+MONITOR_IDS_CACHE_FILE=/tmp/monitor-screen-brightness-monitor-ids
+MONITORS_BRIGHTNESS_CACHE_FILE=/tmp/monitor-screen-brightness-monitor-brightness
 
-MONITOR_IDS=$(ddcutil detect | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
+function get_monitor_ids(){
+    # Cache monitor ids
+    if ! [[ -f "$MONITOR_IDS_CACHE_FILE" ]]; then
+        MONITOR_IDS=$(ddcutil detect | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
+        echo $MONITOR_IDS > "$MONITOR_IDS_CACHE_FILE"
+    fi
+    cat $MONITOR_IDS_CACHE_FILE
+}
 
-for id in $MONITOR_IDS
+function get_current_value(){
+    MONITOR_BRIGHTNESS_CACHE_FILE="$MONITORS_BRIGHTNESS_CACHE_FILE-current"
+    if [[ -f "$MONITOR_BRIGHTNESS_CACHE_FILE" ]]; then
+        cat "$MONITOR_BRIGHTNESS_CACHE_FILE"
+    else
+        ddcutil --bus $1 getvcp 10 | awk '{print($9)}' | cut -d',' -f1
+    fi
+}
+
+function get_max_value(){
+    MONITOR_BRIGHTNESS_CACHE_FILE="$MONITORS_BRIGHTNESS_CACHE_FILE-max"
+    if [[ -f "$MONITOR_BRIGHTNESS_CACHE_FILE" ]]; then
+        cat "$MONITOR_BRIGHTNESS_CACHE_FILE"
+    else
+        MAX_VALUE=$(ddcutil --bus 1 getvcp 10 | awk '{print($13)}')
+        echo $MAX_VALUE > "$MONITOR_BRIGHTNESS_CACHE_FILE"
+    fi
+}
+
+
+function set_current_value(){
+    MONITOR_BRIGHTNESS_CACHE_FILE="$MONITORS_BRIGHTNESS_CACHE_FILE-current"
+    echo $1 > "$MONITOR_BRIGHTNESS_CACHE_FILE"
+}
+
+if [[ $1 == '+' ]]; then
+    CURRENT_VALUE=$(get_current_value $id)
+    MAX_VALUE=$(get_max_value $id)
+    CALCULATED_VALUE=$(($CURRENT_VALUE+10))
+    NEW_VALUE=$(( $CALCULATED_VALUE > $MAX_VALUE ? $MAX_VALUE : $CALCULATED_VALUE ))
+    set_current_value $id $MIN
+elif [[ $1 == '-' ]]; then
+    CURRENT_VALUE=$(get_current_value $id)
+    CALCULATED_VALUE=$(($CURRENT_VALUE-10))
+    NEW_VALUE=$(( $CALCULATED_VALUE < 0 ? 0 : $CALCULATED_VALUE ))
+else
+    NEW_VALUE=$1
+fi
+
+set_current_value $NEW_VALUE
+
+for id in $(get_monitor_ids)
 do
-    ddcutil --bus $id setvcp 10 $1 & # monitor brightness
+    ddcutil --bus $id setvcp 10 $NEW_VALUE & # monitor brightness
 done
+
+# Update polybar
+polybar-msg action brightness hook 0
