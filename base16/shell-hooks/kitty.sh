@@ -15,7 +15,7 @@ function update_kitty() {
         kill -SIGUSR1 $(pidof kitty)
     fi
     sleep 0.5
-    kitty @ set-colors -ac $HOME/.dotfiles/base16/kitty/colors/base16-$BASE16_THEME-256.conf &> /dev/null
+    kitty @ set-colors -ac $HOME/.dotfiles/base16/kitty/colors/base16-$BASE16_THEME-256.conf
 }
 
 
