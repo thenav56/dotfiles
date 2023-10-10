@@ -4,4 +4,4 @@
 ddcutil --sn HDTW023 setvcp D6 05
 
 # Suspend to remote display
-systemctl suspend
+sudo systemctl suspend
