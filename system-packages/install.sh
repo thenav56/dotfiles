@@ -13,6 +13,3 @@ else
     # Arch
     $BASEDIR/arch/install.sh
 fi
-
-# Install npm first
-npm install -g git-split-diffs

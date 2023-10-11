@@ -105,8 +105,8 @@ if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 # NOTE: Change using export GTK_DAY_THEME="Awesome-theme" in ~/.zsh-additional-rc
 export GTK_DAY_THEME="Arc"
 export GTK_NIGHT_THEME="Arc-Dark"
-export GH_DAY_THEME="github-light"
-export GH_NIGHT_THEME="github-dark-dim"
+export GIT_DAY_THEME="gruvbox-light"
+export GIT_NIGHT_THEME="gruvbox-dark"
 export BASE16_DAY_THEME="base16_gruvbox-light-hard"
 export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
 export VIM_BASE16_DAY_THEME="gruvbox-light-hard"
@@ -126,7 +126,8 @@ function day(){
     export KITTY_CUSTOM_FONT=$KITTY_DAY_FONT
     export VIM_BASE16_THEME=$VIM_BASE16_DAY_THEME
     eval "$BASE16_DAY_THEME"
-    eval "git config --file ~/.git-additional.config split-diffs.theme-name $GH_DAY_THEME"
+    eval "git config --file ~/.git-additional.config delta.light true"
+    eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_DAY_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e \
             'tell app "System Events" to tell appearance preferences to set dark mode to false'
@@ -140,7 +141,8 @@ function night(){
     export KITTY_CUSTOM_FONT=$KITTY_NIGHT_FONT
     export VIM_BASE16_THEME=$VIM_BASE16_NIGHT_THEME
     eval "$BASE16_NIGHT_THEME"
-    eval "git config --file ~/.git-additional.config split-diffs.theme-name $GH_NIGHT_THEME"
+    eval "git config --file ~/.git-additional.config delta.light false"
+    eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_NIGHT_THEME"
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e \
             'tell app "System Events" to tell appearance preferences to set dark mode to true'
