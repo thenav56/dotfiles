@@ -9,6 +9,7 @@ function update_kitty() {
     echo " - $KITTY_LISTEN_ON"
     echo "font_family $KITTY_CUSTOM_FONT" > $HOME/.config/kitty/base16_hooks.conf
 
+    # NOTE: This is for reloading kitty config (Basically for changed fonts)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         kill -SIGUSR1 $(ps -A | grep kitty | awk '{print $1}')
     else

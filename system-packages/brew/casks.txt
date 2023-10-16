@@ -1,0 +1,14 @@
+aldente
+basictex
+firefox
+font-caskaydia-cove-nerd-font
+font-hack-nerd-font
+google-chrome
+keepassxc
+kitty
+logseq
+monitorcontrol
+rectangle
+stats
+unnaturalscrollwheels
+vnc-viewer
