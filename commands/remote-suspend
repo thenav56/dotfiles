@@ -2,6 +2,8 @@
 
 # Turn off the main display
 ddcutil --sn HDTW023 setvcp D6 05
+# ddcutil --bus 0 setvcp D6 05
+
 
 # Suspend to remote display
 sudo systemctl suspend
