@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -xe
+
+# Use $HOME/.zsh-additional-rc to define this
+if [ -z "$REMOTE_MACHINE_SSH_HOST" ]; then
+    echo "REMOTE_MACHINE_SSH_HOST needs to be defined"
+    exit 1
+fi
+if [ "$REMOTE_MACHINE_SSH_WOL_HOST" ]; then
+    echo "Trying to wake-up using ssh host: $REMOTE_MACHINE_SSH_WOL_HOST"
+    ssh $REMOTE_MACHINE_SSH_WOL_HOST
+    sleep 2
+else
+    echo "Skip wake-on-lan"
+fi
+
+
+DESKTOP=${1:-i3}
+
+# Check connection and start multiplexer
+ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
+
+if [[ "$DESKTOP" == "i3" ]] ; then
+    ssh -L localhost:5900:localhost:5900 -t $REMOTE_MACHINE_SSH_HOST 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none'
+else
+    ssh \
+        $REMOTE_MACHINE_SSH_HOST \
+        -L localhost:5900:localhost:5900 \
+        -t '~/.local/bin/wake-up-for-vnc.sh; WAYLAND_DISPLAY=wayland-1 wayvnc -o HDMI-A-1 -r -k us -L debug --verbose'
+fi

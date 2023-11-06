@@ -83,7 +83,7 @@ alias ls=eza
 alias cat="bat --theme base16"
 alias ll='eza -la --git'
 alias gpush='git push -u origin $(git rev-parse --abbrev-ref HEAD)'
-alias srsync="rsync --stats --numeric-ids --info=progress2 -avxhHAX"
+alias srsync="rsync --stats --numeric-ids --info=progress2 -avxhHAX -s"
 alias ssrsync="rsync --info=progress2 -axhHAX"
 
 
