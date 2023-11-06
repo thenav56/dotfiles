@@ -23,8 +23,6 @@ local current_theme_name_from_env = os.getenv('BASE16_THEME')
 local current_theme_from_file = read_file_first_line(os.getenv('BASE16_THEME_VIM_FILE'))
 local current_theme_name = current_theme_from_file or current_theme_name_from_env
 
-print(current_theme_from_file)
-
 if current_theme_name and g.colors_name ~= 'base16-'..current_theme_name then
   cmd('colorscheme base16-'..current_theme_name)
 end

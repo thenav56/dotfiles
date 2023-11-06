@@ -1,9 +1,20 @@
 #!/bin/bash -x
 
-# Turn off the main display
-ddcutil --sn HDTW023 setvcp D6 05
-# ddcutil --bus 0 setvcp D6 05
+# Turn off all the display
+~/.dotfiles/commands/turn-off-displays
+
+# Without sudo
+# https://wiki.archlinux.org/title/Polkit
+systemctl --no-ask-password suspend && exit 0
 
 
-# Suspend to remote display
+# With sudo
+REQUIRE_PASSWOR_IN_SUDO=$(SUDO_ASKPASS=/bin/false sudo -A systemctl suspend 2>&1 | wc -l)
+
+if [ $REQUIRE_PASSWOR_IN_SUDO = 2 ]; then
+    echo "$USER ALL=(ALL:ALL) NOPASSWD: /usr/bin/systemctl suspend" | sudo tee -a /etc/sudoers.d/suspend
+else
+    exit 0
+fi
+
 sudo systemctl suspend

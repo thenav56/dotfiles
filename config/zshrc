@@ -36,6 +36,10 @@ zinit for \
 zinit light romkatv/powerlevel10k
 zinit light jeffreytse/zsh-vi-mode
 
+export NVM_COMPLETION=true
+export NVM_SYMLINK_CURRENT="true"
+zinit wait lucid light-mode for lukechilds/zsh-nvm
+
 zi for \
     atload"zicompinit; zicdreplay" \
     blockf \
