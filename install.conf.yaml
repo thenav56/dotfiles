@@ -12,6 +12,8 @@
     ~/.ripgreprc: config/ripgreprc
     ~/.gitconfig:
       path: config/git/git.conf
+    ~/.git-templates/:
+      path: config/git/git-templates/
     ~/.config/kitty/:
       path: config/kitty
     ~/.config/nvim/:
@@ -25,10 +27,6 @@
       path: config/tmux.conf
     ~/.config/tmux/plugins/tpm/:
       path: tools/tmux-tpm/
-    # Scripts
-    ~/.local/bin/:
-      glob: true
-      path: commands/**
     # Linux only
     ~/.vnc/config:
       if: '[ `uname` != Darwin ]'

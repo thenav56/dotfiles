@@ -1,10 +1,9 @@
 #!/bin/env bash
 
-set -x
-
 MONITOR_IDS=$(ddcutil detect | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
 
 for id in $MONITOR_IDS
 do
+    echo "- Turning off display ID: $id"
     ddcutil --bus $id setvcp D6 05
 done

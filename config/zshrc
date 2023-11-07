@@ -67,7 +67,7 @@ setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording en
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
 # Environment variables
-export PATH=$PATH:"$HOME/.local/bin/"
+export PATH=$PATH:"$HOME/.local/bin":"$HOME/.dotfiles/commands"
 export EDITOR=nvim
 export ZVM_VI_EDITOR=$EDITOR
 export VISUAL=$EDITOR
@@ -115,8 +115,8 @@ export GIT_DAY_THEME="gruvbox-light"
 export GIT_NIGHT_THEME="gruvbox-dark"
 export BASE16_DAY_THEME="base16_gruvbox-light-hard"
 export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
-export VIM_BASE16_DAY_THEME="gruvbox-light-hard"
-export VIM_BASE16_NIGHT_THEME="gruvbox-dark-soft"
+export VIM_DAY_THEME="base16-gruvbox-light-hard"
+export VIM_NIGHT_THEME="base16-gruvbox-dark-soft"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     export KITTY_DAY_FONT="CaskaydiaCove Nerd Font Mono"
@@ -130,7 +130,7 @@ fi
 function day(){
     # NOTE: gtk not working
     export KITTY_CUSTOM_FONT=$KITTY_DAY_FONT
-    export VIM_BASE16_THEME=$VIM_BASE16_DAY_THEME
+    export VIM_ACTIVE_THEME=$VIM_DAY_THEME
     eval "$BASE16_DAY_THEME"
     eval "git config --file ~/.git-additional.config delta.light true"
     eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_DAY_THEME"
@@ -145,7 +145,7 @@ function day(){
 function night(){
     # NOTE: gtk not working
     export KITTY_CUSTOM_FONT=$KITTY_NIGHT_FONT
-    export VIM_BASE16_THEME=$VIM_BASE16_NIGHT_THEME
+    export VIM_ACTIVE_THEME=$VIM_NIGHT_THEME
     eval "$BASE16_NIGHT_THEME"
     eval "git config --file ~/.git-additional.config delta.light false"
     eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_NIGHT_THEME"
@@ -158,9 +158,9 @@ function night(){
 }
 
 # -- Base16 Shell
-export BASE16_SHELL_HOOKS="$HOME/.dotfiles/base16/shell-hooks/"
+export BASE16_SHELL_HOOKS="$HOME/.dotfiles/base16/shell-hooks"
 export BASE16_THEME_VALUE_FILE="$HOME/.bash16_theme_value"
-export BASE16_THEME_VIM_FILE="$HOME/.bash16_theme_vim_value"
+export VIM_ACTIVE_THEME_FILE="$HOME/.vim_active_theme_file"
 BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
 [ -n "$PS1" ] &&
     [ -s "$BASE16_SHELL/profile_helper.sh" ] && source "$BASE16_SHELL/profile_helper.sh"

@@ -1,11 +1,11 @@
-#!/bin/bash -x
+#!/bin/bash
 
 # Turn off all the display
 ~/.dotfiles/commands/turn-off-displays
 
 # Without sudo
 # https://wiki.archlinux.org/title/Polkit
-systemctl --no-ask-password suspend && exit 0
+systemctl --no-ask-password suspend 2>&1 && exit 0
 
 
 # With sudo

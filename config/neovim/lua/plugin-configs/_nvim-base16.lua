@@ -19,10 +19,13 @@ local function read_file_first_line(file)
 end
 
 
-local current_theme_name_from_env = os.getenv('BASE16_THEME')
-local current_theme_from_file = read_file_first_line(os.getenv('BASE16_THEME_VIM_FILE'))
-local current_theme_name = current_theme_from_file or current_theme_name_from_env
+local current_theme_name = read_file_first_line(os.getenv('VIM_ACTIVE_THEME_FILE'))
 
-if current_theme_name and g.colors_name ~= 'base16-'..current_theme_name then
-  cmd('colorscheme base16-'..current_theme_name)
+-- Try with env again
+if (current_theme_name == nil or current_theme_name == '') then
+    current_theme_name = 'base16-' .. os.getenv('BASE16_THEME')
+end
+
+if current_theme_name and g.colors_name ~= current_theme_name then
+  cmd('colorscheme '..current_theme_name)
 end

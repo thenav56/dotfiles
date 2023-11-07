@@ -14,9 +14,6 @@
 ##  git-auto -o -p;; execute once
 
 
-#set -e
-set -x
-
 usage="usage: $0
     [-d <git directory>]
     [-i <interval seconds>]
@@ -32,7 +29,7 @@ interval=20
 once=0
 
 OPTIND=1
-while getopts d:i:b:s:pro flag; do
+while getopts d:i:b:s:hpro flag; do
   case "${flag}" in
   d) directory=${OPTARG} ;;
   p) push_to_server=1 ;;

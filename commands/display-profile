@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+
+function primary_profile {
+    xrandr \
+        --output HDMI-2 --off \
+        --output DP-2 --off
+}
+
+function all_profile {
+    xrandr \
+        --output HDMI-2 \
+            --mode 1920x1080 \
+            --pos 0x30 \
+            --rotate left \
+        --output HDMI-1 \
+            --primary \
+            --mode 1920x1080 \
+            --pos 1080x370 \
+            --rotate normal \
+        --output DP-2 \
+            --mode 1920x1080 \
+            --pos 3000x0 \
+            --rotate right
+}
+
+
+function show_usage {
+    echo "Usage: $0 <Profile>"
+    echo "Profiles:"
+    echo "  primary"
+    echo "  all"
+}
+
+
+case "$1" in
+    primary)
+        primary_profile ;;
+    all)
+        all_profile ;;
+    *)
+        show_usage
+        exit 1
+        ;;
+esac
+
+sleep 1
+~/.dotfiles/config/polybar/launch_polybar.sh &

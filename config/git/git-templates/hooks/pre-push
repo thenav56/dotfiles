@@ -1,0 +1,33 @@
+#!/bin/bash
+# Warn before pushing to protected branches
+# Make script executable with chmod +x pre-push
+# Bypass with git push --no-verify
+
+BRANCH=`git rev-parse --abbrev-ref HEAD`
+PUSH_COMMAND=$(ps -ocommand= -p $PPID)
+
+PROTECTED_BRANCHES="^(master|dev|develop|rc-*|release-*|patch-*)"
+SERIOUS_ARGS='--force|-f'
+
+prompt(){
+    read -p "$1" -n 1 -r < /dev/tty
+    echo
+    if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Push aborted."
+        exit 1
+    fi
+}
+
+if [[ "$PUSH_COMMAND" =~ $SERIOUS_ARGS ]]; then
+    prompt "Are you sure you want to force push to $BRANCH ? (y/n): "
+fi
+if [[ "$BRANCH" =~ $PROTECTED_BRANCHES ]]; then
+    prompt "Are you sure you want to push to $BRANCH ? (y/n): "
+fi
+
+# Run from active git repo
+set -eu
+hook_name="$(basename "$0")"
+hook_script=".git/hooks/$hook_name"
+[ -e "$hook_script" ] && "$hook_script"
+exit 0

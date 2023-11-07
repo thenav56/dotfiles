@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+function remote_wol {
+    if [ -z "$REMOTE_MACHINE_SSH_WOL_HOST" ]; then
+        echo "REMOTE_MACHINE_SSH_WOL_HOST needs to be defined"
+        exit 1
+    fi
+    ssh $REMOTE_MACHINE_SSH_WOL_HOST
+}
+
+function remote_vnc_connect {
+    set -xe
+
+    # Use $HOME/.zsh-additional-rc to define this
+    if [ -z "$REMOTE_MACHINE_SSH_HOST" ]; then
+        echo "REMOTE_MACHINE_SSH_HOST needs to be defined"
+        exit 1
+    fi
+    if [ "$REMOTE_MACHINE_SSH_WOL_HOST" ]; then
+        echo "Trying to wake-up using ssh host: $REMOTE_MACHINE_SSH_WOL_HOST"
+        ssh $REMOTE_MACHINE_SSH_WOL_HOST
+        sleep 2
+    else
+        echo "Skip wake-on-lan"
+    fi
+
+    DESKTOP=${2:-i3}
+
+    # Check connection and start multiplexer if used or just make sure remote is reachable
+    ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
+
+    if [[ "$DESKTOP" == "i3" ]] ; then
+        ssh -L localhost:5900:localhost:5900 -t $REMOTE_MACHINE_SSH_HOST 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none'
+    else
+        # TODO: ~/.local/bin/wake-up-for-vnc.sh is defined
+        ssh \
+            $REMOTE_MACHINE_SSH_HOST \
+            -L localhost:5900:localhost:5900 \
+            -t '~/.local/bin/wake-up-for-vnc.sh; WAYLAND_DISPLAY=wayland-1 wayvnc -o HDMI-A-1 -r -k us -L debug --verbose'
+    fi
+    set +xe
+}
+
+function remote_suspend {
+    ssh $REMOTE_MACHINE_SSH_HOST -t '~/.dotfiles/commands/system-suspend'
+}
+
+
+function remote_turn_off_display {
+    ssh $REMOTE_MACHINE_SSH_HOST -t '~/.dotfiles/commands/turn-off-display'
+}
+
+function show_usage {
+    echo "Usage: $0 <COMMAND>"
+    echo "Commands:"
+    echo "  wol              -- To wake up your remote system"
+    echo "  vnc              -- To tunnel remote vnc port to your localhost - 5900"
+    echo "  turn-off-display -- To turn off remote display"
+    echo "  suspend          -- To system remote system"
+}
+
+
+case "$1" in
+    vnc)
+        remote_vnc_connect ;;
+    wol)
+        remote_wol ;;
+    suspend)
+        remote_suspend ;;
+    turn-off-display)
+        remote_turn_off_display ;;
+    *)
+        show_usage
+        exit 1
+        ;;
+esac

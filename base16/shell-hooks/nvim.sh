@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-if ! [[ -z "$VIM_BASE16_THEME" ]]; then
-    BASE16_THEME=$VIM_BASE16_THEME
+if ! [[ -z "$VIM_ACTIVE_THEME" ]]; then
+    ACTIVE_THEME=$VIM_ACTIVE_THEME
 fi
 
-echo "Updating neovim instances with $BASE16_THEME"
+echo "Updating neovim instances with $ACTIVE_THEME"
 for servername in $(nvr --serverlist 2>/dev/null):
 do
     # Only for parent node
@@ -14,9 +14,9 @@ do
             --servername $servername \
             --nostart \
             --remote-send \
-            "<ESC>:colorscheme base16-$BASE16_THEME<ENTER>"
+            "<ESC>:colorscheme $ACTIVE_THEME<ENTER>"
     fi
 done
 
-echo " * Update $BASE16_THEME_VIM_FILE with $BASE16_THEME"
-echo $BASE16_THEME > $BASE16_THEME_VIM_FILE
+echo " * Update $VIM_ACTIVE_THEME_FILE with $ACTIVE_THEME"
+echo $ACTIVE_THEME > $VIM_ACTIVE_THEME_FILE
