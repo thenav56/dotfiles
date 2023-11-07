@@ -15,7 +15,7 @@
 
 
 #set -e
-#set -x
+set -x
 
 usage="usage: $0
     [-d <git directory>]
