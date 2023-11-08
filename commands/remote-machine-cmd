@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+DOT_COMMANDS_DIR='~/.dotfiles/commands'
+
 function remote_wol {
     if [ -z "$REMOTE_MACHINE_SSH_WOL_HOST" ]; then
         echo "REMOTE_MACHINE_SSH_WOL_HOST needs to be defined"
@@ -28,35 +30,38 @@ function remote_vnc_connect {
 
     # Check connection and start multiplexer if used or just make sure remote is reachable
     ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
+    # Use primary display profile
+    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:0 $DOT_COMMANDS_DIR/display-profile primary"
+    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/turn-off-displays"
 
     if [[ "$DESKTOP" == "i3" ]] ; then
         ssh -L localhost:5900:localhost:5900 -t $REMOTE_MACHINE_SSH_HOST 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none'
     else
-        # TODO: ~/.local/bin/wake-up-for-vnc.sh is defined
-        ssh \
-            $REMOTE_MACHINE_SSH_HOST \
-            -L localhost:5900:localhost:5900 \
-            -t '~/.local/bin/wake-up-for-vnc.sh; WAYLAND_DISPLAY=wayland-1 wayvnc -o HDMI-A-1 -r -k us -L debug --verbose'
+        echo 'TODO:'
+        # ssh \
+        #     $REMOTE_MACHINE_SSH_HOST \
+        #     -L localhost:5900:localhost:5900 \
+        #     -t '~/.local/bin/wake-up-for-vnc.sh; WAYLAND_DISPLAY=wayland-1 wayvnc -o HDMI-A-1 -r -k us -L debug --verbose'
     fi
     set +xe
 }
 
 function remote_suspend {
-    ssh $REMOTE_MACHINE_SSH_HOST -t '~/.dotfiles/commands/system-suspend'
+    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/system-suspend"
 }
 
 
 function remote_turn_off_display {
-    ssh $REMOTE_MACHINE_SSH_HOST -t '~/.dotfiles/commands/turn-off-display'
+    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/turn-off-displays"
 }
 
 function show_usage {
     echo "Usage: $0 <COMMAND>"
     echo "Commands:"
-    echo "  wol              -- To wake up your remote system"
-    echo "  vnc              -- To tunnel remote vnc port to your localhost - 5900"
-    echo "  turn-off-display -- To turn off remote display"
-    echo "  suspend          -- To system remote system"
+    echo -e "  wol               -- To wake up your remote system"
+    echo -e "  vnc               -- To tunnel remote vnc port to your localhost - 5900"
+    echo -e "  turn-off-displays -- To turn off remote display"
+    echo -e "  suspend           -- To system remote system"
 }
 
 
@@ -67,7 +72,7 @@ case "$1" in
         remote_wol ;;
     suspend)
         remote_suspend ;;
-    turn-off-display)
+    turn-off-displays)
         remote_turn_off_display ;;
     *)
         show_usage

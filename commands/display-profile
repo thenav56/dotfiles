@@ -45,4 +45,4 @@ case "$1" in
 esac
 
 sleep 1
-~/.dotfiles/config/polybar/launch_polybar.sh &
+~/.dotfiles/config/polybar/launch_polybar.sh &>/dev/null &

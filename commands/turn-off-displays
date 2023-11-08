@@ -1,9 +1,23 @@
 #!/bin/env bash
 
-MONITOR_IDS=$(ddcutil detect | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
+# Fetch data from ddcutil
+MONITORS_DETECT=$(ddcutil detect)
 
-for id in $MONITOR_IDS
+# Generate arrays
+MONITORS_ID=(
+    $(echo "$MONITORS_DETECT" | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
+)
+MONITORS_MODELS=(
+    $(echo "$MONITORS_DETECT" | grep "Model:" | awk '{print($3)}' | cut -d'-' -f2)
+)
+MONITORS_SERIAL_NUMBER=(
+    $(echo "$MONITORS_DETECT" | grep "Serial number:" | awk '{print($3)}' | cut -d'-' -f2)
+)
+
+# Loop through Monitors
+for index in ${!MONITORS_ID[@]};
 do
-    echo "- Turning off display ID: $id"
-    ddcutil --bus $id setvcp D6 05
+    MONITOR_ID=${MONITORS_ID[$index]}
+    echo -e "- Turning off display: ID=$MONITOR_ID\tModel=${MONITORS_MODELS[$index]}\tSN=${MONITORS_SERIAL_NUMBER[$index]}"
+    ddcutil --bus $MONITOR_ID setvcp D6 05
 done
