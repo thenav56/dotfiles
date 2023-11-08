@@ -58,8 +58,6 @@
     ~/.ssh/config.d/:
       mode: 0700
 
-
-        ~/dotfiles/additional-template/.zsh-additional-rc
 - shell:
   - [git submodule update --init --recursive, Installing submodules]
   -

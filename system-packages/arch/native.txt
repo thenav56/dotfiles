@@ -19,7 +19,7 @@ docker-compose
 dunst
 efibootmgr
 eog
-exa
+eza
 fakeroot
 fd
 feh
