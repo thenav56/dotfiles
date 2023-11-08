@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # Turn off all the display
-~/.dotfiles/commands/turn-off-displays
+echo "Powering-off all monitors"
+~/.dotfiles/commands/monitor-cmd turn-all-off
 
+echo "Suspending now....."
 # Without sudo
 # https://wiki.archlinux.org/title/Polkit
-systemctl --no-ask-password suspend 2>&1 && exit 0
+systemctl --no-ask-password suspend &>/dev/null && exit 0
 
 
 # With sudo

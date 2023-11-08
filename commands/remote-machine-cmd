@@ -32,7 +32,7 @@ function remote_vnc_connect {
     ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
     # Use primary display profile
     ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:0 $DOT_COMMANDS_DIR/display-profile primary"
-    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/turn-off-displays"
+    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/monitor-cmd turn-all-off"
 
     if [[ "$DESKTOP" == "i3" ]] ; then
         ssh -L localhost:5900:localhost:5900 -t $REMOTE_MACHINE_SSH_HOST 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none'
