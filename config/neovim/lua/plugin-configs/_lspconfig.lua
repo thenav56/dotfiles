@@ -140,6 +140,7 @@ lspconfig.stylelint_lsp.setup {
     },
 }
 lspconfig.yamlls.setup {capabilities = capabilities}
+lspconfig.nginx_language_server.setup { capabilities = capabilities }
 
 -- Global mappings.
 -- See `:help vim.diagnostic.*` for documentation on any of the below functions
