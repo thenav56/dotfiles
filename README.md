@@ -44,16 +44,17 @@ sudo systemctl restart systemd-resolved
 Create `/etc/systemd/network/20-wired.network`
 ```config
 [Match]
-Name=enp1s0
+Type=ether
+Virtualization=False
 
 [Network]
 DHCP=yes
 
 [DHCPv4]
-RouteMetric=10
+RouteMetric=100
 
 [IPv6AcceptRA]
-RouteMetric=10
+RouteMetric=100
 ```
 
 **Wireless network**
@@ -61,19 +62,19 @@ RouteMetric=10
 Create `/etc/systemd/network/25-wireless.network`
 ```config
 [Match]
-Name=wlan0
+Type=wlan
+Virtualization=False
 
 [Network]
 DHCP=yes
 IgnoreCarrierLoss=3s
 
 [DHCPv4]
-RouteMetric=20
+RouteMetric=200
 
 [IPv6AcceptRA]
-RouteMetric=20
+RouteMetric=200
 ```
-> NOTE: wlan0 and enp1s0 can be different in your system. Please use `ip config`
 
 ### Git configuration
 Create a new file ~/.git-additional.config and add sensitive configurations there

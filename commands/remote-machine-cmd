@@ -21,21 +21,23 @@ function remote_vnc_connect {
     if [ "$REMOTE_MACHINE_SSH_WOL_HOST" ]; then
         echo "Trying to wake-up using ssh host: $REMOTE_MACHINE_SSH_WOL_HOST"
         ssh $REMOTE_MACHINE_SSH_WOL_HOST
-        sleep 2
     else
         echo "Skip wake-on-lan"
     fi
 
     DESKTOP=${2:-i3}
+    REMOTE_MACHINE_DISPLAY=${REMOTE_MACHINE_DISPLAY:-0}
 
     # Check connection and start multiplexer if used or just make sure remote is reachable
     ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
     # Use primary display profile
-    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:0 $DOT_COMMANDS_DIR/display-profile primary"
-    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/monitor-cmd turn-all-off"
+    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY $DOT_COMMANDS_DIR/display-profile primary" || true
+    ssh $REMOTE_MACHINE_SSH_HOST -t "pkill -9 x0vncserver" || true
+    ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/monitor-cmd turn-all-off" || true
 
     if [[ "$DESKTOP" == "i3" ]] ; then
-        ssh -L localhost:5900:localhost:5900 -t $REMOTE_MACHINE_SSH_HOST 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none'
+        ssh -L localhost:5900:localhost:5900 $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY x0vncserver -localhost -SecurityTypes none"
+        # ssh -L localhost:5900:localhost:5900 $REMOTE_MACHINE_SSH_HOST -t "x11vnc -xkb -localhost -display :$REMOTE_MACHINE_DISPLAY"
     else
         echo 'TODO:'
         # ssh \
@@ -43,11 +45,13 @@ function remote_vnc_connect {
         #     -L localhost:5900:localhost:5900 \
         #     -t '~/.local/bin/wake-up-for-vnc.sh; WAYLAND_DISPLAY=wayland-1 wayvnc -o HDMI-A-1 -r -k us -L debug --verbose'
     fi
+    ssh -O exit $REMOTE_MACHINE_SSH_HOST
     set +xe
 }
 
 function remote_suspend {
     ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/system-suspend"
+    ssh -O exit $REMOTE_MACHINE_SSH_HOST
 }
 
 
