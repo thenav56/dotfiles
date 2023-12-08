@@ -108,6 +108,7 @@ function zvm_after_init() {
 }
 if type "zoxide" > /dev/null; then eval "$(zoxide init zsh)"; fi
 if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
+if type "pyenv-virtualenv" > /dev/null; then eval "$(pyenv virtualenv-init -)"; fi
 
 # Theme
 # NOTE: Change using export GTK_DAY_THEME="Awesome-theme" in ~/.zsh-additional-rc

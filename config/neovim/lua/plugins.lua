@@ -133,4 +133,13 @@ return {
             require('plugin-configs/_nvim-base16')
         end,
     },
+    {
+        'folke/zen-mode.nvim',
+        config = function()
+            require('plugin-configs/_zen-mode')
+        end,
+        dependencies = {
+            'folke/twilight.nvim',
+        }
+    },
 }

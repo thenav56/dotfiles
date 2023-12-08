@@ -221,6 +221,17 @@ To read:
 ## Replace
 Search for `REPLACE` and replace the values accordingly
 
+## Kernel modules
+- /etc/modules-load.d/ddcutil.conf <https://wiki.archlinux.org/title/backlight#External_monitors>
+  ```
+  i2c_dev
+  ddcci
+  ```
+- /etc/modules-load.d/zfs.conf
+  ```
+  zfs
+  ```
+
 ## Defaults
 - Browsers
     ```bash
