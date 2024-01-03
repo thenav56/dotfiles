@@ -6,7 +6,7 @@ pkill polybar
 NUM_OF_MONITOR=$(polybar --list-monitors | wc -l)
 
 # Single Monitor
-if [[ "$NUM_OF_MONITOR" == 0 ]] ; then
+if [[ "$NUM_OF_MONITOR" == 1 ]] ; then
     MONITOR=$(polybar --list-monitors | cut -d":" -f1) polybar -r &
 # Multiple Monitors
 else

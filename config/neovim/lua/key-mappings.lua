@@ -13,9 +13,10 @@ map('', 'j', 'v:count == 0 ? "gj" : "j"', { silent = true, expr = true })
 map('', 'k', 'v:count == 0 ? "gk" : "k"', { silent = true, expr = true })
 
 -- CHAD
--- NOTE: <tab> == ctrl-i (opposite to ctrl+o), so using <c-tab> instead
+-- NOTE: <tab> == ctrl-i (opposite to ctrl+o), so use <c-tab> instead
 -- https://github.com/neovim/neovim/issues/5916
-map('', '<c-tab>', ':CHADopen<CR>', { silent = true, remap = false })
+map('', '<tab>', ':CHADopen<CR>', { silent = true, remap = false })
+-- map('', '<c-tab>', ':CHADopen<CR>', { silent = true, remap = false })
 
 -- FZF
 map('n', '<leader>bs', ':History<CR>', { silent = true })

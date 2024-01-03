@@ -4,36 +4,40 @@
 MONITORS_DETECT=$(ddcutil detect)
 
 # Generate arrays
-MONITORS_ID=(
-    $(echo "$MONITORS_DETECT" | grep I2C | awk '{print($3)}' | cut -d'-' -f2)
-)
-MONITORS_MODELS=(
-    $(echo "$MONITORS_DETECT" | grep "Model:" | awk '{print($3)}')
-)
-MONITORS_SERIAL_NUMBER=(
-    $(echo "$MONITORS_DETECT" | grep "Serial number:" | awk '{print($3)}')
-)
-MONITORS_CARD_ID=(
-    $(echo "$MONITORS_DETECT" | grep "DRM connector:" | awk '{print($3)}' | cut -d'-' -f2-)
-)
+MONITORS_ID=($(echo -e "$MONITORS_DETECT" | grep I2C | awk '{print($3)}' | cut -d'-' -f2))
+MONITORS_MODELS=($(echo -e "$MONITORS_DETECT" | grep "Model:" | awk '{print($3)}'))
+MONITORS_SERIAL_NUMBER=($(echo -e "$MONITORS_DETECT" | grep "Serial number:" | awk '{print($3)}'))
+MONITORS_CARD_ID=($(echo -e "$MONITORS_DETECT" | grep "DRM connector:" | awk '{print($3)}' | cut -d'-' -f2-))
 
-echo $MONITORS_CARD_ID
+# echo "${MONITORS_ID[@]}"
+# echo "${MONITORS_CARD_ID[@]}"
 
 function power_all {
-    ACTION_LABEL="on"
+    ACTION_LABEL="ON"
     ACTION_VALUE=01
     if [[ "$1" == "off" ]]; then
-        ACTION_LABEL="off"
+        ACTION_LABEL="OFF"
         ACTION_VALUE=05  # FORCE OFF
     fi
     # Loop through Monitors
     for index in ${!MONITORS_ID[@]};
     do
         MONITOR_ID=${MONITORS_ID[$index]}
-        echo -e "- Turning $ACTION_LABEL display: ID=$MONITOR_ID\tModel=${MONITORS_MODELS[$index]}\tSN=${MONITORS_SERIAL_NUMBER[$index]}\tCARD=${MONITORS_CARD_ID[$index]}"
+        echo -e "- Turning <$ACTION_LABEL> display: ID=$MONITOR_ID\tModel=${MONITORS_MODELS[$index]}\tSN=${MONITORS_SERIAL_NUMBER[$index]}\tCARD=${MONITORS_CARD_ID[$index]}"
         ddcutil --bus $MONITOR_ID setvcp D6 $ACTION_VALUE
     done
 }
+
+function check_power {
+    if [[ "$MONITORS_DETECT" = "DPMS sleep mode is active.  Terminating execution" ]]; then
+        # OFF
+        echo "%{F#D9534F} 󰶐 %{F-}"
+    else
+        # ON
+        echo "%{F#20C997} 󱎴 %{F-}"
+    fi
+}
+
 
 function show_usage {
     echo "Usage: $0 <COMMAND>"
@@ -44,6 +48,8 @@ function show_usage {
 
 
 case "$1" in
+    check-power)
+        check_power ;;
     turn-all-off)
         power_all off ;;
     turn-all-on)

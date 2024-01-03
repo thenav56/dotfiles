@@ -3,9 +3,30 @@
 
 function primary_profile {
     xrandr \
+        --output HDMI-1 \
+            --primary \
+            --mode 1920x1080 \
+            --pos 1080x370 \
+            --rotate normal \
         --output HDMI-2 --off \
         --output DP-2 --off
 }
+
+function mac_vnc_profile {
+    if [[ $(xrandr -d $DISPLAY | grep "1712x1075_60.00" | wc -l) == 0 ]]; then
+        echo 'Generating new mode'
+        # NOTE: Generted using `cvt -v 1712 1075 60`
+        xrandr --newmode "1712x1075_60.00"  153.00  1712 1824 2000 2288  1075 1078 1088 1115 -hsync +vsync
+        xrandr --addmode HDMI-1 "1712x1075_60.00"
+    fi
+    xrandr \
+        --output HDMI-1 \
+            --mode "1712x1075_60.00" \
+            --pos 0x0 \
+        --output HDMI-2 --off \
+        --output DP-2 --off
+}
+
 
 function all_profile {
     xrandr \
@@ -36,6 +57,8 @@ function show_usage {
 case "$1" in
     primary)
         primary_profile ;;
+    mac)
+        mac_vnc_profile ;;
     all)
         all_profile ;;
     *)
