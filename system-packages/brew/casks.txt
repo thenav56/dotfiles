@@ -4,10 +4,12 @@ firefox
 font-caskaydia-cove-nerd-font
 font-hack-nerd-font
 google-chrome
-keepassxc
+iina
 kitty
 logseq
+microsoft-auto-update
 monitorcontrol
+qbittorrent
 rectangle
 stats
 unnaturalscrollwheels

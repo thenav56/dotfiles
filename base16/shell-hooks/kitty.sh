@@ -16,7 +16,7 @@ function update_kitty() {
     echo " * Try reloading kitty config using -SIGUSR1"
     # NOTE: This is for reloading kitty config (Basically for changed fonts)
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        kill -SIGUSR1 $(ps -A | grep kitty | awk '{print $1}')
+        kill -SIGUSR1 $(ps -A | grep "MacOS/[k]itty" | awk '{print $1}')
     else
         kill -SIGUSR1 $(pidof kitty)
     fi

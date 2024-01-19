@@ -16,7 +16,6 @@ return {
     {'lambdalisue/suda.vim'},
     {'romainl/vim-qf'},
     {'sheerun/vim-polyglot'},
-    {'lukas-reineke/indent-blankline.nvim'},
     {
         'norcalli/nvim-colorizer.lua',
         config = function()
@@ -47,6 +46,12 @@ return {
         config = function ()
             require('plugin-configs/_alpha-nvim')
         end
+    },
+    {
+        "lukas-reineke/indent-blankline.nvim",
+        config = function()
+            require('plugin-configs/_indent-blankline')
+        end,
     },
     {
         'numToStr/Comment.nvim',
@@ -141,5 +146,9 @@ return {
         dependencies = {
             'folke/twilight.nvim',
         }
+    },
+    {
+        -- misc
+        'romainl/vim-qf'
     },
 }
