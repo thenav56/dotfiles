@@ -46,6 +46,9 @@
     ~/.config/rofi/:
       if: '[ `uname` != Darwin ]'
       path: config/rofi/
+    ~/.config/xsettingsd/:
+      if: '[ `uname` != Darwin ]'
+      path: config/xsettingsd/
 
 - create:
     - ~/.local/bin

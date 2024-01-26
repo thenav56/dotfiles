@@ -239,6 +239,14 @@ Search for `REPLACE` and replace the values accordingly
     xdg-settings set default-web-browser firefoxdeveloperedition.desktop
     ```
 
+## Theme
+
+X-server
+```bash
+yay -S xsettingsd
+systemctl enable --now --user xsettingsd.service
+```
+
 ## Font
 <https://www.nerdfonts.com/cheat-sheet>
 
