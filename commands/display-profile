@@ -12,19 +12,32 @@ function primary_profile {
         --output DP-2 --off
 }
 
-function mac_vnc_profile {
-    if [[ $(xrandr -d $DISPLAY | grep "1712x1075_60.00" | wc -l) == 0 ]]; then
+function set_custom_res_mode {
+    PROFILE_CODE=$(cvt -v $1 $2 60 | grep Modeline | cut -c 11- | cut -d'"' -f 1)
+    if [[ $(xrandr -d $DISPLAY | grep "$PROFILE_CODE" | wc -l) == 0 ]]; then
         echo 'Generating new mode'
-        # NOTE: Generted using `cvt -v 1712 1075 60`
-        xrandr --newmode "1712x1075_60.00"  153.00  1712 1824 2000 2288  1075 1078 1088 1115 -hsync +vsync
-        xrandr --addmode HDMI-1 "1712x1075_60.00"
+        cvt -v $1 $2 60 | grep Modeline | cut -c 10- | xargs xrandr --newmode
+        xrandr --addmode HDMI-1 "$PROFILE_CODE"
     fi
     xrandr \
         --output HDMI-1 \
-            --mode "1712x1075_60.00" \
+            --mode "$PROFILE_CODE" \
             --pos 0x0 \
         --output HDMI-2 --off \
         --output DP-2 --off
+}
+
+function remove_custom_res_mode {
+    PROFILE_CODE=$(cvt -v $1 $2 60 | grep Modeline | cut -c 11- | cut -d'"' -f 1)
+    if [[ $(xrandr -d $DISPLAY | grep "$PROFILE_CODE" | wc -l) == 0 ]]; then
+        echo 'Removing new mode'
+        xrandr --delmode HDMI-1 "$PROFILE_CODE"
+        xrandr --rmmode "$PROFILE_CODE"
+    fi
+}
+
+function mac_vnc_profile {
+    set_custom_res_mode 1712 1075
 }
 
 

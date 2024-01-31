@@ -140,6 +140,9 @@ fi
 function linux_system_theme_change(){
     if [[ "$XDG_SESSION_TYPE" == "x11" ]]; then
         echo 'Changing using xsettingsd'
+        # Run xsettingsd if not already
+        systemctl is-active --user --quiet xsettingsd ||\
+            systemctl enable --now --user --quiet xsettingsd.service
         sed -i "s/.*Net\/ThemeName.*/Net\/ThemeName \""$1\""/" ~/.config/xsettingsd/xsettingsd.conf
         killall -HUP xsettingsd
     elif [[ "$XDG_SESSION_TYPE" == "wayland" ]]; then
