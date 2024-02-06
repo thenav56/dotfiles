@@ -28,6 +28,7 @@ return {
     },
     {
         -- spell check
+        -- This handles snake_case and camelCase also
         'kamykn/spelunker.vim',
         config = function()
             require('plugin-configs/_spelunker')

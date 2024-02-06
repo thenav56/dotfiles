@@ -27,11 +27,12 @@ function remote_vnc_connect {
 
     DESKTOP=${2:-i3}
     REMOTE_MACHINE_DISPLAY=${REMOTE_MACHINE_DISPLAY:-0}
+    REMOTE_MACHINE_SSH_DISPLAY_PROFILE=${REMOTE_MACHINE_SSH_DISPLAY_PROFILE:-primary}
 
     # Check connection and start multiplexer if used or just make sure remote is reachable
     ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
     # Use primary display profile
-    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY $DOT_COMMANDS_DIR/display-profile primary" || true
+    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY $DOT_COMMANDS_DIR/display-profile $REMOTE_MACHINE_SSH_DISPLAY_PROFILE" || true
     ssh $REMOTE_MACHINE_SSH_HOST -t "pkill -9 x0vncserver" || true
     ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/monitor-cmd turn-all-off" || true
 

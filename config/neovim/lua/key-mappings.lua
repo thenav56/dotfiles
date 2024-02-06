@@ -35,3 +35,6 @@ map('n', '<leader><space>', ':nohlsearch<CR>', { silent = true, remap = false })
 
 -- Strip white spaces
 map('n', '<leader>cl', my_functions.TrimWhitespace, { silent = true, remap = false })
+
+-- Suggest correctly spelled words (Using spelunker)
+map('n', '<leader>ss', ':call spelunker#correct_from_list()<CR>', { silent = true })
