@@ -148,6 +148,20 @@ return {
             'folke/twilight.nvim',
         }
     },
+    -- {
+    --     'kristijanhusak/vim-dadbod-ui',
+    --     config = function()
+    --         require('plugin-configs/_vim-dadbod-ui')
+    --     end,
+    --     dependencies = {
+    --         { 'tpope/vim-dadbod', lazy = true },
+    --         {
+    --             'kristijanhusak/vim-dadbod-completion',
+    --             ft = { 'sql', 'plsql' },
+    --             lazy = true,
+    --         },
+    --     },
+    -- },
     {
         -- misc
         'romainl/vim-qf'

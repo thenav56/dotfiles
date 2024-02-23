@@ -15,7 +15,7 @@ map('', 'k', 'v:count == 0 ? "gk" : "k"', { silent = true, expr = true })
 -- CHAD
 -- NOTE: <tab> == ctrl-i (opposite to ctrl+o), so use <c-tab> instead
 -- https://github.com/neovim/neovim/issues/5916
-map('', '<tab>', ':CHADopen<CR>', { silent = true, remap = false })
+map('', '<leader><tab>', ':CHADopen<CR>', { silent = true, remap = false })
 -- map('', '<c-tab>', ':CHADopen<CR>', { silent = true, remap = false })
 
 -- FZF
@@ -29,6 +29,10 @@ map('n', '<C-H>', '<C-W><C-H>', { silent = true, remap = false })
 
 -- Delete Buffer withouting impacting splits
 map('n', '<leader>q', ':bp|bd #<CR>', { silent = true })
+
+-- Pass the buffer content
+-- -- to bash
+map('n', '<leader>rrr', ':%!bash<CR>', { silent = true })
 
 -- Clear search
 map('n', '<leader><space>', ':nohlsearch<CR>', { silent = true, remap = false })

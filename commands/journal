@@ -19,6 +19,10 @@ if [ -s "$DAILY_JOURNAL_DIR" ] ; then
         $EDITOR -o \
             "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d today).md" \
             "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d tomorrow).md"
+    elif [ "$ARGS" == "next-next" ] ; then
+        $EDITOR -o \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d '+1 day').md" \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d '+2 day').md"
     else
         $EDITOR "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d "$ARGS").md"
     fi
