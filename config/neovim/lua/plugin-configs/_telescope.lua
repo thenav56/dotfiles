@@ -1,41 +1,24 @@
 local telescope = require('telescope')
 local actions = require('telescope.actions')
 local builtin = require('telescope.builtin')
+local trouble = require("trouble.providers.telescope")
 
-local common_mappings = {
-  i = {
-    ["<esc>"] = actions.close,
-    ["<C-j>"] = {
-      actions.move_selection_next, type = "action",
-      opts = { nowait = true, silent = true }
-    },
-    ["<C-k>"] = {
-      actions.move_selection_previous, type = "action",
-      opts = { nowait = true, silent = true }
-    },
-  },
-}
-
-require("telescope").setup {
-  pickers = {
-    find_files = {
-      mappings = common_mappings,
-    },
-    live_grep = {
-      mappings = common_mappings,
-    },
-    grep_string = {
-      mappings = common_mappings,
-    },
-    buffers = {
-      mappings = common_mappings,
-    },
-    oldfiles = {
-      mappings = common_mappings,
-    },
-    help_tags = {
-      mappings = common_mappings,
-    },
+telescope.setup {
+  defaults = {
+    mappings = {
+        i = {
+            ["<esc>"] = actions.close,
+            ["<C-j>"] = {
+                actions.move_selection_next, type = "action",
+                opts = { nowait = true, silent = true }
+            },
+            ["<C-k>"] = {
+                actions.move_selection_previous, type = "action",
+                opts = { nowait = true, silent = true }
+            },
+            ["<c-f>"] = trouble.open_with_trouble
+        },
+    }
   },
 }
 

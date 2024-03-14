@@ -14,6 +14,10 @@ local env = vim.env
 
 -- Completion setup
 cmp.setup({
+  performance = {
+      max_view_entries = 10,
+      fetching_timeout = 1,
+  },
   window = {
     -- completion = cmp.config.window.bordered(),
     documentation = cmp.config.window.bordered(),
@@ -50,7 +54,10 @@ cmp.setup.cmdline({ '/', '?' }, {
   mapping = cmp.mapping.preset.cmdline(),
   sources = {
     { name = 'buffer' }
-  }
+  },
+  performance = {
+      max_view_entries = 5,
+  },
 })
 
 -- Use cmdline & path source for ':' (if you enabled `native_menu`, this won't work anymore).
@@ -97,6 +104,7 @@ lspconfig.pyright.setup {
         config.settings.python.pythonPath = get_python_path(config.root_dir)
     end
 }
+
 -- https://github.com/williamboman/mason-lspconfig.nvim/blob/main/lua/mason-lspconfig/server_configurations/pylsp/README.md
 lspconfig.pylsp.setup {
   capabilities = capabilities,
@@ -107,7 +115,10 @@ lspconfig.pylsp.setup {
       plugins = {
         flake8 = {
           enabled = true,
-        }
+        },
+        -- ruff = {
+        --     enabled = true,
+        -- }
       }
     }
   }

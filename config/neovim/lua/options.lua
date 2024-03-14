@@ -4,6 +4,10 @@ local opt = vim.opt
 g.mapleader = ','
 g.maplocalleader = '\\'
 
+-- https://github.com/neovim/neovim/issues/2437#issuecomment-522236703
+g.python_host_prog = '/usr/bin/python2'
+g.python3_host_prog = '/usr/bin/python3'
+
 opt.termguicolors = true
 opt.synmaxcol = 250                                 -- syntax highlighting line size limit
 opt.compatible = false                                    -- Don't behave very Vi compatible

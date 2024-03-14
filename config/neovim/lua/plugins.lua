@@ -133,6 +133,12 @@ return {
         end,
     },
     {
+        'nvim-treesitter/nvim-treesitter-context',
+        config = function()
+            require('plugin-configs/_nvim-treesitter-context')
+        end,
+    },
+    {
         -- colorscheme
         'RRethy/nvim-base16',
         config = function()
@@ -166,4 +172,11 @@ return {
         -- misc
         'romainl/vim-qf'
     },
+    {
+        'folke/trouble.nvim',
+        dependencies = { "nvim-tree/nvim-web-devicons", opt = true },
+        config = function()
+            require('plugin-configs/_trouble')
+        end,
+    }
 }
