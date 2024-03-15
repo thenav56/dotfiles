@@ -1,7 +1,6 @@
 return {
     {'junegunn/fzf'},
     {'junegunn/fzf.vim'},
-    -- {'eugen0329/vim-esearch'},
     {
         -- fuzzy search
         'nvim-telescope/telescope.nvim',
@@ -21,10 +20,6 @@ return {
         config = function()
             require'colorizer'.setup()
         end,
-    },
-    {
-        -- help you read complex code by showing diff level of parentheses in diff color !!
-        -- 'andymass/vim-matchup'
     },
     {
         -- spell check
@@ -131,12 +126,10 @@ return {
         config = function()
             require('plugin-configs/_nvim-treesitter')
         end,
-    },
-    {
-        'nvim-treesitter/nvim-treesitter-context',
-        config = function()
-            require('plugin-configs/_nvim-treesitter-context')
-        end,
+        dependencies = {
+            'nvim-treesitter/nvim-treesitter-context',
+            'andymass/vim-matchup',
+        }
     },
     {
         -- colorscheme
