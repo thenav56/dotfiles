@@ -1,3 +1,4 @@
 .DS_Store
 config/kitty/base16_hooks.conf
 config/kitty/macos-launch-services-cmdline
+brew.Brewfile.lock.json

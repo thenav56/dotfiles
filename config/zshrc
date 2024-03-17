@@ -14,6 +14,11 @@ if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
         print -P "%F{160} The clone has failed.%f%b"
 fi
 
+# Load brew if in mac
+[[ "$OSTYPE" == "darwin"* ]]\
+    && [ -s "/opt/homebrew/bin/brew" ]\
+    && eval "$(/opt/homebrew/bin/brew shellenv)"
+
 source "$HOME/.local/share/zinit/zinit.git/zinit.zsh"
 autoload -Uz _zinit
 (( ${+_comps} )) && _comps[zinit]=_zinit
@@ -75,7 +80,7 @@ export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
-
+export HOMEBREW_BUNDLE_FILE="~/.dotfiles/system-packages/brew/brew.Brewfile"
 
 export GPG_TTY=$(tty)
 gpgconf --launch gpg-agent

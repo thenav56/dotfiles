@@ -3,8 +3,10 @@
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # MacOS
     # -- FZF
-    FZF_KEY_BINDINGS="$(brew --prefix)/opt/fzf/shell/key-bindings.zsh"
-    FZF_COMPLETION="$(brew --prefix)/opt/fzf/shell/completion.zsh"
+    if type "brew" > /dev/null; then
+        FZF_KEY_BINDINGS="$(brew --prefix)/opt/fzf/shell/key-bindings.zsh"
+        FZF_COMPLETION="$(brew --prefix)/opt/fzf/shell/completion.zsh"
+    fi
 else
     # Linux
     # -- FZF
