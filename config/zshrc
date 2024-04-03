@@ -80,7 +80,7 @@ export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
-export HOMEBREW_BUNDLE_FILE="~/.dotfiles/system-packages/brew/brew.Brewfile"
+export HOMEBREW_BUNDLE_FILE="$HOME/.dotfiles/system-packages/brew/brew.Brewfile"
 
 export GPG_TTY=$(tty)
 gpgconf --launch gpg-agent
