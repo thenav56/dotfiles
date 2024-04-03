@@ -132,13 +132,6 @@ return {
         }
     },
     {
-        -- colorscheme
-        'RRethy/nvim-base16',
-        config = function()
-            require('plugin-configs/_nvim-base16')
-        end,
-    },
-    {
         'folke/zen-mode.nvim',
         config = function()
             require('plugin-configs/_zen-mode')
@@ -171,5 +164,12 @@ return {
         config = function()
             require('plugin-configs/_trouble')
         end,
-    }
+    },
+    -- Custom colorscheme
+    {
+        'RRethy/nvim-base16',
+        config = function()
+            require('plugin-configs/_nvim-base16')
+        end,
+    },
 }

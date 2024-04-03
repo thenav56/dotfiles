@@ -30,7 +30,7 @@ if require("lazy.core.config").spec.plugins['noice.nvim'] ~= nil then
 end
 
 vim.keymap.set('n', '<leader>ff', function() builtin.find_files({ hidden = true }) end, { silent = true })
-vim.keymap.set('n', '<leader>fa', builtin.live_grep, { silent = true })
+vim.keymap.set('n', '<leader>fa', function() builtin.live_grep() end, { silent = true })
 vim.keymap.set('n', '<leader>fs', builtin.grep_string, { silent = true })
 vim.keymap.set('n', '<leader>fb', builtin.oldfiles, { silent = true })
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, { silent = true })
