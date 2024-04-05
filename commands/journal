@@ -9,20 +9,76 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 
+function day_diff_date {
+    # Convert dates to timestamps (seconds since epoch)
+    local start_timestamp=$($DATE_CMD -d "$1" +%s)
+    local end_timestamp=$($DATE_CMD -d "$2" +%s)
+
+    # Calculate the difference in seconds
+    local seconds_diff=$((end_timestamp - start_timestamp))
+
+    # Convert seconds to days (86400 seconds in a day)
+    local days_diff=$((seconds_diff / 86400))
+
+    echo "$days_diff"
+
+}
+
+
+function last_working_day {
+    # Get the current day of the week (1-7, where 1 is Monday)
+    local current_day=$($DATE_CMD -d "$1 day" +%u)
+    local _current_day=$($DATE_CMD -d "$1 day" +%Y-%m-%d)
+
+    # Calculate the number of days to add based on the current day
+    local days_to_subtract=0  # Today is a working day
+    if [ $current_day -eq 6 ]; then  # If today is Saturday
+        days_to_subtract=1  # -1 days for friday
+    elif [ $current_day -eq 7 ]; then  # If today is Sunday
+        days_to_subtract=2  # -2 days for friday
+    fi
+
+    # Calculate the next working day
+    local last_working_day=$($DATE_CMD -d "$_current_day - $days_to_subtract day" +%Y-%m-%d)
+
+    echo "$last_working_day"
+}
+
+function next_working_day {
+    # Get the current day of the week (1-7, where 1 is Monday)
+    local current_day=$($DATE_CMD -d "$1 day" +%u)
+    local _current_day=$($DATE_CMD -d "$1 day" +%Y-%m-%d)
+
+    # Calculate the number of days to add based on the current day
+    local days_to_add=1  # Add 1 day for the next working day
+    if [ $current_day -eq 5 ]; then  # If today is Friday
+        days_to_add=3  # Add 3 days for Monday
+    elif [ $current_day -eq 6 ]; then  # If today is Saturday
+        days_to_add=2  # Add 2 days for Monday
+    fi
+
+    # Calculate the next working day
+    local next_working_day=$($DATE_CMD -d "$_current_day + $days_to_add day" +%Y-%m-%d)
+
+    echo "$next_working_day"
+}
+
+
 ARGS=$*
 if [ -s "$DAILY_JOURNAL_DIR" ] ; then
-    if [ "$ARGS" == "current" ] ; then
+    if [ "$ARGS" == "last" ] ; then
         $EDITOR -o \
-            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d yesterday).md" \
-            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d today).md"
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d $(last_working_day -1)).md" \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d $(next_working_day -1)).md"
     elif [ "$ARGS" == "next" ] ; then
         $EDITOR -o \
-            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d today).md" \
-            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d tomorrow).md"
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d $(last_working_day +0)).md" \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d $(next_working_day +0)).md"
     elif [ "$ARGS" == "next-next" ] ; then
+        _next_index=$(day_diff_date  $($DATE_CMD +%Y-%m-%d) $(next_working_day +0))
         $EDITOR -o \
-            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d '+1 day').md" \
-            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d '+2 day').md"
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d $(last_working_day $_next_index)).md" \
+            "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d $(next_working_day $_next_index)).md"
     else
         $EDITOR "$DAILY_JOURNAL_DIR/$($DATE_CMD +%Y_%m_%d -d "$ARGS").md"
     fi
