@@ -88,6 +88,7 @@ gpgconf --launch gpg-agent
 # MANUAL using bat
 export MANROFFOPT="-c"
 export MANPAGER="sh -c 'col -bx | bat --theme base16 -l man -p'"
+export TERM=screen-256color
 
 alias ls=eza
 alias ssh="TERM=xterm ssh"
@@ -98,6 +99,15 @@ alias ssrsync="rsync --info=progress2 -axhHAX"
 # Zoxide NOTE: zi conflicts with zinit zi, so using custom zii for interactive
 alias z="__zoxide_z"
 alias zii="__zoxide_zi"
+
+# The plugin will auto execute this zvm_after_init function
+function zvm_after_init() {
+    # this would bind ctrl + space to accept the current suggestion.
+    bindkey '^ ' autosuggest-accept
+
+    # For ssh
+    bindkey -s '^f' "tp\n"
+}
 
 
 function grebase() {
@@ -114,10 +124,13 @@ function gitd() {
     fi
 }
 
-# The plugin will auto execute this zvm_after_init function
-function zvm_after_init() {
-    # this would bind ctrl + space to accept the current suggestion.
-    bindkey '^ ' autosuggest-accept
+function tp() {
+    if [ -s "$TSH_SSH_USER" ] ; then
+        cluster=$(tsh ls | tail -n +3 | cut -d " " -f 1 | fzf)
+        tsh ssh "$TSH_SSH_USER@$cluster"
+    else
+        echo 'Please export TSH_SSH_USER=USERNAME in ~/.zsh-additional-rc'
+    fi
 }
 
 # Theme

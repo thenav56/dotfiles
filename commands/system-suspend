@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Turn off all the display
-echo "Powering-off all monitors"
-~/.dotfiles/commands/monitor-cmd turn-all-off
+# echo "Powering-off all monitors"
+# ~/.dotfiles/commands/monitor-cmd turn-all-off
 
 echo "Suspending now....."
 # Without sudo

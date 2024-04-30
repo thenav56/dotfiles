@@ -19,6 +19,11 @@ if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 if type "pyenv-virtualenv" > /dev/null; then eval "$(pyenv virtualenv-init -)"; fi
 if type "k9s" > /dev/null; then source <(k9s completion zsh); fi
 
+# Teleport cli tools
+if type "tsh" > /dev/null; then eval "$(tsh --completion-script-zsh)"; fi
+if type "tctl" > /dev/null; then eval "$(tctl --completion-script-zsh)"; fi
+if type "tbot" > /dev/null; then eval "$(tbot --completion-script-zsh)"; fi
+
 # Try to load FZF
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
 [ -s "$FZF_COMPLETION" ] && source "$FZF_COMPLETION"

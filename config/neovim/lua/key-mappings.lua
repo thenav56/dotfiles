@@ -52,11 +52,11 @@ map('n', '<leader>ss', ':call spelunker#correct_from_list()<CR>', { silent = tru
 -- Trouble
 -- Lua
 map("n", "<leader>xx", function() require("trouble").toggle() end)
-map("n", "<leader>xw", function() require("trouble").toggle("workspace_diagnostics") end)
-map("n", "<leader>xd", function() require("trouble").toggle("document_diagnostics") end)
-map("n", "<leader>xq", function() require("trouble").toggle("quickfix") end)
-map("n", "<leader>xl", function() require("trouble").toggle("loclist") end)
-map("n", "gR", function() require("trouble").toggle("lsp_references") end)
+map("n", "<leader>xw", function() require("trouble").open("workspace_diagnostics") end)
+map("n", "<leader>xd", function() require("trouble").open("document_diagnostics") end)
+map("n", "<leader>xq", function() require("trouble").open("quickfix") end)
+map("n", "<leader>xl", function() require("trouble").open("loclist") end)
+map("n", "gR", function() require("trouble").open("lsp_references") end)
 -- Move to next/previous troubles
 map("n", "[t", function() require("trouble").next({skip_groups = true, jump = true}) end)
 map("n", "]t", function() require("trouble").previous({skip_groups = true, jump = true}) end)

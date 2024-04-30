@@ -116,6 +116,9 @@ lspconfig.pylsp.setup {
         flake8 = {
           enabled = true,
         },
+        autoimport = {
+          enabled = false,
+        },
         -- ruff = {
         --     enabled = true,
         -- }
@@ -123,6 +126,7 @@ lspconfig.pylsp.setup {
     }
   }
 }
+
 lspconfig.tsserver.setup {capabilities = capabilities}
 lspconfig.graphql.setup {capabilities = capabilities}
 lspconfig.bashls.setup {capabilities = capabilities}
