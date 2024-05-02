@@ -247,6 +247,17 @@ yay -S xsettingsd
 systemctl enable --now --user xsettingsd.service
 ```
 
+## Power button
+> https://wiki.archlinux.org/title/Power_management#ACPI_events
+
+To make power button have sleep action.
+Add `HandlePowerKey=suspend` to **/etc/systemd/logind.conf**
+then
+```bash
+sudo systemctl kill -s HUP systemd-logind
+```
+> NOTE: This will kill all your sessions
+
 ## Font
 <https://www.nerdfonts.com/cheat-sheet>
 
