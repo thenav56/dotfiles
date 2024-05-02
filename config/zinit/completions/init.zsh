@@ -30,3 +30,9 @@ if type "tbot" > /dev/null; then eval "$(tbot --completion-script-zsh)"; fi
 
 # Make sure to load this after fzf
 if type "atuin" > /dev/null; then eval "$(atuin init zsh --disable-up-arrow)"; fi
+
+# Custom
+# ---- Teleport
+_fzf_complete_tsh() {
+  _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(tsh_clusters)
+}

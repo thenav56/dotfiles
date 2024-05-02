@@ -15,9 +15,12 @@ if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
 fi
 
 # Load brew if in mac
-[[ "$OSTYPE" == "darwin"* ]]\
-    && [ -s "/opt/homebrew/bin/brew" ]\
-    && eval "$(/opt/homebrew/bin/brew shellenv)"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    [ -s "/opt/homebrew/bin/brew" ] \
+        && eval "$(/opt/homebrew/bin/brew shellenv)"
+    alias head=ghead  # from coreutils
+fi
+
 
 source "$HOME/.local/share/zinit/zinit.git/zinit.zsh"
 autoload -Uz _zinit
@@ -105,10 +108,24 @@ function zvm_after_init() {
     # this would bind ctrl + space to accept the current suggestion.
     bindkey '^ ' autosuggest-accept
 
-    # For ssh
-    bindkey -s '^f' "tp\n"
+    # For tsh
+    bindkey -s '^f' "_tsh_ssh\n"
 }
 
+function tsh_clusters() {
+    tsh ls | tail -n +3 | head -n -1 | cut -d " " -f 1 | sed "s/^/$TSH_SSH_USER\@/"
+}
+
+function _tsh_ssh() {
+    if (( ${+TSH_SSH_USER} )); then
+        local cluster=$(tsh_clusters | fzf)
+        if ! [ -z "$cluster" ] ; then
+            tsh ssh $cluster
+        fi
+    else
+        echo 'Please export TSH_SSH_USER=USERNAME in ~/.zsh-additional-rc'
+    fi
+}
 
 function grebase() {
     # Experimental
@@ -121,15 +138,6 @@ function gitd() {
         GIT_EXTERNAL_DIFF=difft git $@
     else
         GIT_EXTERNAL_DIFF=difft git $@ --ext-diff
-    fi
-}
-
-function tp() {
-    if (( ${+TSH_SSH_USER} )); then
-        cluster=$(tsh ls | tail -n +3 | cut -d " " -f 1 | fzf)
-        tsh ssh "$TSH_SSH_USER@$cluster"
-    else
-        echo 'Please export TSH_SSH_USER=USERNAME in ~/.zsh-additional-rc'
     fi
 }
 
