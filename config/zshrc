@@ -125,7 +125,7 @@ function gitd() {
 }
 
 function tp() {
-    if [ -s "$TSH_SSH_USER" ] ; then
+    if (( ${+TSH_SSH_USER} )); then
         cluster=$(tsh ls | tail -n +3 | cut -d " " -f 1 | fzf)
         tsh ssh "$TSH_SSH_USER@$cluster"
     else
