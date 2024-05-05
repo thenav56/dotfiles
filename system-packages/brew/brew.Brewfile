@@ -35,6 +35,8 @@ brew "zip"
 brew "zoxide"
 brew "difftastic"
 brew "jnv"
+brew "fd"
+brew "tldr"
 # brew "teleport"  # Using package from teleport to add support for TOUCHID
 cask "1password"
 cask "aldente"

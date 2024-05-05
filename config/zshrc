@@ -93,10 +93,10 @@ export MANROFFOPT="-c"
 export MANPAGER="sh -c 'col -bx | bat --theme base16 -l man -p'"
 export TERM=screen-256color
 
-alias ls=eza
+alias ls="eza --icons=auto"
 alias ssh="TERM=xterm ssh"
 alias cat="bat --theme base16"
-alias ll='eza -la --git'
+alias ll='eza --icons=auto -la --git'
 alias srsync="rsync --stats --numeric-ids --info=progress2 -avxhHAX -s"
 alias ssrsync="rsync --info=progress2 -axhHAX"
 # Zoxide NOTE: zi conflicts with zinit zi, so using custom zii for interactive
@@ -110,6 +110,14 @@ function zvm_after_init() {
 
     # For tsh
     bindkey -s '^f' "_tsh_ssh\n"
+
+    # From tools/fzf-git/fzf-git.sh
+    zvm_bindkey viins "^P" up-line-or-beginning-search
+    zvm_bindkey viins "^N" down-line-or-beginning-search
+    for o in files branches tags remotes hashes stashes lreflogs each_ref; do
+        eval "zvm_bindkey viins '^g^${o[1]}' fzf-git-$o-widget"
+        eval "zvm_bindkey viins '^g${o[1]}' fzf-git-$o-widget"
+    done
 }
 
 function tsh_clusters() {

@@ -10,3 +10,6 @@
 [submodule "tools/tmux-tpm"]
 	path = tools/tmux-tpm
 	url = https://github.com/tmux-plugins/tpm
+[submodule "tools/fzf-git"]
+	path = tools/fzf-git
+	url = https://github.com/junegunn/fzf-git.sh

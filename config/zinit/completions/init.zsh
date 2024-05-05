@@ -26,13 +26,19 @@ if type "tbot" > /dev/null; then eval "$(tbot --completion-script-zsh)"; fi
 
 # Try to load FZF
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
-[ -s "$FZF_COMPLETION" ] && source "$FZF_COMPLETION"
+
+if [ -s "$FZF_COMPLETION" ]; then
+    source "$FZF_COMPLETION"
+
+    [ -s "$HOME/.dotfiles/tools/fzf-git/fzf-git.sh" ] &&\
+        source "$HOME/.dotfiles/tools/fzf-git/fzf-git.sh"
+
+    # Custom
+    # ---- Teleport
+    _fzf_complete_tsh() {
+      _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(tsh_clusters)
+    }
+fi
 
 # Make sure to load this after fzf
 if type "atuin" > /dev/null; then eval "$(atuin init zsh --disable-up-arrow)"; fi
-
-# Custom
-# ---- Teleport
-_fzf_complete_tsh() {
-  _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(tsh_clusters)
-}
