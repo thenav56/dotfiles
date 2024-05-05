@@ -27,7 +27,7 @@ mkdir -p /etc/systemd/resolved.conf.d/
 Copy this to `/etc/systemd/resolved.conf.d/dns_over_tls.conf`
 ```config
 [Resolve]
-DNS=1.1.1.1 1.0.0.1
+DNS=8.8.8.8 8.8.4.4
 DNSOverTLS=yes
 ```
 
@@ -44,8 +44,7 @@ sudo systemctl restart systemd-resolved
 Create `/etc/systemd/network/20-wired.network`
 ```config
 [Match]
-Type=ether
-Virtualization=False
+Type=eth*
 
 [Network]
 DHCP=yes
@@ -62,8 +61,7 @@ RouteMetric=100
 Create `/etc/systemd/network/25-wireless.network`
 ```config
 [Match]
-Type=wlan
-Virtualization=False
+Type=wlan*
 
 [Network]
 DHCP=yes
@@ -179,27 +177,26 @@ sudo cryptsetup open /dev/sda3 root
 # Format the mapped parition using mkfs.ext4
 sudo mkfs.ext4 /dev/mapper/root
 # Mount the new mapped partition
-sudo mount --mkdir /dev/mapper/root /mnt/encrypted/
+sudo mount --mkdir /dev/mapper/root /mnt/encrypted_data/
 
 # Now check if all is okay
 # -- Create a sample file
-echo 'hi-there' | sudo tee /mnt/encrypted/test-file.txt
+echo 'hi-there' | sudo tee /mnt/encrypted_data/test-file.txt
 # -- Unmount
-sudo umount /mnt/encrypted/
+sudo umount /mnt/encrypted_data/
 # -- Close encyption virtual partition
 sudo cryptsetup close root
 # -- Open again
 sudo cryptsetup open /dev/sda3 root
 # -- Mount again
-sudo mount /dev/mapper/root /mnt/encrypted/
+sudo mount /dev/mapper/root /mnt/encrypted_data/
 # -- Check the file content
-sudo cat /mnt/encrypted/test-file.txt
+sudo cat /mnt/encrypted_data/test-file.txt
 ```
 
 Auto mount partition
 > NOTE: Not using fstab as it is needed before starting linux
 > We will encrypt during login instead using PAM
-TODO
 MAYBE NOT THIS ONE? Follow this
 - https://wiki.archlinux.org/title/pam_mount [I am using this one]
     - Maybe use configuration in dot file https://wiki.archlinux.org/title/pam_mount#Local_(per-user)_configuration
@@ -227,6 +224,7 @@ Search for `REPLACE` and replace the values accordingly
   i2c_dev
   ddcci
   ```
+  > NOTE: ddcci is available using `ddcutil` package
 - /etc/modules-load.d/zfs.conf
   ```
   zfs
@@ -246,6 +244,7 @@ X-server
 yay -S xsettingsd
 systemctl enable --now --user xsettingsd.service
 ```
+> NOTE: xdg-settings is available using `xsettingsd` package
 
 ## Power button
 > https://wiki.archlinux.org/title/Power_management#ACPI_events

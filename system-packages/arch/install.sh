@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-BASEDIR="$(dirname "${BASH_SOURCE[0]}")"
+BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+echo `pwd $BASEDIR`
 
 if ! type "yay" > /dev/null; then
     echo 'Installing yay first'
@@ -10,6 +12,7 @@ if ! type "yay" > /dev/null; then
     yes | makepkg -si
 fi
 
-yes | yay --needed -S $(cat $BASEDIR/native.txt)
+sudo pacman --noconfirm --needed -S - < $BASEDIR/native.txt
 
-yay --needed -S --noconfirm $(cat $BASEDIR/aur.txt)
+yay --needed -S --noconfirm - < $BASEDIR/aur.txt
+:wa

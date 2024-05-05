@@ -1,8 +1,6 @@
 betterlockscreen
-cndrvcups-lb
 google-chrome
 lazydocker
-libjbig-shared
 neovim-remote
 nvm
 slack-desktop
