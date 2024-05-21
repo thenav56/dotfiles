@@ -7,7 +7,13 @@ SOCKETS_PATH='/tmp/kitty.sock'
 
 function update_kitty() {
     echo " - $KITTY_LISTEN_ON"
-    echo "font_family $KITTY_CUSTOM_FONT" > $HOME/.config/kitty/base16_hooks.conf
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # Not required for MAC
+        echo "" > $HOME/.config/kitty/base16_hooks.conf
+    else
+        echo "font_family $KITTY_CUSTOM_FONT" > $HOME/.config/kitty/base16_hooks.conf
+    fi
+    echo "include "$HOME/.dotfiles/base16/kitty/colors/base16-$BASE16_THEME-256.conf"" >> $HOME/.config/kitty/base16_hooks.conf
 
     sleep 0.5
     echo " * Try reloading kitty config using -SIGUSR1"
