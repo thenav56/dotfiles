@@ -1,0 +1,91 @@
+# https://phelipetls.github.io/posts/introduction-to-ansible/
+# https://www.reddit.com/r/archlinux/comments/y5e6wy/learned_bit_of_ansible_to_automate_some/
+# https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_zsh.yml
+---
+- name: playbook_core.yml - archlinux base setup
+  hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Install packages with pacman & yay
+      block:
+        # Other system packages
+        - name: Arch Full Update
+          become: yes
+          pacman:
+            update_cache: yes
+            upgrade: yes
+
+        - name: Load packages
+          include_vars:
+            file: ./packages.yml
+            name: packages
+
+        - name: install core packages
+          become: yes
+          pacman:
+            update_cache: yes
+            name: '{{ packages.native }}'
+
+        # Using AUR
+        - name: Create the temp `aur_builder` user
+          become: yes
+          ansible.builtin.user:
+            name: aur_builder
+            create_home: yes
+            group: wheel
+
+        - name: Allow the `aur_builder` user to run `sudo pacman` without a password
+          become: yes
+          ansible.builtin.lineinfile:
+            path: /etc/sudoers.d/11-install-aur_builder
+            line: 'aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman'
+            create: yes
+            mode: 0644
+            validate: 'visudo -cf %s'
+
+        - name: Install yay build packages
+          become: yes
+          pacman:
+            update_cache: yes
+            name:
+              - git
+              - base-devel
+
+        - name: Install yay using makepkg if it isn't installed already
+          kewlfft.aur.aur:
+            name: yay-bin
+            use: makepkg
+            state: present
+            aur_only: yes
+          become: yes
+          become_user: aur_builder
+
+        # Note: Dependency resolution will still include repository packages.
+        - name: Upgrade the system using yay, only act on AUR packages.
+          kewlfft.aur.aur:
+            upgrade: yes
+            use: yay
+            aur_only: yes
+          become: yes
+          become_user: aur_builder
+
+        - name: Install packages using yay
+          kewlfft.aur.aur:
+            use: yay
+            name: '{{ packages.aur }}'
+            aur_only: yes
+          become: yes
+          become_user: aur_builder
+
+      always:
+        - name: Remove file (delete file)
+          ansible.builtin.file:
+            path: /etc/sudoers.d/11-install-aur_builder
+            state: absent
+
+        - name: Remove `aur_builder` user
+          user:
+            name: aur_builder
+            state: absent
+            remove: true

@@ -1,0 +1,208 @@
+# https://phelipetls.github.io/posts/introduction-to-ansible/
+# https://www.reddit.com/r/archlinux/comments/y5e6wy/learned_bit_of_ansible_to_automate_some/
+# https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_zsh.yml
+---
+- name: playbook_core.yml - archlinux base setup
+  hosts: localhost
+  become: yes
+
+  vars_prompt:
+    - name: username
+      prompt: What is your username?
+      private: false
+
+  tasks:
+    # Network configurations -------------------------------------------------
+    - name: systemd-networkd - Wired
+      blockinfile:
+        path: /etc/systemd/network/20-wired.network
+        state: present
+        create: yes
+        block: |
+          [Match]
+          Name=en*
+          [Network]
+          DHCP=yes
+          [DHCPv4]
+          RouteMetric=100
+          [IPv6AcceptRA]
+
+    - name: systemd-networkd - Wireless
+      blockinfile:
+        path: /etc/systemd/network/25-wireless.network
+        state: present
+        create: yes
+        block: |
+          [Match]
+          Name=wlan0
+          [Network]
+          DHCP=yes
+          IgnoreCarrierLoss=3s
+          [DHCPv4]
+          RouteMetric=200
+          [IPv6AcceptRA]
+          RouteMetric=200
+
+    - name: enable and start systemd-networkd
+      systemd:
+        name: systemd-networkd
+        enabled: yes
+        state: started
+
+    # DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
+    - name: systemd-networkd - Wireless
+      blockinfile:
+        path: /etc/systemd/resolved.conf.d/dns_over_tls.conf
+        state: present
+        create: yes
+        block: |
+          [Resolve]
+          DNS=1.1.1.1 1.0.0.1
+          # DNS=8.8.8.8 8.8.4.4
+          DNSOverTLS=yes
+
+    - name: Create a symbolic link
+      ansible.builtin.file:
+        src: ../run/systemd/resolve/stub-resolv.conf
+        dest: /etc/resolv.conf
+        force: yes
+        owner: root
+        group: root
+        state: link
+
+    - name: enable and start systemd-resolved
+      systemd:
+        name: systemd-resolved
+        enabled: yes
+        state: started
+
+    # REFLECTOR TO REGULARLY UPDATE MIRRORLIST
+    - name: install reflector
+      pacman:
+        name:
+          - reflector
+
+    - name: write reflector configuration file
+      copy:
+        dest: '/etc/xdg/reflector/reflector.conf'
+        content: |
+          --save /etc/pacman.d/mirrorlist
+          --protocol http
+          --country Singapore
+          --score 20
+          --sort rate
+
+    - name: enable and start reflector timer
+      systemd:
+        name: reflector.timer
+        enabled: yes
+        state: started
+
+    - name: do initial run of reflector.service
+      systemd:
+        name: reflector
+        enabled: yes
+        state: started
+
+    # SYSTEM SETTINGS CHANGES ----------------------------------------------------
+    - name: pacman - enable color
+      lineinfile:
+        path: /etc/pacman.conf
+        regexp: '^#Color$'
+        line: 'Color'
+
+    - name: pacman - enable ParallelDownloads = 5
+      lineinfile:
+        path: /etc/pacman.conf
+        regexp: '#ParallelDownloads = 5'
+        line: 'ParallelDownloads = 5'
+
+    - name: change number of failed logins that triger 10min lockout
+      lineinfile:
+        path: /etc/security/faillock.conf
+        regexp: '^# deny = 3$'
+        line: 'deny = 10'
+
+    # SSH ------------------------------------------------------------------------
+    - name: install ssh
+      pacman:
+        name:
+          - openssh
+
+    - name: ssh secure configuration
+      blockinfile:
+        path: /etc/ssh/sshd_config.d/20-secure_config.conf
+        state: present
+        create: yes
+        block: |
+          PermitRootLogin no
+          PasswordAuthentication no
+          AuthenticationMethods publickey
+
+    - name: enable and start ssh service
+      systemd:
+        name: sshd
+        enabled: yes
+        state: started
+
+   # CRONIE  --------------------------------------------------------------------
+    - name: install cronie
+      pacman:
+        name:
+          - cronie
+
+    - name: enable and start cronie.service
+      systemd:
+        name: cronie
+        enabled: yes
+        state: started
+
+    # ARCHLINUX-KEYRING WEEKLY UPDATE  -------------------------------------------
+    - name: archlinux-keyring - enable weekly update
+      systemd:
+        name: archlinux-keyring-wkd-sync.timer
+        enabled: yes
+        state: started
+
+    # SSD TRIM SCHEDULED  --------------------------------------------------------
+    - name: install util-linux
+      pacman:
+        name:
+          - util-linux
+
+    - name: enable and start weekly ssd disks trim using fstrim timer
+      systemd:
+        name: fstrim.timer
+        enabled: yes
+        state: started
+
+    # LOGROTATE  -----------------------------------------------------------------
+    - name: install logrotate
+      pacman:
+        name:
+          - logrotate
+
+    - name: logrotate - enable compression
+      lineinfile:
+        path: /etc/logrotate.conf
+        regexp: '^#compress$'
+        line: 'compress'
+
+    - name: enable and start daily logs rotation, cleanup
+      systemd:
+        name: logrotate.timer
+        enabled: yes
+        state: started
+
+    #  DOCKER SETUP --------------------------------------------------------------
+    - name: install docker
+      pacman:
+        name:
+          - docker
+          - docker-compose
+
+    - name: add the user to the wheel group
+      user:
+        name: "{{ username }}"
+        groups: docker
+        append: yes
