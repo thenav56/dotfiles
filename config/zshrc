@@ -24,6 +24,7 @@ fi
 
 source "$HOME/.local/share/zinit/zinit.git/zinit.zsh"
 autoload -Uz _zinit
+
 (( ${+_comps} )) && _comps[zinit]=_zinit
 
 # Load a few important annexes, without Turbo
@@ -48,6 +49,8 @@ zinit \
     for \
       wait"0" @"$HOME/.dotfiles/config/zinit/completions" \
       wait @zsh-users/zsh-completions
+
+zinit pack for ls_colors
 
 export NVM_COMPLETION=true
 export NVM_SYMLINK_CURRENT="true"
