@@ -36,7 +36,7 @@ if [ -s "$FZF_COMPLETION" ]; then
     # Custom
     # ---- Teleport
     _fzf_complete_tsh() {
-      _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(tsh_clusters)
+      _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(~/.dotfiles/commands/_tsh_ssh clusters)
     }
 fi
 

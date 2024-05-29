@@ -1,0 +1,32 @@
+#!/bin/zsh -e
+
+function tsh_login() {
+    tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
+
+}
+
+function tsh_clusters() {
+    tsh ls | tail -n +3 | head -n -1 | cut -d " " -f 1 | sed "s/^/$TSH_SSH_USER\@/"
+}
+
+
+tsh_login
+
+function tsh_ssh() {
+    if (( ${+TSH_SSH_USER} )); then
+        local cluster=$(tsh_clusters | fzf)
+        if ! [ -z "$cluster" ] ; then
+            tsh ssh $cluster
+        fi
+    else
+        echo 'Please export TSH_SSH_USER=USERNAME in ~/.zsh-additional-rc'
+    fi
+}
+
+case "$1" in
+    clusters)
+        tsh_clusters ;;
+    *)
+        tsh_ssh
+        ;;
+esac

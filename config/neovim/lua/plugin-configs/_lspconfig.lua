@@ -121,7 +121,7 @@ lspconfig.pylsp.setup {
         },
         -- ruff = {
         --     enabled = true,
-        -- }
+        -- },
       }
     }
   }
