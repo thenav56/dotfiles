@@ -4,7 +4,7 @@
 
 
 # Arch system setup (As root)
-ansible-playbook -i localhost init.yml
+ansible-playbook -i localhost playbooks/init.yml
 
 
 ```

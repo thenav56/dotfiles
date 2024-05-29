@@ -1,10 +1,7 @@
-# https://phelipetls.github.io/posts/introduction-to-ansible/
-# https://www.reddit.com/r/archlinux/comments/y5e6wy/learned_bit_of_ansible_to_automate_some/
-# https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_zsh.yml
 ---
-- name: playbook_core.yml - archlinux base setup
+- name: Archlinux system configuration
   hosts: localhost
-  become: yes
+  become: true
 
   vars_prompt:
     - name: username
@@ -117,11 +114,50 @@
         regexp: '#ParallelDownloads = 5'
         line: 'ParallelDownloads = 5'
 
+    - name: pacman - enable Multilib
+      lineinfile:
+        path: /etc/pacman.conf
+        regexp: '#ParallelDownloads = 5'
+        line: 'ParallelDownloads = 5'
+
+    - name: pacman - enable Multilib
+      lineinfile:
+        dest: /etc/pacman.conf
+        regexp: '#[multilib]'
+        line: '[multilib]'
+    - name: add multilib (cont)
+      lineinfile:
+        dest: /etc/pacman.conf
+        regexp: '#Include = /etc/pacman.d/mirrorlist'
+        line: 'Include = /etc/pacman.d/mirrorlist'
+
+    - name: install paccache
+      pacman:
+        name:
+          - pacman-contrib
+
+    - name: Enable pacman cache clear weekly - Last 3 version per package
+      systemd:
+        name: paccache.timer
+        enabled: yes
+        state: started
+
     - name: change number of failed logins that triger 10min lockout
       lineinfile:
         path: /etc/security/faillock.conf
         regexp: '^# deny = 3$'
         line: 'deny = 10'
+
+    # Install & Enable ly
+    - name: install ssh
+      pacman:
+        name:
+          - ly
+
+    - name: Enable ly
+      systemd:
+        name: ly
+        enabled: yes
 
     # SSH ------------------------------------------------------------------------
     - name: install ssh
@@ -194,15 +230,47 @@
         enabled: yes
         state: started
 
-    #  DOCKER SETUP --------------------------------------------------------------
+    # Load kernel modules
+    - name: i2c dev for ddcutil
+      blockinfile:
+        path: /etc/modules-load.d/i2c-dev.conf
+        state: present
+        create: yes
+        block: i2c_dev
+
+    # DOCKER SETUP/CONFIGURATION --------------------------------------------------------------
     - name: install docker
       pacman:
         name:
           - docker
           - docker-compose
+          - ctop
 
     - name: add the user to the wheel group
       user:
         name: "{{ username }}"
         groups: docker
         append: yes
+
+    - name: enable docker
+      systemd:
+        name: docker
+        enabled: yes
+
+    - name: Create /etc/docker directory if it does not exist
+      file:
+        path: /etc/docker
+        state: directory
+        mode: '0755'
+
+    - name: set default max logs size to 250MB and set logs rotation
+      copy:
+        dest: '/etc/docker/daemon.json'
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "50m",
+              "max-file": "5"
+            }
+          }

@@ -1,9 +1,11 @@
 native:
+  - pacman-contrib
   - arc-gtk-theme
   - atuin
   - bat
   - bind
   - bluez
+  - nnn
   - bluez-utils
   - btop
   - caja
@@ -35,11 +37,11 @@ native:
   - lazygit
   - lua
   - lxappearance
-  - ly
   - maim
   - make
   - man-db
-  - dua-cli  # Confirm this
+  - tldr
+  - dua-cli
   - neovim
   - net-tools
   - ngrep
@@ -48,7 +50,6 @@ native:
   - noto-fonts-cjk
   - noto-fonts-emoji
   - noto-fonts-extra
-  - openssh
   - pavucontrol
   - picom
   - polybar
@@ -91,6 +92,9 @@ native:
 #  - docker-compose
 #  - efibootmgr
 #  - grub
+#  - ly
+#  - openssh
 
 aur:
   - lazydocker
+  - zramswap

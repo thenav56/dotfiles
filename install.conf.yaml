@@ -78,3 +78,16 @@
   -
     - '[ -f ~/.git-additional.config ] || cat ~/.dotfiles/additional-template/.git-additional.config >> ~/.git-additional.config'
     - Initialize git additional configs
+  # NVIM Related installs
+  -
+    description: Install nvm latest node
+    command: source $NVM_DIR/nvm.sh && nvm install node
+    stderr: true
+  - 
+    description: Install nvim plugins
+    command: nvim --headless +"lua require('lazy').install()" +qa
+    stderr: true
+  - 
+    description: Update nvim TreeSetter
+    command: nvim --headless -c "TSUpdate" -c qall
+    stderr: true
