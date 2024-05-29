@@ -1,0 +1,27 @@
+---
+- name: Archlinux system configuration for AUR tools
+  hosts: localhost
+  become: true
+
+  vars_prompt:
+    - name: username
+      prompt: What is your username?
+      private: false
+
+  tasks:
+
+    # https://wiki.archlinux.org/title/swap#Swap_file
+    # https://wiki.archlinux.org/title/Zram
+    # https://aur.archlinux.org/packages/zramswap
+    - name: enable zramswap
+      systemd:
+        name: zramswap.service
+        enabled: yes
+        state: started
+
+    # https://github.com/betterlockscreen/betterlockscreen#systemd
+    - name: enable betterlockscreen
+      systemd:
+        name: "betterlockscreen@{{ username }}"
+        enabled: yes
+        state: started

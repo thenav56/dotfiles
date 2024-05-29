@@ -9,6 +9,7 @@
     ~/.dotfiles: ""
     ~/.zshrc: config/zshrc
     ~/.p10k.zsh: config/p10k.zsh
+    ~/.ansible.cfg: config/ansible.cfg
     ~/.ripgreprc: config/ripgreprc
     ~/.Renviron: config/Renviron
     ~/.gitconfig:
@@ -81,7 +82,7 @@
   # NVIM Related installs
   -
     description: Install nvm latest node
-    command: source $NVM_DIR/nvm.sh && nvm install node
+    command: source $NVM_DIR/nvm.sh && nvm install node && node --version
     stderr: true
   - 
     description: Install nvim plugins
@@ -90,4 +91,13 @@
   - 
     description: Update nvim TreeSetter
     command: nvim --headless -c "TSUpdate" -c qall
+    stderr: true
+  # Misc
+  - 
+    description: Set default browser as firefox
+    command: xdg-settings set default-web-browser firefoxdeveloperedition.desktop
+    stderr: true
+  - 
+    description: Install tmux plugins using tpm
+    command: ~/.dotfiles/tools/tmux-tpm/bin/install_plugins
     stderr: true

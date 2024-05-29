@@ -1,10 +1,10 @@
 ---
 - name: Archlinux system packages
   hosts: localhost
-  become: true
 
   tasks:
     - name: Install packages with pacman & yay
+
       block:
         # Other system packages
         - name: Arch Full Update
@@ -77,12 +77,33 @@
 
       always:
         - name: "Clean-up: Remove file (delete file)"
+          become: true
           ansible.builtin.file:
             path: /etc/sudoers.d/11-install-aur_builder
             state: absent
 
         - name: "Clean-up: Remove `aur_builder` user"
+          become: true
           user:
             name: aur_builder
             state: absent
             remove: true
+
+    - name: Install packages with pipx
+      community.general.pipx:
+        name: "{{ item }}"
+      loop:
+        - ipython
+        - django
+        - pre-commit
+        - flake8
+        - isort
+        - ruff
+        - line-profiler
+        - snakeviz
+        - visidata
+        - awscliv2
+        - azure-cli
+        - jupyterlab
+        # - locust
+        # - ddcci_plasmoid_backend

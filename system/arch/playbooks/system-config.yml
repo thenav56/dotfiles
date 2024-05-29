@@ -58,20 +58,26 @@
           # DNS=8.8.8.8 8.8.4.4
           DNSOverTLS=yes
 
-    - name: Create a symbolic link
+    - name: systemd-resolved - Create a symbolic link for /etc/resolv.conf
       ansible.builtin.file:
         src: ../run/systemd/resolve/stub-resolv.conf
         dest: /etc/resolv.conf
         force: yes
-        owner: root
-        group: root
         state: link
+        # owner: root
+        # group: root
 
-    - name: enable and start systemd-resolved
+    - name: systemd-resolved - enable and start systemd-resolved
       systemd:
         name: systemd-resolved
         enabled: yes
         state: started
+
+    # Update pacman local db
+    - name: pacman -Sy
+      community.general.pacman:
+        update_cache: true
+        force: true
 
     # REFLECTOR TO REGULARLY UPDATE MIRRORLIST
     - name: install reflector
@@ -102,34 +108,17 @@
         state: started
 
     # SYSTEM SETTINGS CHANGES ----------------------------------------------------
-    - name: pacman - enable color
-      lineinfile:
+    - name: Custom pacman config
+      blockinfile:
         path: /etc/pacman.conf
-        regexp: '^#Color$'
-        line: 'Color'
+        state: present
+        block: |
+          [options]
+          Color
+          ParallelDownloads = 5
 
-    - name: pacman - enable ParallelDownloads = 5
-      lineinfile:
-        path: /etc/pacman.conf
-        regexp: '#ParallelDownloads = 5'
-        line: 'ParallelDownloads = 5'
-
-    - name: pacman - enable Multilib
-      lineinfile:
-        path: /etc/pacman.conf
-        regexp: '#ParallelDownloads = 5'
-        line: 'ParallelDownloads = 5'
-
-    - name: pacman - enable Multilib
-      lineinfile:
-        dest: /etc/pacman.conf
-        regexp: '#[multilib]'
-        line: '[multilib]'
-    - name: add multilib (cont)
-      lineinfile:
-        dest: /etc/pacman.conf
-        regexp: '#Include = /etc/pacman.d/mirrorlist'
-        line: 'Include = /etc/pacman.d/mirrorlist'
+          [multilib]
+          Include = /etc/pacman.d/mirrorlist
 
     - name: install paccache
       pacman:
@@ -231,12 +220,35 @@
         state: started
 
     # Load kernel modules
+    # -- https://wiki.archlinux.org/title/backlight#External_monitors
+    - name: install docker
+      pacman:
+        name:
+          - i2c-tools
+          - ddcutil
+
+    # NOTE: ddcci is available using `ddcutil` package
     - name: i2c dev for ddcutil
       blockinfile:
         path: /etc/modules-load.d/i2c-dev.conf
         state: present
         create: yes
-        block: i2c_dev
+        block: |
+          i2c_dev
+          ddcci
+
+    - name: add the user to the i2c group
+      user:
+        name: "{{ username }}"
+        groups: i2c
+        append: yes
+
+    - name: Enable ZFS kernel module
+      blockinfile:
+        path: /etc/modules-load.d/zfs.conf
+        state: present
+        create: yes
+        block: zfs
 
     # DOCKER SETUP/CONFIGURATION --------------------------------------------------------------
     - name: install docker

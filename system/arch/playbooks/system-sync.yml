@@ -4,4 +4,5 @@
 
 - import_playbook: ./system-config.yml
 - import_playbook: ./system-packages.yml
-- import_playbook: ./system-swap.yml
+- import_playbook: ./system-aur-config.yml
+- import_playbook: ./amd-gpu-config.yml

@@ -1,22 +1,18 @@
+TODO:
 - Arch install
     - [x] locale
     - [x] DateTime
     - [x] Grub
 - [x] Network
 - [x] DNS
-- Encrypted partition
-    - 
-- [ ] 
+- [ ] pipx
 
-
-TODO:
 - [x] nvm install node
 - [x] nnn -> https://github.com/jarun/nnn
     - [ ] Plugins
 - [x] Cache clear yay/pacman
 - [x] docker -> https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_docker.yml
-- [ ] Swap file or Ram compression or both
-- [ ] Use vault to store variables like username?
+- [x] Swap file or Ram compression or both
 
 # References
 - https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_core.yml

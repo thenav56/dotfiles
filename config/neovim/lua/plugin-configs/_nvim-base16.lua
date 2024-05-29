@@ -23,7 +23,9 @@ local current_theme_name = read_file_first_line(os.getenv('VIM_ACTIVE_THEME_FILE
 
 -- Try with env again
 if (current_theme_name == nil or current_theme_name == '') then
-    current_theme_name = 'base16-' .. os.getenv('BASE16_THEME')
+    if (os.getenv('BASE16_THEME') ~= nil and os.getenv('BASE16_THEME') ~= '') then
+        current_theme_name = 'base16-' .. os.getenv('BASE16_THEME')
+    end
 end
 
 if current_theme_name and g.colors_name ~= current_theme_name then
