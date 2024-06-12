@@ -44,11 +44,9 @@
       ansible.builtin.command: locale-gen
 
     - name: Create /etc/locale.conf
-      blockinfile:
-        path: /etc/locale.conf
-        state: present
-        create: yes
-        block: LANG=en_US.UTF-8
+      copy:
+        dest: /etc/locale.conf
+        content: LANG=en_US.UTF-8
 
     - name: Set hostname
       copy:

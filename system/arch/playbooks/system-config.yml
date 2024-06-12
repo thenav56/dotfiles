@@ -11,11 +11,9 @@
   tasks:
     # Network configurations -------------------------------------------------
     - name: systemd-networkd - Wired
-      blockinfile:
-        path: /etc/systemd/network/20-wired.network
-        state: present
-        create: yes
-        block: |
+      copy:
+        dest: /etc/systemd/network/20-wired.network
+        content: |
           [Match]
           Name=en*
           [Network]
@@ -25,11 +23,9 @@
           [IPv6AcceptRA]
 
     - name: systemd-networkd - Wireless
-      blockinfile:
-        path: /etc/systemd/network/25-wireless.network
-        state: present
-        create: yes
-        block: |
+      copy:
+        dest: /etc/systemd/network/25-wireless.network
+        content: |
           [Match]
           Name=wlan0
           [Network]
@@ -48,11 +44,9 @@
 
     # DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
     - name: systemd-networkd - Wireless
-      blockinfile:
-        path: /etc/systemd/resolved.conf.d/dns_over_tls.conf
-        state: present
-        create: yes
-        block: |
+      copy:
+        dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
+        content: |
           [Resolve]
           DNS=1.1.1.1 1.0.0.1
           # DNS=8.8.8.8 8.8.4.4
@@ -131,6 +125,8 @@
         enabled: yes
         state: started
 
+    # https://wiki.archlinux.org/title/security
+    # TODO: Confirm if this persists
     - name: change number of failed logins that triger 10min lockout
       lineinfile:
         path: /etc/security/faillock.conf
@@ -155,11 +151,9 @@
           - openssh
 
     - name: ssh secure configuration
-      blockinfile:
-        path: /etc/ssh/sshd_config.d/20-secure_config.conf
-        state: present
-        create: yes
-        block: |
+      copy:
+        dest: /etc/ssh/sshd_config.d/100-my_secure_config.conf
+        content: |
           PermitRootLogin no
           PasswordAuthentication no
           AuthenticationMethods publickey
@@ -229,11 +223,9 @@
 
     # NOTE: ddcci is available using `ddcutil` package
     - name: i2c dev for ddcutil
-      blockinfile:
-        path: /etc/modules-load.d/i2c-dev.conf
-        state: present
-        create: yes
-        block: |
+      copy:
+        dest: /etc/modules-load.d/my-ddcutil.conf
+        content: |
           i2c_dev
           ddcci
 
@@ -244,11 +236,9 @@
         append: yes
 
     - name: Enable ZFS kernel module
-      blockinfile:
-        path: /etc/modules-load.d/zfs.conf
-        state: present
-        create: yes
-        block: zfs
+      copy:
+        dest: /etc/modules-load.d/my-zfs.conf
+        content: zfs
 
     # DOCKER SETUP/CONFIGURATION --------------------------------------------------------------
     - name: install docker

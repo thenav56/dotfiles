@@ -5,6 +5,7 @@
   tasks:
     # Update cache
     - name: pacman -Sy
+      become: true
       community.general.pacman:
         update_cache: true
         force: true
