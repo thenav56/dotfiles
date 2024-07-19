@@ -115,3 +115,60 @@
 
     - name: Generate grub config
       ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
+
+    # Few from ./system/config.yml
+    # Network configurations -------------------------------------------------
+    - name: systemd-networkd - Wired
+      copy:
+        dest: /etc/systemd/network/20-wired.network
+        content: |
+          [Match]
+          Name=en*
+          [Network]
+          DHCP=yes
+          [DHCPv4]
+          RouteMetric=100
+          [IPv6AcceptRA]
+
+    - name: systemd-networkd - Wireless
+      copy:
+        dest: /etc/systemd/network/25-wireless.network
+        content: |
+          [Match]
+          Name=wlan0
+          [Network]
+          DHCP=yes
+          IgnoreCarrierLoss=3s
+          [DHCPv4]
+          RouteMetric=200
+          [IPv6AcceptRA]
+          RouteMetric=200
+
+    - name: Create /etc/systemd/resolved.conf.d directory if it does not exist
+      file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+
+    # DNS configurations
+    - name: systemd-networkd - Wireless
+      copy:
+        dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
+        content: |
+          [Resolve]
+          DNS=1.1.1.1 1.0.0.1
+          DNSOverTLS=yes
+
+    - name: enable and start systemd-networkd
+      systemd:
+        name: systemd-networkd
+        enabled: yes
+
+    - name: install iwd
+      pacman:
+        name:
+          - iwd
+
+    - name: enable and start systemd-networkd
+      systemd:
+        name: iwd
+        enabled: yes

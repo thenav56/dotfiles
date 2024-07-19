@@ -42,6 +42,11 @@
         enabled: yes
         state: started
 
+    - name: Create /etc/systemd/resolved.conf.d directory if it does not exist
+      file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+
     # DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
     - name: systemd-networkd - Wireless
       copy:
