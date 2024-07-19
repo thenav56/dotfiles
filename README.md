@@ -4,75 +4,9 @@
 ./install
 ```
 
+**Arch** - [README](./system/arch/README.md)
+
 ## Manual
-
-### SSH
-TODO
-
-### Network
-#### DNS configuration
-<https://wiki.archlinux.org/title/systemd-resolved>
-
-```bash
-# Enable systemd-resolved
-sudo systemctl enable --now systemd-resolved
-
-# Link systemd-resolved config to system resolv conf
-ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-
-# Create config directory for custom configs
-mkdir -p /etc/systemd/resolved.conf.d/
-```
-
-Copy this to `/etc/systemd/resolved.conf.d/dns_over_tls.conf`
-```config
-[Resolve]
-DNS=8.8.8.8 8.8.4.4
-DNSOverTLS=yes
-```
-
-Reload systemd-resolved to use new configuration
-```bash
-sudo systemctl restart systemd-resolved
-```
-
-#### Connection configuration
-<https://wiki.archlinux.org/title/systemd-networkd>
-
-**Wired network**
-
-Create `/etc/systemd/network/20-wired.network`
-```config
-[Match]
-Type=eth*
-
-[Network]
-DHCP=yes
-
-[DHCPv4]
-RouteMetric=100
-
-[IPv6AcceptRA]
-RouteMetric=100
-```
-
-**Wireless network**
-
-Create `/etc/systemd/network/25-wireless.network`
-```config
-[Match]
-Type=wlan*
-
-[Network]
-DHCP=yes
-IgnoreCarrierLoss=3s
-
-[DHCPv4]
-RouteMetric=200
-
-[IPv6AcceptRA]
-RouteMetric=200
-```
 
 ### Git configuration
 Create a new file ~/.git-additional.config and add sensitive configurations there
@@ -82,6 +16,15 @@ Sample:
     email = example@gmail.com
     name = your-username
     signingkey = your-gpg-public-key
+```
+
+### ZSH overwrite configuration
+Create a new file ~/.zsh-additional-rc add sensitive and overwrite configurations there
+Sample:
+```bash
+export VimGPGDefaultRecipients="myemail@gmail.com"
+export VIM_DAY_THEME="base16-catppuccin-latte"
+export VIM_NIGHT_THEME="base16-summerfruit-dark"
 ```
 
 ### Wake on LAN
@@ -128,12 +71,6 @@ ssh -L 5901:localhost:5900 -t your-server-host 'DISPLAY=:0 x0vncserver -localhos
 ```
 > Now connect using any vnc client. Recommended [Remmina](https://remmina.org/)
 
-
-### Auto-lock
-After suspend https://github.com/betterlockscreen/betterlockscreen#systemd
-```bash
-systemctl enable --now betterlockscreen@$USER
-```
 
 ## Encryption
 [LUKS](https://access.redhat.com/solutions/100463)
@@ -205,46 +142,11 @@ MAYBE NOT THIS ONE? Follow this
 ### Full Disk
 Nothing here
 
-## Swap
-https://wiki.archlinux.org/title/swap#Swap_file
-
-
 ## Backup
 TODO
 To read:
 - https://borgbackup.readthedocs.io/en/stable/deployment/central-backup-server.html
 - https://borgbackup.readthedocs.io/en/stable/deployment/hosting-repositories.html
-
-## Replace
-Search for `REPLACE` and replace the values accordingly
-
-## Kernel modules
-- /etc/modules-load.d/ddcutil.conf <https://wiki.archlinux.org/title/backlight#External_monitors>
-  ```
-  i2c_dev
-  ddcci
-  ```
-  > NOTE: ddcci is available using `ddcutil` package
-- /etc/modules-load.d/zfs.conf
-  ```
-  zfs
-  ```
-
-## Defaults
-- Browsers
-    ```bash
-    # list using ls /usr/share/applications/
-    xdg-settings set default-web-browser firefoxdeveloperedition.desktop
-    ```
-
-## Theme
-
-X-server
-```bash
-yay -S xsettingsd
-systemctl enable --now --user xsettingsd.service
-```
-> NOTE: xdg-settings is available using `xsettingsd` package
 
 ## Power button
 > https://wiki.archlinux.org/title/Power_management#ACPI_events

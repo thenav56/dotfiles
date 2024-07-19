@@ -1,0 +1,174 @@
+# https://phelipetls.github.io/posts/introduction-to-ansible/
+# https://www.reddit.com/r/archlinux/comments/y5e6wy/learned_bit_of_ansible_to_automate_some/
+# https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_zsh.yml
+---
+- name: Archlinux base setup - During install only
+  hosts: localhost
+  become: true
+  vars_prompt:
+    - name: new_hostname
+      prompt: What is your hostname?
+      private: false
+    - name: new_username
+      prompt: What is your username?
+      private: false
+    - name: new_password
+      prompt: What is your password?
+      private: true
+      encrypt: sha512_crypt
+      confirm: true
+      salt_size: 7
+
+  tasks:
+    # Arch install setups --AFTER CHROOT--------------------------------------
+    # https://wiki.archlinux.org/title/installation_guide#Configure_the_system
+    - name: Set timezone (Asia/Kathmandu)
+      ansible.builtin.file:
+        src: /usr/share/zoneinfo/Asia/Kathmandu
+        dest: /etc/localtime
+        owner: root
+        group: root
+        state: link
+
+    - name: Update hardware clock
+      ansible.builtin.command: hwclock --systohc
+
+    # -- Locale
+    - name: Enable en_US locale
+      lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#en_US.UTF-8 UTF-8$'
+        line: 'en_US.UTF-8 UTF-8'
+
+    - name: Generate locale
+      ansible.builtin.command: locale-gen
+
+    - name: Create /etc/locale.conf
+      copy:
+        dest: /etc/locale.conf
+        content: LANG=en_US.UTF-8
+
+    - name: Set hostname
+      copy:
+        dest: /etc/hostname
+        content: "{{ new_hostname }}"
+
+    # System packages
+    - name: Arch Full Update
+      become: true
+      pacman:
+        update_cache: yes
+        upgrade: yes
+
+    # USERS PERMISSIONS  ---------------------------------------------------------
+    - name: install sudo & zsh
+      pacman:
+        name:
+          - sudo
+          - zsh
+
+    - name: Create new user with "{{ new_username }}"
+      user:
+        name: "{{ new_username }}"
+        password: "{{ new_password }}"
+        shell: /bin/zsh
+        create_home: true
+
+    - name: Set same password for root
+      user:
+        name: "root"
+        password: "{{ new_password }}"
+
+    - name: enable members of wheel group to sudo
+      lineinfile:
+        path: /etc/sudoers.d/01_wheel_allow_sudo
+        state: present
+        line: "%wheel ALL=(ALL:ALL) ALL"
+        validate: /usr/sbin/visudo -cf %s
+        create: yes
+
+    - name: add the user to the wheel group
+      user:
+        name: "{{ new_username }}"
+        groups: wheel
+        append: yes
+
+    # GRUB Setup -----------------------------------------------------------------
+    - name: Install Grub
+      pacman:
+        name:
+          - grub
+          - efibootmgr
+
+    - name: Grub bootloader install
+      ansible.builtin.command: |
+        grub-install \
+          --target=x86_64-efi \
+          --efi-directory=/boot/ \
+          --bootloader-id=GRUB
+
+    - name: Update grub timeout to 1
+      lineinfile:
+        path: /etc/locale.gen
+        regexp: '^GRUB_TIMEOUT=5$'
+        line: 'GRUB_TIMEOUT=1'
+
+    - name: Generate grub config
+      ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
+
+    # Few from ./system/config.yml
+    # Network configurations -------------------------------------------------
+    - name: systemd-networkd - Wired
+      copy:
+        dest: /etc/systemd/network/20-wired.network
+        content: |
+          [Match]
+          Name=en*
+          [Network]
+          DHCP=yes
+          [DHCPv4]
+          RouteMetric=100
+          [IPv6AcceptRA]
+
+    - name: systemd-networkd - Wireless
+      copy:
+        dest: /etc/systemd/network/25-wireless.network
+        content: |
+          [Match]
+          Name=wlan0
+          [Network]
+          DHCP=yes
+          IgnoreCarrierLoss=3s
+          [DHCPv4]
+          RouteMetric=200
+          [IPv6AcceptRA]
+          RouteMetric=200
+
+    - name: Create /etc/systemd/resolved.conf.d directory if it does not exist
+      file:
+        path: /etc/systemd/resolved.conf.d
+        state: directory
+
+    # DNS configurations
+    - name: systemd-networkd - Wireless
+      copy:
+        dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
+        content: |
+          [Resolve]
+          DNS=1.1.1.1 1.0.0.1
+          DNSOverTLS=yes
+
+    - name: enable and start systemd-networkd
+      systemd:
+        name: systemd-networkd
+        enabled: yes
+
+    - name: install iwd
+      pacman:
+        name:
+          - iwd
+
+    - name: enable and start systemd-networkd
+      systemd:
+        name: iwd
+        enabled: yes

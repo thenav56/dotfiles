@@ -1,0 +1,8 @@
+---
+- name: Archlinux sync configuration from all playbooks (except init.yml)
+  hosts: localhost
+
+- import_playbook: ./system/config.yml
+- import_playbook: ./system/packages.yml
+- import_playbook: ./system/aur-config.yml
+- import_playbook: ./system/amd-gpu-config.yml

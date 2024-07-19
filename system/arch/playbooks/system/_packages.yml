@@ -1,0 +1,185 @@
+native:
+  - reflector
+  - zsh
+  - sudo
+  - docker
+  - docker-compose
+  - efibootmgr
+  - grub
+  - ly
+  - openssh
+  - pacman-contrib
+  - arc-gtk-theme
+  - atuin
+  - bat
+  - bind
+  - nnn
+  - blueberry
+  - blueman
+  - bluez
+  - bluez-utils
+  - btop
+  - caja
+  - curl
+  - ddcutil
+  - difftastic
+  - duf
+  - dunst
+  - eog
+  - eza
+  - fd
+  - feh
+  - firefox-developer-edition
+  - fx
+  - fzf
+  - gcc
+  - git
+  - git-delta
+  - go
+  - gparted
+  - vim
+  - htop
+  - i3-wm
+  - iproute2
+  - iwd
+  - jq
+  - kitty
+  - lazygit
+  - lua
+  - lxappearance
+  - maim
+  - make
+  - man-db
+  - tldr
+  - dua-cli
+  - neovim
+  - net-tools
+  - ngrep
+  - nmap
+  - noto-fonts
+  - noto-fonts-cjk
+  - noto-fonts-emoji
+  - noto-fonts-extra
+  - pavucontrol
+  - picom
+  - polybar
+  - pyenv
+  - python-pip
+  - python-pipenv
+  - python-pipx
+  - python-poetry
+  - python-setuptools
+  - ripgrep
+  - rofi
+  - rsync
+  - socat
+  - sqlite
+  - stow
+  - tigervnc
+  - tmux
+  - tree
+  - ttf-cascadia-code-nerd
+  - ttf-font-awesome
+  - ttf-hack-nerd
+  - usbutils
+  - wget
+  - which
+  - x11vnc
+  - xautolock
+  - xclip
+  - xorg-server
+  - xorg-xinit
+  - xsettingsd
+  - zoxide
+  - xdg-utils
+  - traceroute
+  - vlc
+  - unzip
+  - sqlitebrowser
+  - zathura
+  - zathura-pdf-mupdf
+  - smartmontools
+  - pam_mount
+  - ncdu
+  - gdu
+  - miniserve
+  - k9s
+  - arandr
+  - arch-install-scripts
+  - aria2
+  - asciinema
+  - csvlens
+  - drawing
+  - dust
+  - ethtool
+  - gnome-keyring
+  - go-yq # A lightweight and portable command-line YAML processor.
+  - asciiquarium
+  - cmatrix
+  # - gvfs-mtp?
+  # Sound
+  - pulseaudio-alsa
+  - pipewire-pulse
+  - alsa-tools
+  - alsa-utils
+  # K8
+  - helm
+  - kubectl
+  # Misc
+  - polkit  # gui for sudo
+  - libreoffice-fresh
+  # - remmina
+  # - qbittorrent
+  - croc  # Send files
+  - dbeaver  # DB GUI
+  - mdp  # Markdown presentation tool
+  # Printing
+  # - cups
+  # - cups-pdf
+  # pandoc-cli # Convert documents between various formats.
+  # pv # Monitor the progress of data through a pipe.
+  # pwgen # Generate pronounceable passwords.
+  # tokei  # Display statistics about code.
+  # tig  # TUI for Git.
+  # bmon # Monitor bandwidth and capture network related statistics.
+  # broot # Navigate directory trees interactively.
+  # dive # Explore a Docker image, layer contents, and discover ways to shrink it
+  # ifuse  # Iphone connect?
+  # iperf3 # Traffic generator for testing network bandwidth.
+  # lftp  # FTP
+
+aur:
+  - lazydocker
+  - zramswap
+  - betterlockscreen
+  - google-chrome
+  # - ttf-ionicons
+  - aws-session-manager-plugin
+  - beekeeper-studio-bin
+  - copilot-cli  # aws copilot cli (AWS Deployment tool)
+  - ddcci-driver-linux-dkms
+  - duplicati-beta-bin
+  - icu73-bin
+  - jnv
+  - jqp-bin
+  - logseq-desktop-bin
+  - neovim-remote
+  - nvm  # Node version manager
+  - pyenv-virtualenv
+  - slack-desktop
+  - spotify
+  - teleport-client-bin
+  # Energy
+  - auto-cpufreq
+  - energygraph
+  # --
+  - 1password
+  - 1password-cli
+  - lens-bin
+  - zfs-dkms
+  - nordvpn-bin
+  - activitywatch-bin
+  # - tiv  # View image in terminal
+  # - smem  # Print memory usage for programs.
+  # - pspg  # Postgres pager
+  # - mazter-bin # Play maze in terminal
