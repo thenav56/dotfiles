@@ -1,0 +1,11 @@
+{
+  "theme": "One Light",
+  "ui_font_size": 16,
+  "buffer_font_size": 16,
+  "buffer_font_family": "CaskaydiaCove Nerd Font Mono",
+  "create_window_at_startup": true,
+  "vim_mode": true,
+  "soft_wrap": "none",
+  "preferred_line_length": 130,
+  "show_whitespaces": "selection"
+}

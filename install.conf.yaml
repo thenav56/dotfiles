@@ -29,6 +29,10 @@
       path: config/tmux.conf
     ~/.config/tmux/plugins/tpm/:
       path: tools/tmux-tpm/
+    # Mac only
+    ~/.config/zed/settings.json:
+      if: '[ `uname` = Darwin ]'
+      path: config/zed.json
     # Linux only
     ~/.config/yay/config.json:
       if: '[ `uname` != Darwin ]'
@@ -95,7 +99,7 @@
   # Misc
   - 
     description: Set default browser as firefox
-    command: xdg-settings set default-web-browser firefoxdeveloperedition.desktop
+    command: 'if [ `uname` != Darwin ]; then xdg-settings set default-web-browser firefoxdeveloperedition.desktop; fi'
     stderr: true
   - 
     description: Install tmux plugins using tpm
