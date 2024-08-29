@@ -14,9 +14,16 @@ local env = vim.env
 
 -- Completion setup
 cmp.setup({
+  completion = {
+      autocomplete = false,
+  },
   performance = {
-      max_view_entries = 10,
+      max_view_entries = 5,
       fetching_timeout = 1,
+      debounce = 0,
+      throttle = 0,
+      confirm_resolve_timeout = 80,
+      async_budget = 1,
   },
   window = {
     -- completion = cmp.config.window.bordered(),
@@ -32,9 +39,20 @@ cmp.setup({
     ['<CR>'] = cmp.mapping.confirm({ select = true }), -- Accept currently selected item. Set `select` to `false` to only confirm explicitly selected items.
   }),
   sources = cmp.config.sources({
-    { name = 'nvim_lsp' }
+    {
+        name = 'nvim_lsp',
+        entry_filter = function (entry, ctx)
+            return require('cmp.types').lsp.CompletionItemKind[entry:get_kind()] ~= 'Text'
+        end
+    }
   }, {
-    { name = 'buffer' }
+    {
+        name = 'buffer',
+        entry_filter = function(entry, ctx)
+            -- Filter out super long texts
+            return string.len(entry:get_word()) < 40
+        end
+    }
   }, {
     { name = 'path' }
   })
@@ -93,8 +111,19 @@ local function get_python_path(workspace)
     return util.path.join(venv, 'bin', 'python')
   end
 
+  -- Look for command virtual env paths as well
+  local venv_paths = {".venv", "venv"}
+  for index = 1, #venv_paths, 1 do
+      local venv_path = venv_paths[index]
+      match = fn.glob(util.path.join(workspace, venv_path))
+      local python_path = util.path.join(venv_path, 'bin', 'python')
+      if match ~= '' and fn.exepath(python_path) then
+        return python_path
+      end
+  end
+
   -- Fallback to system Python.
-  return exepath('python3') or exepath('python') or 'python'
+  return fn.exepath('python3') or fn.exepath('python') or 'python'
 end
 
 
@@ -119,6 +148,9 @@ lspconfig.pylsp.setup {
         autoimport = {
           enabled = false,
         },
+        pycodestyle = {
+          enabled = false,
+        },
         -- ruff = {
         --     enabled = true,
         -- },
@@ -133,7 +165,16 @@ lspconfig.bashls.setup {capabilities = capabilities}
 -- lspconfig.cssmodules_ls.setup {}
 lspconfig.docker_compose_language_service.setup {capabilities = capabilities}
 lspconfig.dockerls.setup {capabilities = capabilities}
-lspconfig.eslint.setup {capabilities = capabilities}
+
+lspconfig.eslint.setup {
+    capabilities = capabilities,
+    settings = {
+        eslint = {
+            -- https://github.com/LazyVim/LazyVim/issues/3383
+            useFlatConfig = false,
+        }
+    }
+}
 lspconfig.html.setup {capabilities = capabilities}
 lspconfig.jsonls.setup {capabilities = capabilities}
 lspconfig.lua_ls.setup {

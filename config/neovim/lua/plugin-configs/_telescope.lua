@@ -1,7 +1,7 @@
 local telescope = require('telescope')
 local actions = require('telescope.actions')
 local builtin = require('telescope.builtin')
-local trouble = require("trouble.providers.telescope")
+local telescope_trouble = require("trouble.sources.telescope")
 
 telescope.setup {
   defaults = {
@@ -16,7 +16,7 @@ telescope.setup {
                 actions.move_selection_previous, type = "action",
                 opts = { nowait = true, silent = true }
             },
-            ["<c-f>"] = trouble.open_with_trouble
+            ["<c-f>"] = telescope_trouble.open
         },
     }
   },

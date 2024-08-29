@@ -91,6 +91,7 @@ export MANPAGER="sh -c 'col -bx | bat --theme base16 -l man -p'"
 export TERM=screen-256color
 
 alias ls="eza --icons=auto"
+alias watch="viddy"
 alias ssh="TERM=xterm ssh"
 alias cat="bat --theme base16"
 alias ll='eza --icons=auto -la --git'

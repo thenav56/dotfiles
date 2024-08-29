@@ -149,6 +149,7 @@ native:
   # lftp  # FTP
 
 aur:
+  - viddy
   - lazydocker
   - zramswap
   - betterlockscreen

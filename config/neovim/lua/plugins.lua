@@ -14,7 +14,10 @@ return {
     },
     {'lambdalisue/suda.vim'},
     {'romainl/vim-qf'},
-    {'sheerun/vim-polyglot'},
+    {
+        'sheerun/vim-polyglot',
+        enabled = false,
+    },
     {
         'norcalli/nvim-colorizer.lua',
         config = function()
@@ -56,6 +59,7 @@ return {
         end,
         lazy = false,
     },
+
     -- git
     {'tpope/vim-fugitive'},
     {
@@ -131,29 +135,6 @@ return {
             'andymass/vim-matchup',
         }
     },
-    {
-        'folke/zen-mode.nvim',
-        config = function()
-            require('plugin-configs/_zen-mode')
-        end,
-        dependencies = {
-            'folke/twilight.nvim',
-        }
-    },
-    -- {
-    --     'kristijanhusak/vim-dadbod-ui',
-    --     config = function()
-    --         require('plugin-configs/_vim-dadbod-ui')
-    --     end,
-    --     dependencies = {
-    --         { 'tpope/vim-dadbod', lazy = true },
-    --         {
-    --             'kristijanhusak/vim-dadbod-completion',
-    --             ft = { 'sql', 'plsql' },
-    --             lazy = true,
-    --         },
-    --     },
-    -- },
     {
         -- misc
         'romainl/vim-qf'

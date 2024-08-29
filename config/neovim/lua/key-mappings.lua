@@ -50,13 +50,12 @@ map('n', '<leader>cl', my_functions.TrimWhitespace, { silent = true, remap = fal
 map('n', '<leader>ss', ':call spelunker#correct_from_list()<CR>', { silent = true })
 
 -- Trouble
--- Lua
-map("n", "<leader>xx", function() require("trouble").toggle() end)
-map("n", "<leader>xw", function() require("trouble").open("workspace_diagnostics") end)
-map("n", "<leader>xd", function() require("trouble").open("document_diagnostics") end)
-map("n", "<leader>xq", function() require("trouble").open("quickfix") end)
-map("n", "<leader>xl", function() require("trouble").open("loclist") end)
-map("n", "gR", function() require("trouble").open("lsp_references") end)
+map("n", "<leader>xx", ":Trouble diagnostics toggle<CR>")  -- Diagnostics (Trouble)
+map("n", "<leader>xd", ":Trouble diagnostics toggle filter.buf=0<CR>")  -- Buffer Diagnostics (Trouble)
+map("n", "<leader>xq", ":Trouble qflist toggle<CR>")  -- Quickfix List (Trouble)
+map("n", "<leader>xl", ":Trouble loclist toggle<CR>")  -- Location List (Trouble)
+map("n", "<leader>xs", ":Trouble symbols toggle focus=false<CR>")  -- Symbols (Trouble)
+map("n", "gR", ":Trouble lsp toggle focus=false win.position=right<CR>")  -- LSP Definitions / references / ... (Trouble)
 -- Move to next/previous troubles
 map("n", "[t", function() require("trouble").next({skip_groups = true, jump = true}) end)
 map("n", "]t", function() require("trouble").previous({skip_groups = true, jump = true}) end)

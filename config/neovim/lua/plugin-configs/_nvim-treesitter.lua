@@ -26,14 +26,22 @@ vim.g.matchup_matchparen_offscreen = { method = 'popup' }
 -- # Folding - https://github.com/nvim-treesitter/nvim-treesitter?tab=readme-ov-file#folding
 opt.foldmethod = 'expr'
 opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-opt.foldlevelstart = 0
-opt.foldnestmax = 4
+opt.foldtext = "v:lua.vim.treesitter.foldtext()"
 
+opt.foldlevel = 99
+opt.foldlevelstart = 1
+opt.foldnestmax = 4
+opt.foldcolumn = "0"
+opt.foldtext = ""
 
 -- # Basic treesitter configs
 require('nvim-treesitter.configs').setup {
     ensure_installed = {
+        -- https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers
         'bash',
+        'nginx',
+        'graphql',
+        'comment',
         'css',
         'dockerfile',
         'gitattributes',
@@ -47,6 +55,7 @@ require('nvim-treesitter.configs').setup {
         'json',
         -- 'lua',
         'markdown',
+        'diff',
         'python',
         'regex',
         'sql',
@@ -55,10 +64,10 @@ require('nvim-treesitter.configs').setup {
         'yaml',
     },
     highlight = {
-        enable = false,
+        enable = true,
     },
     indent = {
-        enable = false
+        enable = true
     },
     -- # vim-match
     matchup = {
