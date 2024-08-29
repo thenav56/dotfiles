@@ -8,7 +8,6 @@
 - link:
     ~/.dotfiles: ""
     ~/.zshrc: config/zshrc
-    ~/.p10k.zsh: config/p10k.zsh
     ~/.ansible.cfg: config/ansible.cfg
     ~/.ripgreprc: config/ripgreprc
     ~/.Renviron: config/Renviron
