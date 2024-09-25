@@ -51,6 +51,7 @@ return {
         config = function()
             require('plugin-configs/_indent-blankline')
         end,
+        -- enabled = false,
     },
     {
         'numToStr/Comment.nvim',
@@ -62,6 +63,12 @@ return {
 
     -- git
     {'tpope/vim-fugitive'},
+    {
+        'akinsho/git-conflict.nvim',
+        config = function()
+            require('plugin-configs/_git-conflict')
+        end,
+    },
     {
         'lewis6991/gitsigns.nvim',
         config = function()

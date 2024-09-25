@@ -62,6 +62,9 @@ require('nvim-treesitter.configs').setup {
         'tsx',
         'typescript',
         'yaml',
+        -- Helm
+        'gotmpl',
+        'helm',
     },
     highlight = {
         enable = true,
@@ -74,3 +77,15 @@ require('nvim-treesitter.configs').setup {
         enable = true,
     }
 }
+
+-- For helm support https://github.com/ngalaiko/tree-sitter-go-template?tab=readme-ov-file#neovim-integration-using-nvim-treesitter
+vim.filetype.add({
+  extension = {
+    gotmpl = 'gotmpl',
+  },
+  pattern = {
+    [".*/templates/.*%.tpl"] = "helm",
+    [".*/templates/.*%.ya?ml"] = "helm",
+    ["helmfile.*%.ya?ml"] = "helm",
+  },
+})
