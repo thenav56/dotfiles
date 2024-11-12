@@ -17,3 +17,6 @@ auto_sync = true
 ## address of the sync server
 sync_address = "https://atuin-api.local.togglecorp.com"
 sync_frequency = "1h"
+
+[sync]
+records = true

@@ -159,7 +159,7 @@ lspconfig.pylsp.setup {
   }
 }
 
-lspconfig.tsserver.setup {capabilities = capabilities}
+lspconfig.ts_ls.setup {capabilities = capabilities}
 lspconfig.graphql.setup {capabilities = capabilities}
 lspconfig.bashls.setup {capabilities = capabilities}
 -- lspconfig.cssmodules_ls.setup {}

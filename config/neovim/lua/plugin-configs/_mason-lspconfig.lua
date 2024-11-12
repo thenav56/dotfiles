@@ -13,7 +13,7 @@ require('mason-lspconfig').setup {
         "pylsp",
         "sqlls",
         "stylelint_lsp",
-        "tsserver",
+        "ts_ls",
         "yamlls",
     },
 }

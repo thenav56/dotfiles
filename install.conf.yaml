@@ -8,6 +8,7 @@
 - link:
     ~/.dotfiles: ""
     ~/.zshrc: config/zshrc
+    # ~/.kube/config: /dev/null
     ~/.ansible.cfg: config/ansible.cfg
     ~/.ripgreprc: config/ripgreprc
     ~/.Renviron: config/Renviron
@@ -17,6 +18,10 @@
       path: config/git/git-templates/
     ~/.config/kitty/:
       path: config/kitty
+    ~/.config/alacritty/alacritty.toml:
+      path: config/alacritty.toml
+    ~/.config/k9s:
+      path: config/k9s
     ~/.config/nvim/:
       path: config/neovim/
     ~/.config/atuin/config.toml:

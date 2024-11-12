@@ -87,19 +87,20 @@ gpgconf --launch gpg-agent
 
 # MANUAL using bat
 export MANROFFOPT="-c"
-export MANPAGER="sh -c 'col -bx | bat --theme base16 -l man -p'"
+export MANPAGER="$HOME/.dotfiles/commands/man_pager.sh"
 export TERM=screen-256color
 
-alias ls="eza --icons=auto"
+alias ls="eza --icons=auto"  # NOTE: use `command ls ..args` for vanilla ls
 alias watch="viddy"
 alias ssh="TERM=xterm ssh"
-alias cat="bat --theme base16"
+alias cat="custom_cat"  # NOTE: use `command cat ..args` for vanilla cat
 alias ll='eza --icons=auto -la --git'
 alias srsync="rsync --stats --numeric-ids --info=progress2 -avxhHAX -s"
 alias ssrsync="rsync --info=progress2 -axhHAX"
 # Zoxide NOTE: zi conflicts with zinit zi, so using custom zii for interactive
 alias z="__zoxide_z"
 alias zii="__zoxide_zi"
+alias k="kubectl"
 
 # The plugin will auto execute this zvm_after_init function
 # NOTE: Call this manually if zsh-vi-mode is not used
@@ -117,6 +118,12 @@ function zvm_after_init() {
         eval "zvm_bindkey viins '^g^${o[1]}' fzf-git-$o-widget"
         eval "zvm_bindkey viins '^g${o[1]}' fzf-git-$o-widget"
     done
+}
+
+function custom_cat {
+    # Get active theme
+    BAT_ACTIVE_THEME=$(command cat $BAT_THEME_VALUE_FILE)
+    bat --theme $BAT_ACTIVE_THEME $@
 }
 
 function grebase() {
@@ -143,6 +150,8 @@ export BASE16_DAY_THEME="base16_gruvbox-light-hard"
 export BASE16_NIGHT_THEME="base16_gruvbox-dark-soft"
 export VIM_DAY_THEME="base16-gruvbox-light-hard"
 export VIM_NIGHT_THEME="base16-gruvbox-dark-soft"
+export BAT_DAY_THEME="OneHalfLight"
+export BAT_NIGHT_THEME="OneHalfDark"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     RPROMPT='%F{cyan}%t < '
@@ -178,6 +187,8 @@ function day(){
     eval "$BASE16_DAY_THEME"
     eval "git config --file ~/.git-additional.config delta.light true"
     eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_DAY_THEME"
+    echo "Update $BAT_THEME_VALUE_FILE with $BAT_DAY_THEME"
+    echo $BAT_DAY_THEME > $BAT_THEME_VALUE_FILE
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to false'
     else
@@ -192,6 +203,8 @@ function night(){
     eval "$BASE16_NIGHT_THEME"
     eval "git config --file ~/.git-additional.config delta.light false"
     eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_NIGHT_THEME"
+    echo "Update $BAT_THEME_VALUE_FILE with $BAT_NIGHT_THEME"
+    echo $BAT_NIGHT_THEME > $BAT_THEME_VALUE_FILE
     if [[ "$OSTYPE" == "darwin"* ]]; then
         osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to true'
     else
@@ -203,6 +216,7 @@ function night(){
 export BASE16_SHELL_HOOKS="$HOME/.dotfiles/base16/shell-hooks"
 export BASE16_THEME_VALUE_FILE="$HOME/.bash16_theme_value"
 export VIM_ACTIVE_THEME_FILE="$HOME/.vim_active_theme_file"
+export BAT_THEME_VALUE_FILE="$HOME/.bat_theme_value"
 BASE16_SHELL="$HOME/.dotfiles/base16/shell/"
 [ -n "$PS1" ] &&
     [ -s "$BASE16_SHELL/profile_helper.sh" ] && source "$BASE16_SHELL/profile_helper.sh"

@@ -84,7 +84,7 @@ vim.filetype.add({
     gotmpl = 'gotmpl',
   },
   pattern = {
-    [".*/templates/.*%.tpl"] = "helm",
+    [".*/templates/.*%.tpl"] = "gotmpl",
     [".*/templates/.*%.ya?ml"] = "helm",
     ["helmfile.*%.ya?ml"] = "helm",
   },

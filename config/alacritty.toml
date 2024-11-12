@@ -1,0 +1,21 @@
+[general]
+import = [
+    "~/.config/alacritty/base16-theme.toml",
+]
+
+[env]
+TERM = "xterm-256color"
+
+[window]
+padding = { x = 3, y = 3 }
+dynamic_padding = true
+decorations = "None"
+
+[font]
+size = 10.5
+offset = { x = 0, y = 1 }
+
+[keyboard]
+bindings = [
+    { key = "T", mods = "Control|Shift", action = "SpawnNewInstance" },
+]

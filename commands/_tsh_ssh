@@ -1,5 +1,20 @@
 #!/bin/zsh -e
 
+# function tsh_login_using_1password() {
+#     tsh status &>/dev/null || {
+#         spawn tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
+#         expect -re "Enter password for Teleport user $USERNAME*" {
+#             send -- "$(op read \"$OP_TSH_USERNAME/password\")\n"
+#             interact
+#         }
+#         expect -re "Enter an OTP code from a device:" {
+#             send -- "$(op read \"$OP_TSH_USERNAME/one-time password?attribute=otp\")\n"
+#             interact
+#         }
+#     }
+# }
+
+
 function tsh_login() {
     tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
 

@@ -1,3 +1,4 @@
+local vim = vim
 local opt = vim.opt
 
 -- FORMATTING
@@ -10,6 +11,13 @@ opt.softtabstop = 4                                 -- number of spaces to inser
 opt.autoindent = true                                     -- Auto indentation
 opt.smartindent = true                                    -- Do clever auto indentation
 opt.wrap = false                                         -- Don't wrap long lines
-opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
 opt.title = true
 opt.titlestring = '%m %F'
+
+
+-- This is used to foward clipboard to ssh client host
+-- https://sw.kovidgoyal.net/kitty/clipboard/
+-- NOTE: Use "+y to copy from ssh connection neovim
+if os.getenv('SSH_TTY') == nil then
+    opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
+end
