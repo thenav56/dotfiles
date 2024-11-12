@@ -21,6 +21,10 @@
     ~/.config/alacritty/alacritty.toml:
       path: config/alacritty.toml
     ~/.config/k9s:
+      if: '[ `uname` != Darwin ]'
+      path: config/k9s
+    ~/Library/Application Support/k9s:
+      if: '[ `uname` = Darwin ]'
       path: config/k9s
     ~/.config/nvim/:
       path: config/neovim/
