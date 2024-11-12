@@ -16,12 +16,16 @@
 
 
 function tsh_login() {
-    tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
+    if [[ "$TSH_MFA_MODE" = "passwordless" ]]; then
+        tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --auth=passwordless
+    else
+        tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
+    fi
 
 }
 
 function tsh_clusters() {
-    tsh ls | tail -n +3 | head -n -1 | cut -d " " -f 1 | sed "s/^/$TSH_SSH_USER\@/"
+    tsh ls | tail -n +3 | cut -d " " -f 1 | awk NF | sed "s/^/$TSH_SSH_USER\@/"
 }
 
 
