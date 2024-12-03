@@ -12,6 +12,7 @@ return {
             require('plugin-configs/_telescope')
         end,
     },
+    {'taybart/b64.nvim'},
     {'lambdalisue/suda.vim'},
     {'romainl/vim-qf'},
     {

@@ -34,7 +34,7 @@ k9s:
     xray:
       bgColor: default
     logs:
-      fgColor: darkturquoise
+      fgColor: default
       bgColor: default
       indicator:
         bgColor: default
