@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # Ensure Azure CLI is logged in
 if ! az account show > /dev/null 2>&1; then
@@ -13,8 +13,14 @@ if ! command -v yq &> /dev/null; then
 fi
 
 # Define the Azure Key Vault name and input YAML file
-VAULT_NAME=${VAULT_NAME?error}
-INPUT_FILE=${INPUT_FILE?error}
+if [ "$1" = "" ] || [ "$2" = "" ]
+then
+  echo "Usage: $0 <vaultname> <filename>"
+  exit
+fi
+
+VAULT_NAME=$1
+INPUT_FILE=$2
 
 # Check if the input YAML file exists
 if [[ ! -f "$INPUT_FILE" ]]; then
