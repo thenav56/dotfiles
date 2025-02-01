@@ -9,6 +9,7 @@
     ~/.dotfiles: ""
     ~/.zshrc: config/zshrc
     # ~/.kube/config: /dev/null
+    ~/.kube/kubie.yaml: config/kubie.yaml
     ~/.ansible.cfg: config/ansible.cfg
     ~/.ripgreprc: config/ripgreprc
     ~/.Renviron: config/Renviron

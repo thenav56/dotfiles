@@ -109,7 +109,7 @@
 
     - name: Update grub timeout to 1
       lineinfile:
-        path: /etc/locale.gen
+        path: /etc/default/grub
         regexp: '^GRUB_TIMEOUT=5$'
         line: 'GRUB_TIMEOUT=1'
 
