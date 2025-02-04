@@ -5,4 +5,5 @@ k9s:
     textWrap: true
   ui:
     skin: transparent
+    headless: true
     # skin: solarized-light
