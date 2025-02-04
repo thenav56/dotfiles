@@ -1,25 +1,67 @@
-#!/bin/zsh -e
+#!/usr/bin/env zsh
 
-# function tsh_login_using_1password() {
-#     tsh status &>/dev/null || {
-#         spawn tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
-#         expect -re "Enter password for Teleport user $USERNAME*" {
-#             send -- "$(op read \"$OP_TSH_USERNAME/password\")\n"
-#             interact
-#         }
-#         expect -re "Enter an OTP code from a device:" {
-#             send -- "$(op read \"$OP_TSH_USERNAME/one-time password?attribute=otp\")\n"
-#             interact
-#         }
-#     }
-# }
+set -e
 
+# Set ~/.zsh-additional-rc with
+#
+# ---- Common configs ---------------------------------------------
+#
+# export TSH_SSH_USER=toggle
+#
+# ---- MFA - Passwordless ---------------------------------------------
+#
+# export TSH_MFA_MODE=passwordless
+# export TSH_PROXY=tsh.example.com:443
+# export TSH_USER=thenav56
+#
+# ---- MFA - OPT: Without 1password ---------------------------------------------
+#
+# export TSH_MFA_MODE=otp
+# export OP_TSH_USE='false'
+# export TSH_PROXY=tsh.example.com:443
+# export TSH_USER=thenav56
+#
+# ---- MFA - OPT: With 1password ---------------------------------------------
+#
+# export TSH_MFA_MODE=otp
+# export OP_TSH_USE='true'
+# export OP_TSH_PROXY='op://Work/Teleport/proxy'
+# export OP_TSH_USER='op://Work/Teleport/username'
+# export OP_TSH_PASS='op://Work/Teleport/password'
+# export OP_TSH_OTP='op://Work/Teleport/one-time password?attribute=otp'
+#
+
+
+_1PASSWORD_COMMAND="$(cat <<'EOF'
+set USERNAME $env(OP_TSH_USER)
+spawn tsh login --proxy "$env(OP_TSH_PROXY)" --user "$USERNAME" --mfa-mode=otp
+expect "Enter password for Teleport user $USERNAME:"
+send -- "$env(OP_TSH_PASS)\n"
+expect "Enter an OTP code from a device:"
+send -- "$env(OP_TSH_OTP)\n"
+expect eof
+EOF
+        )"
+
+# ---- 1password ---------------------------------------------
 
 function tsh_login() {
+
     if [[ "$TSH_MFA_MODE" = "passwordless" ]]; then
-        tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --auth=passwordless
+        tsh status &>/dev/null || {
+            tsh login --proxy=$TSH_PROXY --user=$TSH_USER --auth=passwordless
+        }
+
     else
-        tsh status &>/dev/null || tsh login --proxy=$TSH_PROXY --user=$TSH_USER --mfa-mode=$TSH_MFA_MODE
+        if [[ "$OP_TSH_USE" = "true" ]]; then
+            tsh status &>/dev/null || {
+                op run -- expect -c "$_1PASSWORD_COMMAND"
+            }
+        else
+            tsh status &>/dev/null || {
+                tsh login --proxy "$TSH_PROXY" --user "$TSH_USER" --mfa-mode otp
+            }
+        fi
     fi
 
 }
