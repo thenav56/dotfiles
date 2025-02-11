@@ -35,7 +35,7 @@ zinit light-mode for \
 
 # Load pure theme
 # with zsh-async library that's bundled with it.
-zinit ice pick"async.zsh" src"pure.zsh"
+zinit ice compile'(pure|async).zsh' pick'async.zsh' src'pure.zsh'
 zinit light sindresorhus/pure
 
 zinit light-mode for \
@@ -45,11 +45,12 @@ zinit \
     atload"zicompinit; zicdreplay" \
     blockf \
     lucid \
+    light-mode \
     for \
       wait"0" @"$HOME/.dotfiles/config/zinit/completions" \
       wait @zsh-users/zsh-completions
 
-zinit pack for ls_colors
+zinit pack light-mode for ls_colors
 
 export NVM_COMPLETION=true
 export NVM_SYMLINK_CURRENT="true"
