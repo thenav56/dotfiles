@@ -21,3 +21,18 @@ opt.titlestring = '%m %F'
 if os.getenv('SSH_TTY') == nil then
     opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
 end
+
+-- Force enable OSC52
+if os.getenv('NVIM_FORCE_ENABLE_OSC52') ~= nil then
+    vim.g.clipboard = {
+      name = 'OSC 52',
+      copy = {
+        ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
+        ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
+      },
+      paste = {
+        ['+'] = require('vim.ui.clipboard.osc52').paste('+'),
+        ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
+      },
+    }
+end

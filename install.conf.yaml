@@ -33,6 +33,8 @@
       path: config/atuin.toml
     ~/.ssh/config:
       path: config/ssh.conf
+    ~/.ssh/rc:
+      path: config/ssh-rc.sh
     # tmux
     ~/.config/tmux/tmux.conf:
       path: config/tmux.conf

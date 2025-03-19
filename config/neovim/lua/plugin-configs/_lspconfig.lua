@@ -126,38 +126,75 @@ local function get_python_path(workspace)
   return fn.exepath('python3') or fn.exepath('python') or 'python'
 end
 
-
-lspconfig.pyright.setup {
-    capabilities = capabilities,
-    before_init = function(_, config)
-        config.settings.python.pythonPath = get_python_path(config.root_dir)
-    end
-}
-
--- https://github.com/williamboman/mason-lspconfig.nvim/blob/main/lua/mason-lspconfig/server_configurations/pylsp/README.md
-lspconfig.pylsp.setup {
+lspconfig.ruff.setup({
   capabilities = capabilities,
-  -- https://github.com/python-lsp/python-lsp-server/blob/develop/CONFIGURATION.md
-  settings = {
-    pylsp = {
-      configurationSources = {"flake8"},
-      plugins = {
-        flake8 = {
-          enabled = true,
-        },
-        autoimport = {
-          enabled = false,
-        },
-        pycodestyle = {
-          enabled = false,
-        },
-        -- ruff = {
-        --     enabled = true,
-        -- },
-      }
+  init_options = {
+    settings = {
+      lint = {
+        preview = true
+      },
     }
   }
+})
+
+vim.api.nvim_create_autocmd("LspAttach", {
+  group = vim.api.nvim_create_augroup('lsp_attach_disable_ruff_hover', { clear = true }),
+  callback = function(args)
+    local client = vim.lsp.get_client_by_id(args.data.client_id)
+    if client == nil then
+      return
+    end
+    if client.name == 'ruff' then
+      -- Disable hover in favor of Pyright
+      client.server_capabilities.hoverProvider = false
+    end
+  end,
+  desc = 'LSP: Disable hover capability from Ruff',
+})
+
+lspconfig.pyright.setup {
+  capabilities = capabilities,
+  before_init = function(_, config)
+      config.settings.python.pythonPath = get_python_path(config.root_dir or "")
+  end,
+  settings = {
+    pyright = {
+      -- Using Ruff's import organizer
+      disableOrganizeImports = true,
+    },
+    python = {
+      analysis = {
+        -- Ignore all files for analysis to exclusively use Ruff for linting
+        ignore = { '*' },
+      },
+    },
+  },
 }
+
+-- -- https://github.com/williamboman/mason-lspconfig.nvim/blob/main/lua/mason-lspconfig/server_configurations/pylsp/README.md
+-- lspconfig.pylsp.setup {
+--   capabilities = capabilities,
+--   -- https://github.com/python-lsp/python-lsp-server/blob/develop/CONFIGURATION.md
+--   settings = {
+--     pylsp = {
+--       configurationSources = {"flake8"},
+--       plugins = {
+--         flake8 = {
+--           enabled = true,
+--         },
+--         autoimport = {
+--           enabled = false,
+--         },
+--         pycodestyle = {
+--           enabled = false,
+--         },
+--         ruff = {
+--           enabled = false,
+--         },
+--       }
+--     }
+--   }
+-- }
 
 lspconfig.ts_ls.setup {capabilities = capabilities}
 lspconfig.graphql.setup {capabilities = capabilities}

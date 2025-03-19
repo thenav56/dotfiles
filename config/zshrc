@@ -85,6 +85,7 @@ export ZVM_VI_EDITOR=$EDITOR
 export VISUAL=$EDITOR
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
+export COMPOSE_BAKE=true
 export COMPOSE_DOCKER_CLI_BUILD=1
 export HOMEBREW_BUNDLE_FILE="$HOME/.dotfiles/system-packages/brew/brew.Brewfile"
 
@@ -96,11 +97,11 @@ export MANROFFOPT="-c"
 export MANPAGER="$HOME/.dotfiles/commands/man_pager.sh"
 export TERM=screen-256color
 
-alias ls="eza --icons=auto"  # NOTE: use `command ls ..args` for vanilla ls
+alias ls="lsd"  # NOTE: use `command ls ..args` for vanilla ls
 alias watch="viddy"
 alias ssh="TERM=xterm ssh"
 alias cat="custom_cat"  # NOTE: use `command cat ..args` for vanilla cat
-alias ll='eza --icons=auto -la --git'
+alias ll='lsd -la --git'
 alias srsync="rsync --stats --numeric-ids --info=progress2 -avxhHAX -s"
 alias ssrsync="rsync --info=progress2 -axhHAX"
 # Zoxide NOTE: zi conflicts with zinit zi, so using custom zii for interactive
