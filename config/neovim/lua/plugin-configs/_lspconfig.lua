@@ -152,6 +152,20 @@ vim.api.nvim_create_autocmd("LspAttach", {
   desc = 'LSP: Disable hover capability from Ruff',
 })
 
+vim.api.nvim_create_user_command(
+    'Ruff',
+    function()
+        vim.lsp.buf.code_action {
+            context = {
+                only = { 'source.fixAll.ruff' }
+            },
+            apply = true,
+        }
+        vim.lsp.buf.format { async = true }
+    end,
+    { desc = "Reformat python with ruff" }
+)
+
 lspconfig.pyright.setup {
   capabilities = capabilities,
   before_init = function(_, config)

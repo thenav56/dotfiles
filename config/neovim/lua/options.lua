@@ -14,7 +14,6 @@ opt.compatible = false                                    -- Don't behave very V
 opt.encoding = 'UTF-8'                                -- Set character encoding
 -- opt.lazyredraw = true                                      -- Don't draw while executing macros
 opt.hidden = true                                          -- Don't unload a buffer when no longer show in window
-opt.foldenable = false                                    -- Set to display all folds open
 opt.remap = true                                          -- Recognize mappings in mapped keys
 opt.spell = false                                        -- Disable spell correction
 opt.scroll = 9                                      -- Number of lines to scroll for Ctrl-U and Ctrl-D

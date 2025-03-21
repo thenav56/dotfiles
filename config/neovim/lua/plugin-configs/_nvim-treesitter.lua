@@ -23,17 +23,6 @@ require'treesitter-context'.setup{
 vim.o.matchpairs = '(:),{:},[:]'
 vim.g.matchup_matchparen_offscreen = { method = 'popup' }
 
--- # Folding - https://github.com/nvim-treesitter/nvim-treesitter?tab=readme-ov-file#folding
-opt.foldmethod = 'expr'
-opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
-opt.foldtext = "v:lua.vim.treesitter.foldtext()"
-
-opt.foldlevel = 99
-opt.foldlevelstart = 1
-opt.foldnestmax = 4
-opt.foldcolumn = "0"
-opt.foldtext = ""
-
 -- # Basic treesitter configs
 require('nvim-treesitter.configs').setup {
     ensure_installed = {

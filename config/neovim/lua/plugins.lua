@@ -144,6 +144,13 @@ return {
         }
     },
     {
+        'kevinhwang91/nvim-ufo',
+        config = function()
+            require('plugin-configs/_ufo')
+        end,
+        dependencies = 'kevinhwang91/promise-async',
+    },
+    {
         -- misc
         'romainl/vim-qf'
     },
