@@ -6,7 +6,6 @@ local augroup = vim.api.nvim_create_augroup
 local map = vim.keymap.set
 local lsp = vim.lsp
 local fn = vim.fn
-local inspect = vim.inspect
 local bo = vim.bo
 local diagnostic = vim.diagnostic
 local env = vim.env
@@ -194,7 +193,7 @@ lspconfig.pyright.setup {
 --       configurationSources = {"flake8"},
 --       plugins = {
 --         flake8 = {
---           enabled = true,
+--           enabled = false,
 --         },
 --         autoimport = {
 --           enabled = false,
@@ -210,6 +209,7 @@ lspconfig.pyright.setup {
 --   }
 -- }
 
+lspconfig.terraformls.setup {capabilities = capabilities}
 lspconfig.ts_ls.setup {capabilities = capabilities}
 lspconfig.graphql.setup {capabilities = capabilities}
 lspconfig.bashls.setup {capabilities = capabilities}
@@ -278,12 +278,6 @@ autocmd('LspAttach', {
 
         map('n', 'K', lsp.buf.hover, opts)
         map('n', '<C-k>', lsp.buf.signature_help, opts)
-
-        map('n', '<space>wa', lsp.buf.add_workspace_folder, opts)
-        map('n', '<space>wr', lsp.buf.remove_workspace_folder, opts)
-        map('n', '<space>wl', function()
-            print(inspect(lsp.buf.list_workspace_folders()))
-        end, opts)
 
         map('n', '<leader>lr', lsp.buf.rename, opts)
         map({ 'n', 'v' }, '<leader>lc', lsp.buf.code_action, opts)
