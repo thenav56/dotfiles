@@ -209,6 +209,7 @@ lspconfig.pyright.setup {
 --   }
 -- }
 
+lspconfig.tflint.setup {capabilities = capabilities}
 lspconfig.terraformls.setup {capabilities = capabilities}
 lspconfig.ts_ls.setup {capabilities = capabilities}
 lspconfig.graphql.setup {capabilities = capabilities}

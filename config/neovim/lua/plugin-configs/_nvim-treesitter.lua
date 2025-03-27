@@ -55,6 +55,7 @@ require('nvim-treesitter.configs').setup {
         'gotmpl',
         'helm',
         'terraform',
+        'hcl',
     },
     highlight = {
         enable = true,

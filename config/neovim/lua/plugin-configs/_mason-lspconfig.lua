@@ -15,5 +15,7 @@ require('mason-lspconfig').setup {
         "stylelint_lsp",
         "ts_ls",
         "yamlls",
+        "tflint",
+        "terraformls",
     },
 }
