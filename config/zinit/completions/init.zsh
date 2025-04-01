@@ -17,8 +17,6 @@ fi
 if type "zoxide" > /dev/null; then eval "$(zoxide init zsh --no-cmd)"; fi
 if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
 if type "pyenv-virtualenv" > /dev/null; then eval "$(pyenv virtualenv-init -)"; fi
-if type "kubectl" > /dev/null; then source <(kubectl completion zsh); fi
-if type "k9s" > /dev/null; then source <(k9s completion zsh); fi
 
 # Teleport cli tools
 if type "tsh" > /dev/null; then eval "$(tsh --completion-script-zsh)"; fi
