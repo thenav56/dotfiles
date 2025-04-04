@@ -16,10 +16,6 @@ return {
     {'lambdalisue/suda.vim'},
     {'romainl/vim-qf'},
     {
-        'sheerun/vim-polyglot',
-        enabled = false,
-    },
-    {
         'norcalli/nvim-colorizer.lua',
         config = function()
             require'colorizer'.setup()
