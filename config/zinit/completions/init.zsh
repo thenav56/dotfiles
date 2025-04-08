@@ -1,5 +1,7 @@
 #!/bin/env zsh
 
+BASE_PATH="$HOME/.local/share/zinit/completions/__nav__"
+
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # MacOS
     # -- FZF
@@ -15,13 +17,24 @@ else
 fi
 
 if type "zoxide" > /dev/null; then eval "$(zoxide init zsh --no-cmd)"; fi
-if type "pyenv" > /dev/null; then eval "$(pyenv init -)"; fi
-if type "pyenv-virtualenv" > /dev/null; then eval "$(pyenv virtualenv-init -)"; fi
 
-# Teleport cli tools
-if type "tsh" > /dev/null; then eval "$(tsh --completion-script-zsh)"; fi
-if type "tctl" > /dev/null; then eval "$(tctl --completion-script-zsh)"; fi
-if type "tbot" > /dev/null; then eval "$(tbot --completion-script-zsh)"; fi
+declare -A MY_COMMANDS
+MY_COMMANDS=(
+  # Teleport cli tools
+  ["tsh"]="tsh --completion-script-zsh"
+  ["tctl"]="tctl --completion-script-zsh"
+  ["tbot"]="tbot --completion-script-zsh"
+  # python
+  ["pyenv"]="pyenv init -"
+  ["pyenv-virtualenv"]="pyenv virtualenv-init -"
+)
+
+for command completion_command in "${(@kv)MY_COMMANDS}"; do
+  if type "$command" > /dev/null && [ ! -f "${BASE_PATH}_${command}" ]; then
+    eval "${completion_command}" > "${BASE_PATH}_${command}"
+  fi
+done
+
 
 # Try to load FZF
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
