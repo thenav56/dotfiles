@@ -8,6 +8,7 @@
 - link:
     ~/.dotfiles: ""
     ~/.zshrc: config/zshrc
+    ~/.eget.toml: config/eget.toml
     # ~/.kube/config: /dev/null
     ~/.kube/kubie.yaml: config/kubie.yaml
     ~/.ansible.cfg: config/ansible.cfg

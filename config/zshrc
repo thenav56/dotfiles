@@ -80,9 +80,16 @@ setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording en
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
 # Environment variables
-export PATH="$PATH":"$HOME/.local/bin":"$HOME/.dotfiles/commands"
-export PATH="$PATH":"$HOME/go/bin/"
-export PATH="$PATH":"${KREW_ROOT:-$HOME/.krew}/bin":"$HOME/.kube/custom-plugins"
+# Environment variables
+CUSTOM_PATHS=(
+  "$HOME/go/bin/"
+  "$HOME/.local/bin"
+  "$HOME/.dotfiles/commands"
+  "${KREW_ROOT:-$HOME/.krew}/bin"
+  "$HOME/.kube/custom-plugins"
+  "$PATH"
+)
+export PATH="${(j.:.)CUSTOM_PATHS}"
 
 export EDITOR=nvim
 export ZVM_VI_EDITOR=$EDITOR

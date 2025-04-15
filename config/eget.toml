@@ -1,0 +1,6 @@
+[global]
+target = "~/.local/bin"
+show_hash = true
+
+["infracost/infracost"]
+target = "~/.local/bin/infracost"
