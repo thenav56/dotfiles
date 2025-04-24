@@ -9,7 +9,6 @@ native:
   - ly
   - openssh
   - pacman-contrib
-  - arc-gtk-theme
   - atuin
   - bat
   - bind
@@ -64,9 +63,9 @@ native:
   - picom
   - polybar
   - pyenv
+  - uv
   - python-pip
   - python-pipenv
-  - python-pipx
   - python-poetry
   - python-setuptools
   - ripgrep
@@ -85,7 +84,6 @@ native:
   - wget
   - which
   - x11vnc
-  - xautolock
   - xclip
   - xorg-server
   - xorg-xinit
@@ -149,6 +147,8 @@ native:
   # lftp  # FTP
 
 aur:
+  - arc-gtk-theme
+  - xautolock
   - viddy
   - lazydocker
   - zramswap

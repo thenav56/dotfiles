@@ -88,12 +88,17 @@
             name: aur_builder
             state: absent
             remove: true
+            force: true
 
-    - name: Install packages with pipx
-      community.general.pipx:
-        name: "{{ item }}"
+    - name: Install packages with uv tool install
+      ansible.builtin.shell: |
+        uv tool install --no-progress {{ item }}
+      args:
+        executable: /bin/bash
+        creates: "{{ ansible_env.HOME }}/.local/bin/{{ item }}"
       loop:
-        - ipython
+        - neovim-remote
+        - --with requests ipython
         - django
         - pre-commit
         - flake8
@@ -101,9 +106,7 @@
         - ruff
         - line-profiler
         - snakeviz
-        - visidata
-        - awscliv2
+        - --with openpyxl visidata
         - azure-cli
-        - jupyterlab
-        # - locust
-        # - ddcci_plasmoid_backend
+        - --with requests jupyterlab
+        - ddcci_plasmoid_backend
