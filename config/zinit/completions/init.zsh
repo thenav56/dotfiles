@@ -27,6 +27,8 @@ MY_COMMANDS=(
   # python
   ["pyenv"]="pyenv init -"
   ["pyenv-virtualenv"]="pyenv virtualenv-init -"
+  # git
+  ["git-lfs"]="git lfs completion zsh"
 )
 
 for command completion_command in "${(@kv)MY_COMMANDS}"; do
@@ -34,7 +36,6 @@ for command completion_command in "${(@kv)MY_COMMANDS}"; do
     eval "${completion_command}" > "${BASE_PATH}_${command}"
   fi
 done
-
 
 # Try to load FZF
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
