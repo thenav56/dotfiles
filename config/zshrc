@@ -105,7 +105,7 @@ gpgconf --launch gpg-agent
 
 # MANUAL using bat
 export MANROFFOPT="-c"
-export MANPAGER="$HOME/.dotfiles/commands/man_pager.sh"
+export MANPAGER="nvim +Man!"
 export TERM=screen-256color
 
 alias ls="lsd"  # NOTE: use `command ls ..args` for vanilla ls
