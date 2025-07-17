@@ -107,14 +107,6 @@ return {
         },
     },
     {
-        -- Manage external dependencies
-        'williamboman/mason.nvim',
-        build = ':MasonUpdate', -- :MasonUpdate updates registry contents
-        config = function()
-            require('plugin-configs/_mason')
-        end,
-    },
-    {
         -- Manage external dependencies for lsp
         'williamboman/mason-lspconfig.nvim',
         config = function()
@@ -123,6 +115,14 @@ return {
         dependencies = {
             'williamboman/mason.nvim',
         }
+    },
+    {
+        -- Manage external dependencies
+        'williamboman/mason.nvim',
+        build = ':MasonUpdate', -- :MasonUpdate updates registry contents
+        config = function()
+            require('plugin-configs/_mason')
+        end,
     },
     {
         -- lsp support

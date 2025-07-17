@@ -1,6 +1,7 @@
 local lspconfig = require('lspconfig')
 local cmp = require('cmp')
 local util = require('lspconfig/util')
+local vim = vim
 local autocmd = vim.api.nvim_create_autocmd
 local augroup = vim.api.nvim_create_augroup
 local map = vim.keymap.set
@@ -223,7 +224,16 @@ lspconfig.graphql.setup {capabilities = capabilities}
 lspconfig.bashls.setup {capabilities = capabilities}
 -- lspconfig.cssmodules_ls.setup {}
 lspconfig.docker_compose_language_service.setup {capabilities = capabilities}
-lspconfig.dockerls.setup {capabilities = capabilities}
+
+lspconfig.dockerls.setup {
+    capabilities = capabilities,
+    on_init = function(client, initialization_result)
+        if client.server_capabilities then
+            client.server_capabilities.documentFormattingProvider = false
+            client.server_capabilities.semanticTokensProvider = false
+        end
+    end,
+}
 
 lspconfig.eslint.setup {
     capabilities = capabilities,
@@ -256,6 +266,30 @@ lspconfig.stylelint_lsp.setup {
 }
 lspconfig.yamlls.setup {capabilities = capabilities}
 lspconfig.nginx_language_server.setup { capabilities = capabilities }
+lspconfig.harper_ls.setup {
+    -- https://writewithharper.com/docs/integrations/neovim#Optional-Configuration
+    filetypes = { "markdown" },
+}
+
+-- lspconfig.azure_pipelines_ls.setup {
+--     capabilities = capabilities,
+--     settings = {
+--         yaml = {
+--             schemas = {
+--                 ["https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/master/service-schema.json"] = {
+--                     "/azure-pipeline*.y*l",
+--                     "/*.azure*",
+--                     "Azure-Pipelines/**/*.y*l",
+--                     "Pipelines/*.y*l",
+--                 },
+--             },
+--         },
+--     },
+-- }
+
+lspconfig.gh_actions_ls.setup {  capabilities = capabilities }
+
+lspconfig.postgres_lsp.setup {  capabilities = capabilities }
 
 -- Global mappings.
 -- See `:help vim.diagnostic.*` for documentation on any of the below functions

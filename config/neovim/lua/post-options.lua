@@ -14,25 +14,34 @@ opt.wrap = false                                         -- Don't wrap long line
 opt.title = true
 opt.titlestring = '%m %F'
 
+-- Autocommand for filetype-specific settings
+local set_tab = function(ft, opts)
+  vim.api.nvim_create_autocmd("FileType", {
+    pattern = ft,
+    callback = function()
+      for key, value in pairs(opts) do
+        vim.opt_local[key] = value
+      end
+    end,
+  })
+end
 
--- This is used to foward clipboard to ssh client host
+-- Customize per filetype
+set_tab("python", { expandtab = true, shiftwidth = 4, softtabstop = 4, tabstop = 4 })
+set_tab("javascript", { expandtab = true, shiftwidth = 2, softtabstop = 2, tabstop = 2 })
+set_tab("yaml", { expandtab = true, shiftwidth = 2, softtabstop = 2, tabstop = 2 })
+set_tab("json5", { expandtab = true, shiftwidth = 2, softtabstop = 2, tabstop = 2 })
+
+-- This is used to forward clipboard to ssh client host
 -- https://sw.kovidgoyal.net/kitty/clipboard/
 -- NOTE: Use "+y to copy from ssh connection neovim
 if os.getenv('SSH_TTY') == nil then
     opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
+else
+    vim.g.clipboard = 'osc52'
 end
 
 -- Force enable OSC52
-if os.getenv('NVIM_FORCE_ENABLE_OSC52') ~= nil then
-    vim.g.clipboard = {
-      name = 'OSC 52',
-      copy = {
-        ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
-        ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
-      },
-      paste = {
-        ['+'] = require('vim.ui.clipboard.osc52').paste('+'),
-        ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
-      },
-    }
-end
+-- if os.getenv('NVIM_FORCE_ENABLE_OSC52') ~= nil then
+--     vim.g.clipboard = 'osc52'
+-- end

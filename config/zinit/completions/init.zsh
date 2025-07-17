@@ -29,6 +29,7 @@ MY_COMMANDS=(
   ["pyenv-virtualenv"]="pyenv virtualenv-init -"
   # git
   ["git-lfs"]="git lfs completion zsh"
+  ["bun"]='source "/home/navin/.bun/_bun"'
 )
 
 for command completion_command in "${(@kv)MY_COMMANDS}"; do

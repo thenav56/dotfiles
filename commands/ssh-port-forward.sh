@@ -126,4 +126,4 @@ echo "🛑 Press Ctrl+C to stop the tunnel."
 echo ""
 
 set -x
-ssh -N "${TUNNELS[@]}" "$PROFILE_HOST"
+ssh -N "${TUNNELS[@]}" $PROFILE_HOST

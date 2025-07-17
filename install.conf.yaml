@@ -41,6 +41,8 @@
       path: config/ssh.conf
     ~/.ssh/rc:
       path: config/ssh-rc.sh
+    ~/.config/harper-ls:
+      path: config/harper-ls
     # tmux
     ~/.config/tmux/tmux.conf:
       path: config/tmux.conf

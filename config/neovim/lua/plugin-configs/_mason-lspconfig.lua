@@ -1,5 +1,5 @@
 require('mason-lspconfig').setup {
-    automatic_installation = true,
+    automatic_enable = false,
     ensure_installed = {
         "bashls",
         "docker_compose_language_service",
@@ -10,12 +10,13 @@ require('mason-lspconfig').setup {
         "jsonls",
         "lua_ls",
         "pyright",
-        "pylsp",
         "sqlls",
         "stylelint_lsp",
         "ts_ls",
         "yamlls",
         "tflint",
         "terraformls",
+        "postgres_lsp",
+        "harper_ls",
     },
 }

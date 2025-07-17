@@ -38,10 +38,10 @@ require('nvim-treesitter.configs').setup {
         'git_config',
         'gitignore',
         'git_rebase',
-        'graphql',
         'html',
         'javascript',
         'json',
+        'caddy',
         -- 'lua',
         'markdown',
         'diff',
@@ -69,14 +69,18 @@ require('nvim-treesitter.configs').setup {
     }
 }
 
--- For helm support https://github.com/ngalaiko/tree-sitter-go-template?tab=readme-ov-file#neovim-integration-using-nvim-treesitter
+-- Filetype detection for Helm and other custom types
+-- For Helm support, see: https://github.com/ngalaiko/tree-sitter-go-template#neovim-integration-using-nvim-treesitter
+
 vim.filetype.add({
   extension = {
-    gotmpl = 'gotmpl',
+    gotmpl = "gotmpl",
+    caddy = "caddy",
   },
   pattern = {
     [".*/templates/.*%.tpl"] = "gotmpl",
     [".*/templates/.*%.ya?ml"] = "helm",
     ["helmfile.*%.ya?ml"] = "helm",
+    ["Caddyfile"] = "caddy",
   },
 })

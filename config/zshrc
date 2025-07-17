@@ -85,8 +85,10 @@ CUSTOM_PATHS=(
   "$HOME/go/bin/"
   "$HOME/.local/bin"
   "$HOME/.dotfiles/commands"
+  "$$HOME/.bun/bin"
   "${KREW_ROOT:-$HOME/.krew}/bin"
   "$HOME/.kube/custom-plugins"
+  "$HOME/.cargo/bin"
   "$PATH"
 )
 export PATH="${(j.:.)CUSTOM_PATHS}"
@@ -213,6 +215,7 @@ function day(){
         osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to false'
     else
         linux_system_theme_change $GTK_DAY_THEME
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-light'
     fi
 }
 
@@ -229,6 +232,7 @@ function night(){
         osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to true'
     else
         linux_system_theme_change $GTK_NIGHT_THEME
+        gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
     fi
 }
 
