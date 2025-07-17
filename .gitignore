@@ -2,3 +2,6 @@
 config/kitty/base16_hooks.conf
 config/kitty/macos-launch-services-cmdline
 brew.Brewfile.lock.json
+
+config/kitty/scroll_mark.py
+config/kitty/search.py

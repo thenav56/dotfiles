@@ -18,8 +18,13 @@
       path: config/git/git.conf
     ~/.git-templates/:
       path: config/git/git-templates/
+    # Kitty
     ~/.config/kitty/:
       path: config/kitty
+    ~/.config/kitty/scroll_mark.py:
+      path: tools/kitty-kitten-search/scroll_mark.py
+    ~/.config/kitty/search.py:
+      path: tools/kitty-kitten-search/search.py
     ~/.config/alacritty/alacritty.toml:
       path: config/alacritty.toml
     ~/.config/k9s:

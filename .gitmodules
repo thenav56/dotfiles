@@ -16,3 +16,6 @@
 [submodule "tools/fzf-git"]
 	path = tools/fzf-git
 	url = https://github.com/junegunn/fzf-git.sh
+[submodule "tools/kitty-kitten-search"]
+	path = tools/kitty-kitten-search
+	url = https://github.com/trygveaa/kitty-kitten-search
