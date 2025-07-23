@@ -18,6 +18,8 @@
       path: config/git/git.conf
     ~/.git-templates/:
       path: config/git/git-templates/
+    ~/.config/wezterm:
+      path: config/wezterm
     # Kitty
     ~/.config/kitty/:
       path: config/kitty
