@@ -8,41 +8,57 @@ local mux = wezterm.mux
 local config = wezterm.config_builder()
 
 config.ssh_domains = {
-  {
-    name = 'wezterm-remote',
-    remote_address = 'wezterm-remote',
-  },
-}
-config.keys = {
-  {
-    key = 'U',
-    mods = 'CTRL|SHIFT',
-    action = wezterm.action.AttachDomain 'wezterm-remote',
-  },
-  {
-    key = 'W',
-    mods = 'CTRL|SHIFT',
-    action = act.PromptInputLine {
-      description = wezterm.format {
-        { Attribute = { Intensity = 'Bold' } },
-        { Foreground = { AnsiColor = 'Fuchsia' } },
-        { Text = 'Enter name for new workspace' },
-      },
-      action = wezterm.action_callback(function(window, pane, line)
-        -- line will be `nil` if they hit escape without entering anything
-        -- An empty string if they just hit enter
-        -- Or the actual line of text they wrote
-        if line then
-          window:perform_action(
-            act.SwitchToWorkspace {
-              name = line,
-            },
-            pane
-          )
-        end
-      end),
+    {
+        name = 'wezterm-remote',
+        remote_address = 'wezterm-remote',
     },
-  },
+}
+
+config.keys = {
+    {
+        key = 'U',
+        mods = 'CTRL|SHIFT',
+        action = wezterm.action.AttachDomain 'wezterm-remote',
+    },
+    -- Pane ------
+    -- New
+    {
+        key = 'Return',
+        mods = 'CTRL|SHIFT',
+        action = wezterm.action.SplitHorizontal { domain = 'CurrentPaneDomain' },
+    },
+    {
+        key = 'Return',
+        mods = 'CTRL',
+        action = wezterm.action.SplitVertical { domain = 'CurrentPaneDomain' },
+    },
+    -- Close
+    {
+        key = 'w',
+        mods = 'CTRL|SHIFT',
+        action = wezterm.action.CloseCurrentPane { confirm = false },
+    },
+    -- Navigation
+    {
+        key = 'h',
+        mods = 'CTRL|SHIFT',
+        action = act.ActivatePaneDirection 'Left',
+    },
+    {
+        key = 'l',
+        mods = 'CTRL|SHIFT',
+        action = act.ActivatePaneDirection 'Right',
+    },
+    {
+        key = 'k',
+        mods = 'CTRL|SHIFT',
+        action = act.ActivatePaneDirection 'Up',
+    },
+    {
+        key = 'j',
+        mods = 'CTRL|SHIFT',
+        action = act.ActivatePaneDirection 'Down',
+    },
 }
 
 wezterm.on("update-right-status", function(window, pane)
