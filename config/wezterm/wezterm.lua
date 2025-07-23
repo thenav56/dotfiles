@@ -14,50 +14,72 @@ config.ssh_domains = {
     },
 }
 
+config.leader = { key = 'b', mods = 'CTRL', timeout_milliseconds = 1000 }
+
 config.keys = {
     {
         key = 'U',
         mods = 'CTRL|SHIFT',
-        action = wezterm.action.AttachDomain 'wezterm-remote',
+        action = act.AttachDomain 'wezterm-remote',
     },
+    -- Tab -------
+    -- Move
+    { key = ',', mods = 'CTRL|SHIFT', action = act.MoveTabRelative(-1) },
+    { key = '.', mods = 'CTRL|SHIFT', action = act.MoveTabRelative(1) },
     -- Pane ------
+    -- Zoom
+    { key = 'z', mods = 'LEADER', action = wezterm.action.TogglePaneZoomState },
     -- New
     {
         key = 'Return',
-        mods = 'CTRL|SHIFT',
-        action = wezterm.action.SplitHorizontal { domain = 'CurrentPaneDomain' },
+        mods = 'LEADER|SHIFT',
+        action = act.SplitHorizontal { domain = 'CurrentPaneDomain' },
     },
     {
         key = 'Return',
-        mods = 'CTRL',
-        action = wezterm.action.SplitVertical { domain = 'CurrentPaneDomain' },
+        mods = 'LEADER',
+        action = act.SplitVertical { domain = 'CurrentPaneDomain' },
     },
     -- Close
     {
         key = 'w',
-        mods = 'CTRL|SHIFT',
-        action = wezterm.action.CloseCurrentPane { confirm = false },
+        mods = 'LEADER',
+        action = act.CloseCurrentPane { confirm = false },
     },
     -- Navigation
     {
         key = 'h',
-        mods = 'CTRL|SHIFT',
+        mods = 'LEADER',
         action = act.ActivatePaneDirection 'Left',
     },
     {
         key = 'l',
-        mods = 'CTRL|SHIFT',
+        mods = 'LEADER',
         action = act.ActivatePaneDirection 'Right',
     },
     {
         key = 'k',
-        mods = 'CTRL|SHIFT',
+        mods = 'LEADER',
         action = act.ActivatePaneDirection 'Up',
     },
     {
         key = 'j',
-        mods = 'CTRL|SHIFT',
+        mods = 'LEADER',
         action = act.ActivatePaneDirection 'Down',
+    },
+    -- Move pane
+    {
+        key = 'Space',
+        mods = 'LEADER|SHIFT',
+        action = act.RotatePanes 'CounterClockwise',
+    },
+    { key = 'Space', mods = 'LEADER', action = act.RotatePanes 'Clockwise' },
+    {  -- Swap with
+        key = 's',
+        mods = 'LEADER',
+        action = act.PaneSelect {
+            mode = 'SwapWithActiveKeepFocus',
+        },
     },
 }
 
