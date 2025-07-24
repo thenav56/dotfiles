@@ -32,16 +32,24 @@ set_tab("javascript", { expandtab = true, shiftwidth = 2, softtabstop = 2, tabst
 set_tab("yaml", { expandtab = true, shiftwidth = 2, softtabstop = 2, tabstop = 2 })
 set_tab("json5", { expandtab = true, shiftwidth = 2, softtabstop = 2, tabstop = 2 })
 
--- This is used to forward clipboard to ssh client host
--- https://sw.kovidgoyal.net/kitty/clipboard/
--- NOTE: Use "+y to copy from ssh connection neovim
-if os.getenv('SSH_TTY') == nil then
-    opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
-else
-    vim.g.clipboard = 'osc52'
+local set_clipboard = function()
+    -- When using wezterm as tmux
+    local wezterm_executable = os.getenv("WEZTERM_EXECUTABLE")
+
+    local local_tty = (
+        os.getenv('SSH_TTY') == nil and (
+            wezterm_executable == nil or not wezterm_executable:match("mux%-server$")
+        )
+    )
+
+    if local_tty then
+        opt.clipboard = opt.clipboard + 'unnamedplus'                        -- vim uses system clipboard to copy/paste
+    else
+        -- This is used to forward clipboard to ssh client host
+        -- https://sw.kovidgoyal.net/kitty/clipboard/
+        -- NOTE: Use "+y to copy from ssh connection neovim
+        vim.g.clipboard = 'osc52'
+    end
 end
 
--- Force enable OSC52
--- if os.getenv('NVIM_FORCE_ENABLE_OSC52') ~= nil then
---     vim.g.clipboard = 'osc52'
--- end
+set_clipboard()
