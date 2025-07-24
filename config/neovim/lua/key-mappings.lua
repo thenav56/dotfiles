@@ -20,6 +20,7 @@ map('', '<leader><tab>', ':CHADopen<CR>', { silent = true, remap = false })
 
 -- FZF
 map('n', '<leader>bs', ':History<CR>', { silent = true })
+map('n', '<C-C>', ':Commands<CR>', { silent = true })
 
 -- Navigation
 map('n', '<C-J>', '<C-W><C-J>', { silent = true, remap = false })

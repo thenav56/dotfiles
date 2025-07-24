@@ -151,6 +151,12 @@ return {
         'romainl/vim-qf'
     },
     {
+        'stevearc/oil.nvim',
+        opts = {},
+        dependencies = { "nvim-tree/nvim-web-devicons" },
+        lazy = false,
+    },
+    {
         'folke/trouble.nvim',
         dependencies = { "nvim-tree/nvim-web-devicons", opt = true },
         config = function()

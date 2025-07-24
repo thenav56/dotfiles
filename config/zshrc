@@ -85,7 +85,7 @@ CUSTOM_PATHS=(
   "$HOME/go/bin/"
   "$HOME/.local/bin"
   "$HOME/.dotfiles/commands"
-  "$$HOME/.bun/bin"
+  "$HOME/.bun/bin"
   "${KREW_ROOT:-$HOME/.krew}/bin"
   "$HOME/.kube/custom-plugins"
   "$HOME/.cargo/bin"
