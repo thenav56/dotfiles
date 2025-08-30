@@ -112,6 +112,7 @@ export TERM=screen-256color
 alias ls="lsd"  # NOTE: use `command ls ..args` for vanilla ls
 alias watch="viddy"
 alias ssh="TERM=xterm ssh"
+alias kssh="kitten ssh"
 alias cat="custom_cat"  # NOTE: use `command cat ..args` for vanilla cat
 alias ll='lsd -la --git'
 alias srsync="rsync --stats --numeric-ids --info=progress2 -avxhHAX -s"
