@@ -20,3 +20,6 @@ sync_frequency = "1h"
 
 [sync]
 records = true
+
+[dotfiles]
+enabled = true
