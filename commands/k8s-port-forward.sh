@@ -15,6 +15,10 @@ PORTS_FORWARD_PIDS=()
 CONFIG_FILE="$HOME/.k8s-forwards.yaml"
 PROFILE="$1"
 
+GREEN='\e[32m'
+RED='\e[31m'
+NC='\e[0m' # No Color / Reset
+
 SAMPLE_CONFIG=$(cat <<EOF
 profiles:
   timur:
@@ -71,6 +75,7 @@ if ! yq -e ".profiles | has(\"$PROFILE\")" "$CONFIG_FILE" >/dev/null 2>&1; then
 fi
 
 cleanup() {
+  # NOTE: This is not required but just in case to clean-up port-forwards
   echo ""
   echo "🛑 Caught exit signal. Stopping port-forwards..."
   for pid in "${PORTS_FORWARD_PIDS[@]}"; do
@@ -93,9 +98,9 @@ for secret_key in $secret_keys; do
   ns=$(yq e ".profiles.\"$PROFILE\".secrets.\"$secret_key\".namespace" "$CONFIG_FILE")
   secret_name=$(yq e ".profiles.\"$PROFILE\".secrets.\"$secret_key\".secret" "$CONFIG_FILE")
 
-  echo "  ▶️ ($secret_key) Decoding secret: $secret_key (secret=$secret_name) (namespace=$ns)"
+  echo -e "  ▶️ (${RED}$secret_key${NC}) Decoding secret: $secret_name (namespace=$ns)"
 
-  kubie exec "$context" "$ns" -- \
+  kubie exec --context-headers never "$context" "$ns" -- \
     kubectl get secret "$secret_name" -o json |
     jq --color-output -r '.data | with_entries(.value |= @base64d)' | sed 's/^/   /'
 
@@ -114,19 +119,20 @@ for port_key in $port_keys; do
   port=$(yq e ".profiles.\"$PROFILE\".ports.\"$port_key\".port" "$CONFIG_FILE")
   localPort=$(yq e ".profiles.\"$PROFILE\".ports.\"$port_key\".localPort" "$CONFIG_FILE")
 
-  echo "  🔄 ($port_key) Forwarding $localPort -> $svc:$port in (namespace=$ns)"
-  echo "    -> http://localhost:$localPort"
-
-  kubie exec "$context" "$ns" -- \
+  kubie exec --context-headers never "$context" "$ns" -- \
     kubectl port-forward service/"$svc" "$localPort":"$port" &
   pid=$!
   PORTS_FORWARD_PIDS+=("$pid")
 
+  echo -e "  🔄 (${RED}$port_key${NC}) Forwarding $localPort -> $svc:$port"
+  echo -e "      PID:\t\t$pid"
+  echo -e "      Namespace:\t$ns"
+  echo -e "      Domain:\t\t${GREEN}http://localhost:$localPort${NC}"
 done
 fi
 
 echo ""
 
-echo "✅ Port-forwards are running in background."
+echo "✅ Port-forwards are running in background. CTRL+c to stop them"
 
 wait

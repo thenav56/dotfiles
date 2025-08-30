@@ -30,6 +30,8 @@ MY_COMMANDS=(
   # git
   ["git-lfs"]="git lfs completion zsh"
   ["bun"]='source "/home/navin/.bun/_bun"'
+  # krew
+  ["kubectl-cnpg"]='kubectl cnpg completion zsh'
 )
 
 for command completion_command in "${(@kv)MY_COMMANDS}"; do
@@ -51,6 +53,16 @@ if [ -s "$FZF_COMPLETION" ]; then
     # ---- Teleport
     _fzf_complete_tsh() {
       _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(~/.dotfiles/commands/_tsh_ssh clusters)
+    }
+
+    # ---- ArgoCD
+    _fzf_complete_argocd() {
+       # kubie ctx <context> -n <argocd-ns> is required for using --core
+      _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(argocd.sh apps)
+    }
+
+    _fzf_complete_argocd.sh() {
+      _fzf_complete --no-select-1 --multi --reverse --header-lines=0 -- "$@" < <(argocd.sh apps)
     }
 fi
 

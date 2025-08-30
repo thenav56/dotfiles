@@ -1,6 +1,11 @@
+Alertmanager
 ArgoCD
+CNPG
 Dockerfile
 Gitea
+IDMC
+IFRC
+Keyur
 Navin
 SSL
 Togglecorp
@@ -8,10 +13,13 @@ Togglecorp's
 Uptime
 Uptimerobot
 env
+firebase
 github
 k8s
 kubectl
+mapswipe
 nginx
 renovatebot
 talos
 tc
+vaultwarden
