@@ -5,6 +5,21 @@ set -e
 DOT_ARGOCD_CONTEXT=${DOT_ARGOCD_CONTEXT?Please define it in your ~/.zsh-additional-rc}
 DOT_ARGOCD_NAMESPACE=${DOT_ARGOCD_NAMESPACE:-argocd}
 
+if ! command -v argocd &>/dev/null; then
+  echo "argocd cli is not installed. Please install it"
+  exit 1
+fi
+
+if ! command -v kubie &>/dev/null; then
+  echo "kubie is not installed. Please install it"
+  exit 1
+fi
+
+if ! command -v viddy &>/dev/null; then
+  echo "viddy is not installed. Please install it"
+  exit 1
+fi
+
 
 function _run() {
     # Default values
@@ -75,7 +90,7 @@ function _apps() {
 }
 
 function _usages() {
-  echo "Usage: $0 {refresh|watch}"
+  echo "Usage: $0 {refresh|watch|apps}"
   exit 1
 }
 
