@@ -163,6 +163,7 @@ sudo systemctl kill -s HUP systemd-logind
 <https://www.nerdfonts.com/cheat-sheet>
 
 - MacOS
+    - [./system-packages/brew/README.md](./system-packages/brew/README.md)
     - GPG
         - Setup: <https://gist.github.com/phortuin/cf24b1cca3258720c71ad42977e1ba57>
         - Permission: https://superuser.com/questions/954509/what-are-the-correct-permissions-for-the-gnupg-enclosing-folder-gpg-warning
