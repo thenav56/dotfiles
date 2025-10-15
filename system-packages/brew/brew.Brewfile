@@ -1,68 +1,138 @@
+# vim: set filetype=ruby
+
+# Taps
 tap "homebrew/bundle"
 tap "homebrew/cask-fonts"
 tap "homeport/tap"
-brew "aria2"
-brew "atuin"
-brew "bash"
-brew "bat"
-brew "btop"
+
+# Core utils
+brew "mas"
 brew "coreutils"
-brew "croc"
-brew "eza"
+brew "gnupg"
+brew "pinentry-mac"
+brew "bash"
+brew "openssh"
+brew "svt-av1"
+
+# Python
+brew "gcc"
+brew "gdal"
+brew "pyright"
+brew "uv"
+brew "ruff"
+brew "pre-commit"
+# brew "prek"
+
+# Must have
+brew "atuin"
+brew "asciinema"
+brew "bat"
+brew "lsd"
+brew "btop"
 brew "fx"
 brew "fzf"
-brew "git-delta"
-brew "gnupg"
-brew "jq"
-brew "lazygit"
 brew "neovim"
 brew "neovim-remote"
-brew "ngrep"
-brew "pandoc"
-brew "pinentry-mac"
-brew "pipx"
-brew "poetry"
-brew "pv"
-brew "pyright"
-brew "python@3.11"
 brew "ripgrep"
 brew "rsync"
 brew "tmux"
 brew "tree"
 brew "unzip"
 brew "wakeonlan"
-brew "watch"
+brew "viddy"
 brew "zip"
 brew "zoxide"
-brew "difftastic"
-brew "jnv"
 brew "fd"
 brew "tldr"
-brew "k9s"
-brew "homeport/tap/dyff"
-# brew "teleport"  # Using package from teleport to add support for TOUCHID
+brew "csvlens"
+brew "minio-mc"
+brew "mosh"
+brew "sops"
+# brew "ollama"
 
-cask "1password"
-cask "aldente"
-cask "appcleaner"
-cask "caffeine"
-cask "firefox"
+# File parsers
+brew "jnv"
+brew "jq"
+brew "yq"
+brew "jqp"
+
+# Git
+brew "gh"                   # Github cli
+brew "git-delta"
+brew "difftastic"
+brew "lazygit"
+brew "git-crypt"
+brew "homeport/tap/dyff"
+
+# K8s
+brew "k9s"
+brew "krew"
+brew "kubent"
+brew "kubernetes-cli"    # kubectl
+brew "kubie"             # kubectl
+brew "argocd"
+brew "helm"
+brew "helmfile"
+brew "logcli"            # Loki
+
+# Good to have
+brew "aria2"
+brew "ngrep"
+brew "croc"
+brew "httpie"
+
+# AWS
+# brew "copilot-cli"
+
+# Fonts
 cask "font-caskaydia-cove-nerd-font"
 cask "font-hack-nerd-font"
-cask "google-chrome"
+cask "font-iosevka-term-nerd-font"
+cask "font-jetbrains-mono-nerd-font"
+
+# Core
+cask "appcleaner"
+cask "pearcleaner"
+cask "caffeine"
 cask "iina"
-cask "kitty"
-cask "logseq"
 cask "monitorcontrol"
-cask "qbittorrent"
-cask "stats"
 cask "unnaturalscrollwheels"
-cask "vnc-viewer"
 cask "notunes"
+
+# Terminals
+cask "kitty"
+cask "wezterm"
+# cask "alacritty"
+
+# Browsers
+cask "firefox"
+cask "google-chrome"
+cask "brave-browser"
+
+# Utilities
+cask "qbittorrent"
 cask "jellyfin-media-player"
-cask "tailscale"
-cask "zed"
+cask "tailscale-app"
 cask "beekeeper-studio"
-cask "zen-browser"
 cask "dbeaver-community"
+
+# Me specifics
+cask "aldente"
+cask "raycast"
+cask "stats"
+cask "vnc-viewer"
+cask "1password"
+cask "1password-cli"
+
+# Good to have
 # cask "deskpad"
+
+# App store apps
+mas "Xcode", id: 497799835
+mas "WireGuard", id: 1451685025
+mas "NordVPN", id: 905953485
+mas "WhatsApp Messenger", id: 310633997
+mas "Slack for Desktop", id: 803453959
+
+# Go tools
+go "github.com/go-task/task/v3/cmd/task"
