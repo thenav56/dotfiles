@@ -16,6 +16,10 @@ vim.opt.scrollback = 100000
 vim.opt.shell = 'bash'
 vim.opt.showtabline = 0
 vim.opt.termguicolors = true
+vim.opt.undofile = true
+vim.opt.undodir = '/tmp/'
+vim.opt.undolevels = 1000
+vim.opt.undoreload = 1000
 
 -- Key mappings
 vim.keymap.set('n', 'q', '<Cmd>quitall!<CR>', { noremap = true })
