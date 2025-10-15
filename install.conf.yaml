@@ -20,6 +20,8 @@
       path: config/git/git-templates/
     ~/.config/wezterm:
       path: config/wezterm
+    ~/.jqp.yaml:
+      path: config/jqp.yaml
     # Kitty
     ~/.config/kitty/:
       path: config/kitty
@@ -52,6 +54,7 @@
       path: tools/tmux-tpm/
     # Mac only
     ~/.config/zed/settings.json:
+      if: '[ `uname` = Darwin ]'
       path: config/zed.json
     # Linux only
     ~/.config/yay/config.json:
