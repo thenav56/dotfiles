@@ -1,8 +1,6 @@
 # vim: set filetype=ruby
 
 # Taps
-tap "homebrew/bundle"
-tap "homebrew/cask-fonts"
 tap "homeport/tap"
 
 # Core utils
@@ -13,15 +11,6 @@ brew "pinentry-mac"
 brew "bash"
 brew "openssh"
 brew "svt-av1"
-
-# Python
-brew "gcc"
-brew "gdal"
-brew "pyright"
-brew "uv"
-brew "ruff"
-brew "pre-commit"
-# brew "prek"
 
 # Must have
 brew "atuin"
@@ -84,8 +73,18 @@ brew "httpie"
 # AWS
 # brew "copilot-cli"
 
+# Python
+brew "gcc"
+brew "gdal"
+brew "pyright"
+brew "uv"
+brew "ruff"
+brew "pre-commit"
+# brew "prek"
+
 # Fonts
 cask "font-caskaydia-cove-nerd-font"
+cask "font-cascadia-code"
 cask "font-hack-nerd-font"
 cask "font-iosevka-term-nerd-font"
 cask "font-jetbrains-mono-nerd-font"
@@ -123,6 +122,8 @@ cask "stats"
 cask "vnc-viewer"
 cask "1password"
 cask "1password-cli"
+cask "spotify"
+cask "netnewswire"
 
 # Good to have
 # cask "deskpad"

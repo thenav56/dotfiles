@@ -3,15 +3,29 @@
 ### Keyboard settings
 
 - Open System Preferences and click on 'Keyboard'
-- Click on 'Modifier Keys...'
-    - For 'Caps Lock (⇪) key', choose '⎋ Escape'
-    - For 'Globe (🌐) key', choose '⌃ Control'
-    - For '⌃ Control', choose 'Globe (🌐) key'
-    - Click 'Done'
-- Click on 'Spotlight'
-    - [x] Show Spotlight search '⇪⌘Space'
-        - To use spotlight along with Raycast
-    - Click 'Done'
+    - Click on 'Modifier Keys...'
+        - For 'Caps Lock (⇪) key', choose '⎋ Escape'
+        - For 'Globe (🌐) key', choose '⌃ Control'
+        - For '⌃ Control', choose 'Globe (🌐) key'
+        - Click 'Done'
+    - Click on 'Spotlight'
+        - [x] Show Spotlight search '⇪⌘Space'
+            - To use spotlight along with Raycast
+        - Click 'Done'
+
+### Trackpad settings
+
+- Open `unnaturalscrollwheels`
+- Open System Preferences and click on 'Keyboard'
+    - Enable `Tap to click`
+
+## Lock Screen
+- Require password after screen saver begins or ... " Use "Immediately"
+
+## Date/Time
+- General
+    - Date & Time
+        - 24-hour time - Disable
 
 ### Menu Bar
 - Open System Preferences and click on 'Menu Bar'
@@ -35,6 +49,19 @@
 - Battery Health
     - Disable "Optimized Battery Charging"
 - Open AlDente
+
+## GPG
+```bash
+mkdir ~/.gnupg
+echo "pinentry-program $(which pinentry-mac)" >> ~/.gnupg/gpg-agent.conf
+```
+
+## zsh
+
+Hide "last login" message in shell
+```
+touch ~/.hushlogin
+```
 
 ## Manually install these
 

@@ -15,9 +15,15 @@ PORTS_FORWARD_PIDS=()
 CONFIG_FILE="$HOME/.k8s-forwards.yaml"
 PROFILE="$1"
 
-GREEN='\e[32m'
-RED='\e[31m'
-NC='\e[0m' # No Color / Reset
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    NC='\033[0m'
+else
+    GREEN='\e[32m'
+    RED='\e[31m'
+    NC='\e[0m' # No Color / Reset
+fi
 
 SAMPLE_CONFIG=$(cat <<EOF
 profiles:
