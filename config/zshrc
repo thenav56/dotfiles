@@ -181,8 +181,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     export KITTY_NIGHT_FONT="CaskaydiaCove Nerd Font Mono Light"
 else
     RPROMPT='%F{cyan}%t'
-    export KITTY_DAY_FONT="CaskaydiaCove NF"
-    export KITTY_NIGHT_FONT="CaskaydiaCove NF Light"
+    export KITTY_DAY_FONT="Cascadia Code"
+    export KITTY_NIGHT_FONT="Cascadia Code Light"
 fi
 
 # -- Functions

@@ -65,6 +65,7 @@ brew "helmfile"
 brew "logcli"            # Loki
 
 # Good to have
+brew "duckdb"
 brew "aria2"
 brew "ngrep"
 brew "croc"
@@ -96,7 +97,7 @@ cask "caffeine"
 cask "iina"
 cask "monitorcontrol"
 cask "unnaturalscrollwheels"
-cask "notunes"
+cask "notunes"  # no apple music
 
 # Terminals
 cask "kitty"
