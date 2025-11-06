@@ -1,5 +1,5 @@
 require('mason-lspconfig').setup {
-    automatic_enable = false,
+    automatic_enable = true,
     ensure_installed = {
         "bashls",
         "docker_compose_language_service",

@@ -1,4 +1,3 @@
-local lspconfig = require('lspconfig')
 local cmp = require('cmp')
 local util = require('lspconfig/util')
 local vim = vim
@@ -10,7 +9,6 @@ local fn = vim.fn
 local bo = vim.bo
 local diagnostic = vim.diagnostic
 local env = vim.env
-
 
 -- Completion setup
 cmp.setup({
@@ -137,7 +135,7 @@ local function get_python_path(workspace)
   return fn.exepath('python3') or fn.exepath('python') or 'python'
 end
 
-lspconfig.ruff.setup({
+vim.lsp.config('ruff', {
   capabilities = capabilities,
   init_options = {
     settings = {
@@ -177,7 +175,7 @@ vim.api.nvim_create_user_command(
     { desc = "Reformat python with ruff" }
 )
 
-lspconfig.pyright.setup {
+vim.lsp.config('pyright', {
   capabilities = capabilities,
   before_init = function(_, config)
       config.settings.python.pythonPath = get_python_path(config.root_dir or "")
@@ -194,10 +192,10 @@ lspconfig.pyright.setup {
       },
     },
   },
-}
+})
 
 -- -- https://github.com/williamboman/mason-lspconfig.nvim/blob/main/lua/mason-lspconfig/server_configurations/pylsp/README.md
--- lspconfig.pylsp.setup {
+-- vim.lsp.config('pylsp', {
 --   capabilities = capabilities,
 --   -- https://github.com/python-lsp/python-lsp-server/blob/develop/CONFIGURATION.md
 --   settings = {
@@ -221,15 +219,15 @@ lspconfig.pyright.setup {
 --   }
 -- }
 
-lspconfig.tflint.setup {capabilities = capabilities}
-lspconfig.terraformls.setup {capabilities = capabilities}
-lspconfig.ts_ls.setup {capabilities = capabilities}
-lspconfig.graphql.setup {capabilities = capabilities}
-lspconfig.bashls.setup {capabilities = capabilities}
+vim.lsp.config('tflint', {capabilities = capabilities})
+vim.lsp.config('terraformls', {capabilities = capabilities})
+vim.lsp.config('ts_ls', {capabilities = capabilities})
+vim.lsp.config('graphql', {capabilities = capabilities})
+vim.lsp.config('bashls', {capabilities = capabilities})
 -- lspconfig.cssmodules_ls.setup {}
-lspconfig.docker_compose_language_service.setup {capabilities = capabilities}
+vim.lsp.config('docker_compose_language_service', {capabilities = capabilities})
 
-lspconfig.dockerls.setup {
+vim.lsp.config('dockerls', {
     capabilities = capabilities,
     on_init = function(client, initialization_result)
         if client.server_capabilities then
@@ -237,9 +235,9 @@ lspconfig.dockerls.setup {
             client.server_capabilities.semanticTokensProvider = false
         end
     end,
-}
+})
 
-lspconfig.eslint.setup {
+vim.lsp.config('eslint', {
     capabilities = capabilities,
     settings = {
         eslint = {
@@ -247,10 +245,11 @@ lspconfig.eslint.setup {
             useFlatConfig = false,
         }
     }
-}
-lspconfig.html.setup {capabilities = capabilities}
-lspconfig.jsonls.setup {capabilities = capabilities}
-lspconfig.lua_ls.setup {
+})
+
+vim.lsp.config('html', {capabilities = capabilities})
+vim.lsp.config('jsonls', {capabilities = capabilities})
+vim.lsp.config('lua_ls', {
   capabilities = capabilities,
   settings = {
     Lua = {
@@ -260,22 +259,24 @@ lspconfig.lua_ls.setup {
       },
     },
   },
-}
-lspconfig.sqlls.setup {capabilities = capabilities}
-lspconfig.stylelint_lsp.setup {
+})
+
+vim.lsp.config('sqlls', {capabilities = capabilities})
+vim.lsp.config('stylelint_lsp', {
   capabilities = capabilities,
     filetypes = {
         'css', 'less', 'scss', 'sugarss', 'wxss',
     },
-}
-lspconfig.yamlls.setup {capabilities = capabilities}
-lspconfig.nginx_language_server.setup { capabilities = capabilities }
-lspconfig.harper_ls.setup {
+})
+
+vim.lsp.config('yamlls', {capabilities = capabilities})
+vim.lsp.config('nginx_language_server', { capabilities = capabilities })
+vim.lsp.config('harper_ls', {
     -- https://writewithharper.com/docs/integrations/neovim#Optional-Configuration
     filetypes = { "markdown" },
-}
+})
 
--- lspconfig.azure_pipelines_ls.setup {
+-- vim.lsp.config('azure_pipelines_ls', {
 --     capabilities = capabilities,
 --     settings = {
 --         yaml = {
@@ -291,9 +292,9 @@ lspconfig.harper_ls.setup {
 --     },
 -- }
 
-lspconfig.gh_actions_ls.setup {  capabilities = capabilities }
+vim.lsp.config('gh_actions_ls', {  capabilities = capabilities })
 
-lspconfig.postgres_lsp.setup {  capabilities = capabilities }
+vim.lsp.config('postgres_lsp', {  capabilities = capabilities })
 
 -- Global mappings.
 -- See `:help vim.diagnostic.*` for documentation on any of the below functions
