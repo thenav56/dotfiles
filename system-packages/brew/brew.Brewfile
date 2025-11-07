@@ -2,7 +2,6 @@
 
 # Taps
 tap "homeport/tap"
-tap "hashicorp/tap"
 
 # Core utils
 brew "mas"
@@ -73,8 +72,7 @@ brew "croc"
 brew "httpie"
 
 # Terraform
-brew "hashicorp/tap/terraform"
-brew "opentofu"
+brew "tenv"
 brew "tflint"
 
 # AWS

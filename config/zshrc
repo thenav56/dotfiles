@@ -100,6 +100,7 @@ export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 export DOCKER_BUILDKIT=1
 export COMPOSE_BAKE=true
 export HOMEBREW_BUNDLE_FILE="$HOME/.dotfiles/system-packages/brew/brew.Brewfile"
+export TENV_AUTO_INSTALL=true
 
 export GPG_TTY=$(tty)
 gpgconf --launch gpg-agent
