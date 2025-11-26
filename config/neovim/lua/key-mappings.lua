@@ -1,12 +1,11 @@
-local my_functions = require 'functions'
 local map = vim.keymap.set
+local my_functions = require 'functions'
 
 -- set current file location as pwd
 map('c', 'cd.', 'cd %:p:h')
 
 -- open init.lua
 map('n', '<leader>e', ':e $MYVIMRC<CR>', { silent = true })
-
 
 -- sane jk navigation on wrapped lines
 map('', 'j', 'v:count == 0 ? "gj" : "j"', { silent = true, expr = true })
@@ -27,6 +26,10 @@ map('n', '<C-J>', '<C-W><C-J>', { silent = true, remap = false })
 map('n', '<C-K>', '<C-W><C-K>', { silent = true, remap = false })
 map('n', '<C-L>', '<C-W><C-L>', { silent = true, remap = false })
 map('n', '<C-H>', '<C-W><C-H>', { silent = true, remap = false })
+
+-- Misc
+map('n', '<leader>gf', ':e <cfile><CR>', { noremap = true, silent = true })
+map('n', '-', '<CMD>Oil<CR>', { noremap = true, silent = true, desc = 'Open parent directory' })
 
 -- Delete Buffer without impacting splits
 map('n', '<leader>q', ':bp|bd #<CR>', { silent = true })

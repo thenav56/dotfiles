@@ -29,9 +29,12 @@ MY_COMMANDS=(
   ["pyenv-virtualenv"]="pyenv virtualenv-init -"
   # git
   ["git-lfs"]="git lfs completion zsh"
-  ["bun"]='source "/home/navin/.bun/_bun"'
   # krew
   ["kubectl-cnpg"]='kubectl cnpg completion zsh'
+  # Misc
+  ["bun"]='source "/home/navin/.bun/_bun"'
+  ["task"]='task --completion zsh'
+  ["tenv"]='tenv completion zsh'
 )
 
 for command completion_command in "${(@kv)MY_COMMANDS}"; do

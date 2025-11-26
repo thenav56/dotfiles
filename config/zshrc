@@ -176,6 +176,7 @@ export VIM_NIGHT_THEME="base16-gruvbox-dark-soft"
 export BAT_DAY_THEME="OneHalfLight"
 export BAT_NIGHT_THEME="OneHalfDark"
 
+# Override `kitten choose-fonts`
 if [[ "$OSTYPE" == "darwin"* ]]; then
     RPROMPT='%F{cyan}%t < '
     export KITTY_DAY_FONT="CaskaydiaCove Nerd Font Mono"

@@ -174,4 +174,10 @@ return {
             require('plugin-configs/_nvim-base16')
         end,
     },
+    {
+        'nvimtools/none-ls.nvim',
+        config = function()
+            require('plugin-configs/_none_ls')
+        end,
+    },
 }
