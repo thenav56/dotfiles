@@ -146,7 +146,7 @@
 
     - name: Enable ly
       systemd:
-        name: ly
+        name: ly@tty2.service
         enabled: yes
 
     # SSH ------------------------------------------------------------------------
