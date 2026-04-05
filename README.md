@@ -135,9 +135,14 @@ Auto mount partition
 > NOTE: Not using fstab as it is needed before starting linux
 > We will encrypt during login instead using PAM
 MAYBE NOT THIS ONE? Follow this
-- https://wiki.archlinux.org/title/pam_mount [I am using this one]
+- Global [I am using this one]
+    - https://wiki.archlinux.org/title/pam_mount
+        - Install the `pam_mount` package: https://wiki.archlinux.org/title/Pam_mount#Configuration
+        - Update `/etc/security/pam_mount.conf.xml`: https://wiki.archlinux.org/title/Pam_mount#Global_(system)_configuration
+        - Update `/etc/pam.d/system-login`: https://wiki.archlinux.org/title/Pam_mount#Login_manager_configuration
+- Per-user
     - Maybe use configuration in dot file https://wiki.archlinux.org/title/pam_mount#Local_(per-user)_configuration
-- https://wiki.archlinux.org/title/Dm-crypt/Mounting_at_login
+    - https://wiki.archlinux.org/title/Dm-crypt/Mounting_at_login
 
 ### Full Disk
 Nothing here

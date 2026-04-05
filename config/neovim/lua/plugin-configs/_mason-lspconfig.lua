@@ -18,9 +18,10 @@ require('mason-lspconfig').setup {
         "yamlls",
         "tflint",
         "terraformls",
-        "postgres_lsp",
         "harper_ls",
-        "nginx_language_server",
         "gh_actions_ls",
+        "postgres_lsp",
+        -- Not working anymore
+        -- "nginx_language_server",
     },
 }

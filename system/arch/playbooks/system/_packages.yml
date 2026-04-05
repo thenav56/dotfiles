@@ -170,6 +170,8 @@ aur:
   - slack-desktop
   - spotify
   - teleport-client-bin
+  # K8s
+  - kubecolor
   # Energy
   - auto-cpufreq
   - energygraph

@@ -2,6 +2,7 @@
 
 # Taps
 tap "homeport/tap"
+tap "darksworm/homebrew-tap"
 
 # Core utils
 brew "mas"
@@ -11,6 +12,7 @@ brew "pinentry-mac"
 brew "bash"
 brew "openssh"
 brew "svt-av1"
+brew "ruby"
 
 # Must have
 brew "atuin"
@@ -37,6 +39,8 @@ brew "csvlens"
 brew "minio-mc"
 brew "mosh"
 brew "sops"
+brew "magic-wormhole"
+brew "dug"
 # brew "ollama"
 
 # File parsers
@@ -57,12 +61,16 @@ brew "homeport/tap/dyff"
 brew "k9s"
 brew "krew"
 brew "kubent"
-brew "kubernetes-cli"    # kubectl
-brew "kubie"             # kubectl
+brew "talosctl"
+brew "talhelper"
+brew "kubernetes-cli"           # kubectl
+brew "kubie"                    # kubectl
 brew "argocd"
 brew "helm"
 brew "helmfile"
-brew "logcli"            # Loki
+brew "logcli"                   # Loki
+cask "kubecolor"
+cask "darksworm/tap/argonaut"
 
 # Good to have
 brew "duckdb"
@@ -70,6 +78,8 @@ brew "aria2"
 brew "ngrep"
 brew "croc"
 brew "httpie"
+brew "lychee"
+brew "shellcheck"
 
 # Terraform
 brew "tenv"
@@ -77,6 +87,7 @@ brew "tflint"
 
 # AWS
 # brew "copilot-cli"
+brew "awscli"
 
 # Python
 brew "gcc"
@@ -119,6 +130,7 @@ cask "jellyfin-media-player"
 cask "tailscale-app"
 cask "beekeeper-studio"
 cask "dbeaver-community"
+cask "cleanupbuddy"
 
 # Me specifics
 cask "aldente"
@@ -129,6 +141,8 @@ cask "1password"
 cask "1password-cli"
 cask "spotify"
 cask "netnewswire"
+cask "orbstack"   # XXX: Heavy
+cask "microsoft-teams"
 
 # Good to have
 # cask "deskpad"
@@ -142,3 +156,4 @@ mas "Slack for Desktop", id: 803453959
 
 # Go tools
 go "github.com/go-task/task/v3/cmd/task"
+go "github.com/prometheus/alertmanager/cmd/amtool"

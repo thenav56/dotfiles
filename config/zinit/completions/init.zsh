@@ -49,8 +49,20 @@ done
 if [ -s "$FZF_COMPLETION" ]; then
     source "$FZF_COMPLETION"
 
-    [ -s "$HOME/.dotfiles/tools/fzf-git/fzf-git.sh" ] &&\
+    if [ -s "$HOME/.dotfiles/tools/fzf-git/fzf-git.sh" ]; then
         source "$HOME/.dotfiles/tools/fzf-git/fzf-git.sh"
+
+        # https://github.com/junegunn/fzf-git.sh/blob/34cd6c9d315d9b59b94721bd602c5769e919d686/fzf-git.sh#L173-L181
+        _fzf_git_fzf() {
+          fzf --height 90% --tmux 90%,70% \
+            --layout reverse --multi --min-height 20+ --border \
+            --no-separator --header-border horizontal \
+            --border-label-pos 2 \
+            --color 'label:blue' \
+            --preview-window 'right,50%' --preview-border line \
+            --bind 'ctrl-/:change-preview-window(down,50%|hidden|)' "$@"
+        }
+    fi
 
     # Custom
     # ---- Teleport
