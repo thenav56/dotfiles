@@ -124,6 +124,7 @@ alias ssrsync="rsync --info=progress2 -axhHAX"
 alias z="__zoxide_z"
 alias zii="__zoxide_zi"
 
+alias kubectl="kubecolor"
 alias k="kubecolor"
 alias ku="kubie"
 
@@ -189,8 +190,8 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     export KITTY_NIGHT_FONT="CaskaydiaCove Nerd Font Mono Light"
 else
     RPROMPT='%F{cyan}%t'
-    export KITTY_DAY_FONT="Cascadia Code"
-    export KITTY_NIGHT_FONT="Cascadia Code Light"
+    export KITTY_DAY_FONT="family=\"CaskaydiaCove Nerd Font Mono\" style=\"Regular\""
+    export KITTY_NIGHT_FONT="family=\"CaskaydiaCove Nerd Font Mono\" style=\"Regular\""
 fi
 
 # -- Functions

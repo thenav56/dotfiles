@@ -153,6 +153,19 @@ To read:
 - https://borgbackup.readthedocs.io/en/stable/deployment/central-backup-server.html
 - https://borgbackup.readthedocs.io/en/stable/deployment/hosting-repositories.html
 
+### Duplicati
+
+TODO: Add more
+```bash
+yay -S duplicati-beta-bin
+
+systemctl --user enable --now duplicati
+# http://localhost:8200
+
+# View logs
+journalctl -f -t duplicati
+```
+
 ## Power button
 > https://wiki.archlinux.org/title/Power_management#ACPI_events
 

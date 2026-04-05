@@ -41,6 +41,7 @@ native:
   - i3-wm
   - iproute2
   - iwd
+  - impala  # wifi tui
   - jq
   - kitty
   - lazygit
@@ -170,7 +171,7 @@ aur:
   - slack-desktop
   - spotify
   - teleport-client-bin
-  # K8s
+  # K8
   - kubecolor
   # Energy
   - auto-cpufreq
