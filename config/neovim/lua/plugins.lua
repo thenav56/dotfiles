@@ -6,7 +6,7 @@ return {
         'nvim-telescope/telescope.nvim',
         dependencies = {
             'nvim-lua/plenary.nvim',
-            'nvim-telescope/telescope-live-grep-raw.nvim',
+            'nvim-telescope/telescope-live-grep-args.nvim',
         },
         config = function()
             require('plugin-configs/_telescope')
@@ -77,7 +77,7 @@ return {
         config = function()
             require('plugin-configs/_lualine')
         end,
-        dependencies = { 'nvim-tree/nvim-web-devicons', opt = true },
+        dependencies = { 'nvim-tree/nvim-web-devicons' },
     },
     {
         -- File nagivator
@@ -88,10 +88,8 @@ return {
             require('plugin-configs/_chadtree')
         end,
         dependencies = {
-            {
-                {'ryanoasis/vim-devicons', opt = true},
-                {'adelarsq/vim-emoji-icon-theme', opt = true},
-            }
+            {'ryanoasis/vim-devicons' },
+            {'adelarsq/vim-emoji-icon-theme' },
         },
     },
     {
@@ -125,12 +123,13 @@ return {
             'hrsh7th/cmp-buffer',
             'hrsh7th/cmp-path',
             'hrsh7th/cmp-cmdline',
-            'hrsh7th/nvim-cmp',
         },
     },
     {
         -- treesitter support
         'nvim-treesitter/nvim-treesitter',
+        build = ':TSUpdate',
+        lazy = false,
         config = function()
             require('plugin-configs/_nvim-treesitter')
         end,
@@ -147,10 +146,6 @@ return {
         dependencies = 'kevinhwang91/promise-async',
     },
     {
-        -- misc
-        'romainl/vim-qf'
-    },
-    {
         'stevearc/oil.nvim',
         opts = {
             view_options = {
@@ -162,7 +157,7 @@ return {
     },
     {
         'folke/trouble.nvim',
-        dependencies = { "nvim-tree/nvim-web-devicons", opt = true },
+        dependencies = { "nvim-tree/nvim-web-devicons" },
         config = function()
             require('plugin-configs/_trouble')
         end,

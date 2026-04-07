@@ -53,6 +53,7 @@ native:
   - tldr
   - dua-cli
   - neovim
+  - tree-sitter-cli
   - net-tools
   - ngrep
   - nmap

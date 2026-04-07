@@ -1,5 +1,4 @@
 local vim = vim
-local opt = vim.opt
 
 --
 -- # treesitter-context configs
@@ -23,51 +22,54 @@ require'treesitter-context'.setup{
 vim.o.matchpairs = '(:),{:},[:]'
 vim.g.matchup_matchparen_offscreen = { method = 'popup' }
 
--- # Basic treesitter configs
-require('nvim-treesitter.configs').setup {
-    ensure_installed = {
-        -- https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers
-        'bash',
-        'nginx',
-        'graphql',
-        'comment',
-        'css',
-        'dockerfile',
-        'gitattributes',
-        'gitcommit',
-        'git_config',
-        'gitignore',
-        'git_rebase',
-        'html',
-        'javascript',
-        'json',
-        'caddy',
-        -- 'lua',
-        'markdown',
-        'diff',
-        'python',
-        'regex',
-        'sql',
-        'tsx',
-        'typescript',
-        'yaml',
-        -- Helm
-        'gotmpl',
-        'helm',
-        'terraform',
-        'hcl',
-    },
-    highlight = {
-        enable = true,
-    },
-    indent = {
-        enable = true
-    },
-    -- # vim-match
-    matchup = {
-        enable = true,
-    }
+local languages = {
+    -- https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers
+    'bash',
+    'nginx',
+    'graphql',
+    'comment',
+    'css',
+    'dockerfile',
+    'gitattributes',
+    'gitcommit',
+    'git_config',
+    'gitignore',
+    'git_rebase',
+    'html',
+    'javascript',
+    'json',
+    'caddy',
+    -- 'lua',
+    'markdown',
+    'diff',
+    'python',
+    'regex',
+    'sql',
+    'tsx',
+    'typescript',
+    'yaml',
+    -- Helm
+    'gotmpl',
+    'helm',
+    'terraform',
+    'hcl',
 }
+require('nvim-treesitter').install { languages }
+
+-- # Basic treesitter configs
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = languages,
+  callback = function()
+    -- syntax highlighting, provided by Neovim
+    vim.treesitter.start()
+    -- folds, provided by Neovim
+    vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+    vim.wo.foldmethod = 'expr'
+    -- indentation, provided by nvim-treesitter
+    vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+  end,
+})
 
 -- Filetype detection for Helm and other custom types
 -- For Helm support, see: https://github.com/ngalaiko/tree-sitter-go-template#neovim-integration-using-nvim-treesitter
