@@ -22,6 +22,10 @@ require'treesitter-context'.setup{
 vim.o.matchpairs = '(:),{:},[:]'
 vim.g.matchup_matchparen_offscreen = { method = 'popup' }
 
+require('nvim-treesitter').setup {
+  install_dir = vim.fn.stdpath('data') .. '/nvim-treesitter'
+}
+
 local languages = {
     -- https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers
     'bash',
