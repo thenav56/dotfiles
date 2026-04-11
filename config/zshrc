@@ -124,9 +124,14 @@ alias ssrsync="rsync --info=progress2 -axhHAX"
 alias z="__zoxide_z"
 alias zii="__zoxide_zi"
 
+# K8s
 alias kubectl="kubecolor"
 alias k="kubecolor"
 alias ku="kubie"
+# Auto completion
+zinit wait lucid has'kubectl' as'null' \
+  atload'source <(command kubectl completion zsh); compdef kubecolor=kubectl; compdef k=kubectl' \
+  for zdharma-continuum/null
 
 # The plugin will auto execute this zvm_after_init function
 # NOTE: Call this manually if zsh-vi-mode is not used
