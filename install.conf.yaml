@@ -39,6 +39,8 @@
       path: config/k9s
     ~/.config/nvim/:
       path: config/neovim/
+    ~/.config/nvim-refactor/:
+      path: config/neovim-refactor/
     ~/.config/atuin/config.toml:
       path: config/atuin.toml
     ~/.ssh/config:
