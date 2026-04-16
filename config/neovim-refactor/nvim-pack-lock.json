@@ -57,9 +57,18 @@
       "rev": "b03fb0f20bc1d43daf558cda981a2be22e73ac42",
       "src": "https://github.com/williamboman/mason.nvim"
     },
+    "neo-tree.nvim": {
+      "rev": "84c75e7a7e443586f60508d12fc50f90d9aee14e",
+      "src": "https://github.com/nvim-neo-tree/neo-tree.nvim",
+      "version": "3.0.0 - 4.0.0"
+    },
     "none-ls.nvim": {
       "rev": "899e93f9f10251d7220b188eba1b837c0ba27927",
       "src": "https://github.com/nvimtools/none-ls.nvim"
+    },
+    "nui.nvim": {
+      "rev": "de740991c12411b663994b2860f1a4fd0937c130",
+      "src": "https://github.com/MunifTanjim/nui.nvim"
     },
     "nvim-base16": {
       "rev": "4a6ef31745f851e11424a12b63fb3d2a80b2916c",

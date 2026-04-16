@@ -19,7 +19,8 @@ require("plugins/git-conflict")
 
 require("plugins/lualine")
 
-require("plugins/chadtree")
+require("plugins/neo-tree")
+-- require("plugins/chadtree")
 require("plugins/oil")
 
 require("plugins/ufo")  -- Folding
