@@ -39,6 +39,7 @@ require("neo-tree").setup({
     position = "left",
   },
   filesystem = {
+    hijack_netrw_behavior = "disabled",  -- Using oil
     filtered_items = {
       visible = true, -- when true, they will just be displayed differently than normal items
     },

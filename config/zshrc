@@ -112,6 +112,11 @@ export MANROFFOPT="-c"
 export MANPAGER="nvim +Man!"
 export TERM=screen-256color
 
+# Don't track
+export DISABLE_TELEMETRY=1
+export DO_NOT_TRACK=true
+export GH_TELEMETRY=false
+
 alias ls="lsd"  # NOTE: use `command ls ..args` for vanilla ls
 alias watch="viddy"
 alias ssh="TERM=xterm ssh"
@@ -196,7 +201,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
     RPROMPT='%F{cyan}%t'
     export KITTY_DAY_FONT="family=\"CaskaydiaCove Nerd Font Mono\" style=\"Regular\""
-    export KITTY_NIGHT_FONT="family=\"CaskaydiaCove Nerd Font Mono\" style=\"Regular\""
+    export KITTY_NIGHT_FONT="family=\"CaskaydiaCove Nerd Font Mono\" style=\"Light\""
 fi
 
 # -- Functions
