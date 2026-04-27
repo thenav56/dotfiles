@@ -7,12 +7,13 @@ vim.g.maplocalleader = "\\"
 
 -- UI / colors
 vim.opt.number = true
-vim.opt.termguicolors = true
+-- vim.opt.termguicolors = true
 vim.opt.cursorline = true
 vim.opt.fillchars:append({ vert = " ", fold = " " })
 
 -- Search (keep only real overrides)
 vim.opt.smartcase = true
+vim.opt.ignorecase = true
 
 -- Splits
 vim.opt.splitbelow = true

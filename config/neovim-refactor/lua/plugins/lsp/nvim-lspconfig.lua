@@ -5,7 +5,7 @@ vim.pack.add({
   "https://github.com/hrsh7th/cmp-buffer",
   "https://github.com/hrsh7th/cmp-path",
   "https://github.com/hrsh7th/cmp-cmdline",
-  { src = "https://github.com/neovim/nvim-lspconfig", version = "main"},
+  "https://github.com/neovim/nvim-lspconfig",
 })
 
 local cmp = require('cmp')
