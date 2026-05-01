@@ -17,8 +17,14 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     [ -s "/opt/homebrew/bin/brew" ] \
         && eval "$(/opt/homebrew/bin/brew shellenv)"
     alias head=ghead  # from coreutils
-    export PATH="/opt/homebrew/opt/ruby/bin:$PATH"
     export LDFLAGS="-L/opt/homebrew/opt/ruby/lib"
+
+    DARWIN_PATHS=(
+      "$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin"  # gsed as sed
+      "$HOMEBREW_PREFIX/opt/coreutils/libexec/gnubin"  # gdate as date and others
+      "$HOMEBREW_PREFIX/opt/ruby/bin"
+    )
+    export PATH="${(j.:.)DARWIN_PATHS}:$PATH"
 fi
 
 
@@ -91,9 +97,8 @@ CUSTOM_PATHS=(
   "${KREW_ROOT:-$HOME/.krew}/bin"
   "$HOME/.kube/custom-plugins"
   "$HOME/.cargo/bin"
-  "$PATH"
 )
-export PATH="${(j.:.)CUSTOM_PATHS}"
+export PATH="${(j.:.)CUSTOM_PATHS}:$PATH"
 
 export EDITOR=nvim
 export ZVM_VI_EDITOR=$EDITOR
@@ -193,6 +198,7 @@ export BAT_NIGHT_THEME="OneHalfDark"
 export ZVM_READKEY_ENGINE=zle
 export ZVM_KEYTIMEOUT=0.5
 
+export GIT_MUTABLE_ADDITIONAL_CONFIG_PATH="$HOME/.git-additional.config"
 # Override `kitten choose-fonts`
 if [[ "$OSTYPE" == "darwin"* ]]; then
     RPROMPT='%F{cyan}%t < '
@@ -226,8 +232,8 @@ function day(){
     export KITTY_CUSTOM_FONT=$KITTY_DAY_FONT
     export VIM_ACTIVE_THEME=$VIM_DAY_THEME
     eval "$BASE16_DAY_THEME"
-    eval "git config --file ~/.git-additional.config delta.light true"
-    eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_DAY_THEME"
+    eval "git config --file $GIT_MUTABLE_ADDITIONAL_CONFIG_PATH delta.light true"
+    eval "git config --file $GIT_MUTABLE_ADDITIONAL_CONFIG_PATH delta.syntax-theme $GIT_DAY_THEME"
     echo "Update $BAT_THEME_VALUE_FILE with $BAT_DAY_THEME"
     echo $BAT_DAY_THEME > $BAT_THEME_VALUE_FILE
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -243,8 +249,8 @@ function night(){
     export KITTY_CUSTOM_FONT=$KITTY_NIGHT_FONT
     export VIM_ACTIVE_THEME=$VIM_NIGHT_THEME
     eval "$BASE16_NIGHT_THEME"
-    eval "git config --file ~/.git-additional.config delta.light false"
-    eval "git config --file ~/.git-additional.config delta.syntax-theme $GIT_NIGHT_THEME"
+    eval "git config --file $GIT_MUTABLE_ADDITIONAL_CONFIG_PATH delta.light false"
+    eval "git config --file $GIT_MUTABLE_ADDITIONAL_CONFIG_PATH delta.syntax-theme $GIT_NIGHT_THEME"
     echo "Update $BAT_THEME_VALUE_FILE with $BAT_NIGHT_THEME"
     echo $BAT_NIGHT_THEME > $BAT_THEME_VALUE_FILE
     if [[ "$OSTYPE" == "darwin"* ]]; then

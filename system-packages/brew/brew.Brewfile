@@ -6,13 +6,14 @@ tap "darksworm/homebrew-tap"
 
 # Core utils
 brew "mas"
-brew "coreutils"
+brew "coreutils"  # gdate
 brew "gnupg"
 brew "pinentry-mac"
 brew "bash"
 brew "openssh"
 brew "svt-av1"
 brew "ruby"
+brew "rust"
 
 # Must have
 brew "atuin"
@@ -42,6 +43,8 @@ brew "mosh"
 brew "sops"
 brew "magic-wormhole"
 brew "dug"
+brew "semver"
+brew "gnu-sed"
 # brew "ollama"
 
 # File parsers
@@ -70,7 +73,7 @@ brew "argocd"
 brew "helm"
 brew "helmfile"
 brew "logcli"                   # Loki
-cask "kubecolor"
+brew "kubecolor"
 cask "darksworm/tap/argonaut"
 
 # Good to have
@@ -95,8 +98,6 @@ brew "gcc"
 brew "gdal"
 brew "pyright"
 brew "uv"
-brew "ruff"
-brew "pre-commit"
 # brew "prek"
 
 # Fonts
@@ -158,3 +159,7 @@ mas "Slack for Desktop", id: 803453959
 # Go tools
 go "github.com/go-task/task/v3/cmd/task"
 go "github.com/prometheus/alertmanager/cmd/amtool"
+
+# Rust tools
+cargo "typos-cli"
+cargo "git-cliff"
