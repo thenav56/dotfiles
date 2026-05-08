@@ -35,3 +35,13 @@ vim.keymap.set('n', '<leader><space>', ':nohlsearch<CR>', { silent = true, remap
 
 -- Strip white spaces
 vim.keymap.set('n', '<leader>cl', my_functions.TrimWhitespace, { silent = true, remap = false })
+
+-- Zen mode: open current buffer in a new tab, close to exit
+vim.keymap.set('n', '<leader>z', function()
+  if vim.t.zen_mode then
+    vim.cmd('tabclose')
+  else
+    vim.cmd('tab split')
+    vim.t.zen_mode = true
+  end
+end, { desc = 'Toggle zen mode' })
