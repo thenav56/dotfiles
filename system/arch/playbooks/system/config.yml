@@ -240,10 +240,8 @@
         groups: i2c
         append: yes
 
-    - name: Enable ZFS kernel module
-      copy:
-        dest: /etc/modules-load.d/my-zfs.conf
-        content: zfs
+    - ansible.builtin.import_role:
+        name: zfs
 
     # DOCKER SETUP/CONFIGURATION --------------------------------------------------------------
     - name: install docker

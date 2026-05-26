@@ -1,6 +1,5 @@
 ---
-# Tasks for the zfs role.
-# Migrated from monolithic playbooks in issue 03.
-- name: zfs placeholder
-  ansible.builtin.debug:
-    msg: "zfs role scaffolded; tasks pending issue 03."
+- name: Enable ZFS kernel module
+  copy:
+    dest: /etc/modules-load.d/my-zfs.conf
+    content: zfs
