@@ -5,11 +5,16 @@
     name:
       - cronie
 
-- name: enable and start cronie.service
+- name: enable cronie.service
   ansible.builtin.systemd:
     name: cronie
     enabled: yes
+
+- name: start cronie.service
+  ansible.builtin.systemd:
+    name: cronie
     state: started
+  when: start_services | bool
 
 # SSD TRIM SCHEDULED  --------------------------------------------------------
 - name: install util-linux
@@ -17,11 +22,16 @@
     name:
       - util-linux
 
-- name: enable and start weekly ssd disks trim using fstrim timer
+- name: enable weekly ssd disks trim using fstrim timer
   ansible.builtin.systemd:
     name: fstrim.timer
     enabled: yes
+
+- name: start fstrim timer
+  ansible.builtin.systemd:
+    name: fstrim.timer
     state: started
+  when: start_services | bool
 
 # LOGROTATE  -----------------------------------------------------------------
 - name: install logrotate
@@ -35,8 +45,13 @@
     regexp: '^#compress$'
     line: 'compress'
 
-- name: enable and start daily logs rotation, cleanup
+- name: enable daily logs rotation, cleanup
   ansible.builtin.systemd:
     name: logrotate.timer
     enabled: yes
+
+- name: start logrotate timer
+  ansible.builtin.systemd:
+    name: logrotate.timer
     state: started
+  when: start_services | bool

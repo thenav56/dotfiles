@@ -28,11 +28,16 @@
       RouteMetric=200
   notify: restart systemd-networkd
 
-- name: enable and start systemd-networkd
+- name: enable systemd-networkd
   ansible.builtin.systemd:
     name: systemd-networkd
     enabled: yes
+
+- name: start systemd-networkd
+  ansible.builtin.systemd:
+    name: systemd-networkd
     state: started
+  when: start_services | bool
 
 - name: install iwd
   community.general.pacman:

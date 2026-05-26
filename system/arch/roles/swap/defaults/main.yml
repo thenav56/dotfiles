@@ -5,3 +5,4 @@ swap_vars:
   size: 8G
   path: /swapfile
   swappiness: 60  # Default
+start_services: true

@@ -1,6 +1,7 @@
-# https://phelipetls.github.io/posts/introduction-to-ansible/
-# https://www.reddit.com/r/archlinux/comments/y5e6wy/learned_bit_of_ansible_to_automate_some/
-# https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_zsh.yml
+# Phase 1 — runs from `arch-chroot /mnt` on the live ISO, as root,
+# before the installed system has booted. `systemctl start` doesn't
+# work in chroot (no PID 1, partial /proc) so every role imported here
+# passes start_services:false; services get enabled only.
 ---
 - name: Archlinux base setup - During install only
   hosts: localhost
@@ -22,16 +23,22 @@
         name: bootstrap
 
     - ansible.builtin.import_role:
-        name: pacman
+        name: bootloader
 
     - ansible.builtin.import_role:
         name: users
 
     - ansible.builtin.import_role:
-        name: bootloader
-
-    - ansible.builtin.import_role:
         name: network
+      vars:
+        start_services: false
 
     - ansible.builtin.import_role:
         name: dns
+      vars:
+        start_services: false
+
+    - ansible.builtin.import_role:
+        name: pacman
+      vars:
+        start_services: false

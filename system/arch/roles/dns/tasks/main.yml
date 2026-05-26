@@ -23,8 +23,13 @@
     # owner: root
     # group: root
 
-- name: systemd-resolved - enable and start systemd-resolved
+- name: enable systemd-resolved
   ansible.builtin.systemd:
     name: systemd-resolved
     enabled: yes
+
+- name: start systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
     state: started
+  when: start_services | bool

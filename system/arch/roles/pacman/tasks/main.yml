@@ -27,17 +27,27 @@
       --score 20
       --sort rate
 
-- name: enable and start reflector timer
+- name: enable reflector timer
   ansible.builtin.systemd:
     name: reflector.timer
     enabled: yes
+
+- name: start reflector timer
+  ansible.builtin.systemd:
+    name: reflector.timer
     state: started
+  when: start_services | bool
+
+- name: enable reflector service
+  ansible.builtin.systemd:
+    name: reflector
+    enabled: yes
 
 - name: do initial run of reflector.service
   ansible.builtin.systemd:
     name: reflector
-    enabled: yes
     state: started
+  when: start_services | bool
 
 # SYSTEM SETTINGS CHANGES ----------------------------------------------------
 - name: Custom pacman config
@@ -61,11 +71,21 @@
   ansible.builtin.systemd:
     name: paccache.timer
     enabled: yes
+
+- name: start paccache timer
+  ansible.builtin.systemd:
+    name: paccache.timer
     state: started
+  when: start_services | bool
 
 # ARCHLINUX-KEYRING WEEKLY UPDATE  -------------------------------------------
 - name: archlinux-keyring - enable weekly update
   ansible.builtin.systemd:
     name: archlinux-keyring-wkd-sync.timer
     enabled: yes
+
+- name: archlinux-keyring - start weekly update timer
+  ansible.builtin.systemd:
+    name: archlinux-keyring-wkd-sync.timer
     state: started
+  when: start_services | bool

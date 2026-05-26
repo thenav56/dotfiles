@@ -1,6 +1,6 @@
 ---
 # Install & Enable ly
-- name: install ssh
+- name: install ly
   community.general.pacman:
     name:
       - ly
@@ -15,4 +15,9 @@
   ansible.builtin.systemd:
     name: "betterlockscreen@{{ username }}"
     enabled: yes
+
+- name: start betterlockscreen
+  ansible.builtin.systemd:
+    name: "betterlockscreen@{{ username }}"
     state: started
+  when: start_services | bool

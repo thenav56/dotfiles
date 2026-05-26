@@ -6,7 +6,12 @@
   ansible.builtin.systemd:
     name: zramswap.service
     enabled: yes
+
+- name: start zramswap
+  ansible.builtin.systemd:
+    name: zramswap.service
     state: started
+  when: start_services | bool
 
 # ---- Disk swap (As fallback)
 - name: Check whether "{{ swap_vars.path }}" exists
