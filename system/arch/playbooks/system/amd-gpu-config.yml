@@ -1,7 +1,0 @@
----
-- name: Amd gpu packages
-  hosts: localhost
-
-  tasks:
-    - ansible.builtin.import_role:
-        name: gpu-amd

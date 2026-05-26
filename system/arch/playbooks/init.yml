@@ -32,7 +32,6 @@
     - ansible.builtin.import_role:
         name: bootloader
 
-    # Few from ./system/config.yml
     - ansible.builtin.import_role:
         name: network
 

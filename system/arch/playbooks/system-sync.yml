@@ -1,8 +1,61 @@
 ---
-- name: Archlinux sync configuration from all playbooks (except init.yml)
+- name: Archlinux system sync
   hosts: localhost
+  become: true
 
-- import_playbook: ./system/config.yml
-- import_playbook: ./system/packages.yml
-- import_playbook: ./system/aur-config.yml
-- import_playbook: ./system/amd-gpu-config.yml
+  vars_prompt:
+    - name: username
+      prompt: What is your username?
+      private: false
+
+  pre_tasks: []
+
+  tasks:
+    - name: pacman config and timers
+      ansible.builtin.import_role:
+        name: pacman
+
+    - name: network (systemd-networkd, iwd, impala)
+      ansible.builtin.import_role:
+        name: network
+
+    - name: dns (systemd-resolved, DoT)
+      ansible.builtin.import_role:
+        name: dns
+
+    - name: security (ssh hardening, faillock)
+      ansible.builtin.import_role:
+        name: security
+
+    - name: display manager (ly, betterlockscreen)
+      ansible.builtin.import_role:
+        name: display-manager
+
+    - name: maintenance (cronie, fstrim, logrotate)
+      ansible.builtin.import_role:
+        name: maintenance
+
+    - name: ddcutil (external monitor backlight)
+      ansible.builtin.import_role:
+        name: ddcutil
+
+    - name: zfs kernel module
+      ansible.builtin.import_role:
+        name: zfs
+
+    - name: docker daemon and tools
+      ansible.builtin.import_role:
+        name: docker
+
+    - name: native and aur packages
+      ansible.builtin.import_role:
+        name: pacman-packages
+
+    - name: user-scoped uv tools
+      ansible.builtin.import_role:
+        name: user-tools
+      become: false
+
+    - name: amd gpu packages
+      ansible.builtin.import_role:
+        name: gpu-amd

@@ -9,11 +9,6 @@
         update_cache: yes
         upgrade: yes
 
-    - name: Load packages
-      include_vars:
-        file: '{{ playbook_dir }}/system/_packages.yml'
-        name: packages
-
     - name: install core packages
       become: true
       pacman:

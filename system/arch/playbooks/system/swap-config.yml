@@ -1,9 +1,0 @@
-# TODO: Check if this works -----
----
-- name: Setup swap
-  hosts: localhost
-  become: true
-
-  tasks:
-    - ansible.builtin.import_role:
-        name: swap

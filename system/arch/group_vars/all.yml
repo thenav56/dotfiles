@@ -1,0 +1,173 @@
+---
+# Shared defaults loaded by every play in this inventory.
+# Per-user values live in ../local.yml (created from local.yml.example, gitignored).
+
+packages:
+  native:
+    - uv
+    - reflector
+    - zsh
+    - sudo
+    - docker
+    - docker-compose
+    - efibootmgr
+    - grub
+    - ly
+    - openssh
+    - pacman-contrib
+    - atuin
+    - bat
+    - bind
+    - nnn
+    - blueberry
+    - blueman
+    - bluez
+    - bluez-utils
+    - btop
+    - caja
+    - curl
+    - ddcutil
+    - difftastic
+    - duf
+    - dunst
+    - eog
+    - eza
+    - fd
+    - feh
+    - firefox-developer-edition
+    - fx
+    - fzf
+    - gcc
+    - git
+    - git-delta
+    - go
+    - gparted
+    - vim
+    - htop
+    - i3-wm
+    - iproute2
+    - iwd
+    - impala  # wifi tui
+    - jq
+    - kitty
+    - lazygit
+    - lua
+    - lxappearance
+    - maim
+    - make
+    - man-db
+    - tldr
+    - dua-cli
+    - neovim
+    - tree-sitter-cli
+    - net-tools
+    - ngrep
+    - nmap
+    - noto-fonts
+    - noto-fonts-cjk
+    - noto-fonts-emoji
+    - noto-fonts-extra
+    - pavucontrol
+    - picom
+    - polybar
+    - pyenv
+    - python-pip
+    - python-pipenv
+    - python-poetry
+    - python-setuptools
+    - ripgrep
+    - rofi
+    - rsync
+    - socat
+    - sqlite
+    - stow
+    - tigervnc
+    - tmux
+    - tree
+    - ttf-cascadia-code-nerd
+    - ttf-font-awesome
+    - ttf-hack-nerd
+    - usbutils
+    - wget
+    - which
+    - x11vnc
+    - xclip
+    - xorg-server
+    - xorg-xinit
+    - xsettingsd
+    - zoxide
+    - xdg-utils
+    - traceroute
+    - vlc
+    - unzip
+    - sqlitebrowser
+    - zathura
+    - zathura-pdf-mupdf
+    - smartmontools
+    - pam_mount
+    - ncdu
+    - gdu
+    - miniserve
+    - k9s
+    - arandr
+    - arch-install-scripts
+    - aria2
+    - asciinema
+    - csvlens
+    - drawing
+    - dust
+    - ethtool
+    - gnome-keyring
+    - go-yq  # A lightweight and portable command-line YAML processor.
+    - asciiquarium
+    - cmatrix
+    # Sound
+    - pulseaudio-alsa
+    - pipewire-pulse
+    - alsa-tools
+    - alsa-utils
+    # K8
+    - helm
+    - kubectl
+    # Misc
+    - polkit  # gui for sudo
+    - libreoffice-fresh
+    - croc  # Send files
+    - dbeaver  # DB GUI
+    - mdp  # Markdown presentation tool
+
+  aur:
+    - arc-gtk-theme
+    - xautolock
+    - viddy
+    - lazydocker
+    - zramswap
+    - betterlockscreen
+    - google-chrome
+    - aws-session-manager-plugin
+    - beekeeper-studio-bin
+    - copilot-cli  # aws copilot cli (AWS Deployment tool)
+    - ddcci-driver-linux-dkms
+    - duplicati-beta-bin
+    - icu73-bin
+    - jnv
+    - jqp-bin
+    - logseq-desktop-bin
+    - neovim-remote
+    - nvm  # Node version manager
+    - pyenv-virtualenv
+    - slack-desktop
+    - spotify
+    - teleport-client-bin
+    # K8
+    - kubecolor
+    # Energy
+    - auto-cpufreq
+    - energygraph
+    # --
+    - 1password
+    - 1password-cli
+    - lens-bin
+    - zfs-dkms
+    - nordvpn-bin
+    - activitywatch-bin
