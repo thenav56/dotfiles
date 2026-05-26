@@ -218,6 +218,17 @@ expected because those feature flags default to false.
 - Docker's nftables can wipe libvirt's MASQUERADE rule on the host
   after the VM boots — if outbound dies mid-run, re-add:
   `nft add rule ip nat POSTROUTING ip saddr 192.168.122.0/24 ip daddr != 192.168.122.0/24 counter masquerade`
+- **`features.swap: true` + small VM disk**: the default `swap_vars.size`
+  is 8 GB. A 25 GB qcow2 fills up after pacman + AUR installs and
+  `mkswap` fails with "No space left on device". Override in the VM's
+  `local.yml`:
+
+  ```yaml
+  swap_vars:
+    size: 1G
+    path: /swapfile
+    swappiness: 60
+  ```
 
 ---
 
