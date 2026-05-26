@@ -1,6 +1,42 @@
 ---
-# Tasks for the maintenance role.
-# Migrated from monolithic playbooks in issue 03.
-- name: maintenance placeholder
-  ansible.builtin.debug:
-    msg: "maintenance role scaffolded; tasks pending issue 03."
+# CRONIE  --------------------------------------------------------------------
+- name: install cronie
+  pacman:
+    name:
+      - cronie
+
+- name: enable and start cronie.service
+  systemd:
+    name: cronie
+    enabled: yes
+    state: started
+
+# SSD TRIM SCHEDULED  --------------------------------------------------------
+- name: install util-linux
+  pacman:
+    name:
+      - util-linux
+
+- name: enable and start weekly ssd disks trim using fstrim timer
+  systemd:
+    name: fstrim.timer
+    enabled: yes
+    state: started
+
+# LOGROTATE  -----------------------------------------------------------------
+- name: install logrotate
+  pacman:
+    name:
+      - logrotate
+
+- name: logrotate - enable compression
+  lineinfile:
+    path: /etc/logrotate.conf
+    regexp: '^#compress$'
+    line: 'compress'
+
+- name: enable and start daily logs rotation, cleanup
+  systemd:
+    name: logrotate.timer
+    enabled: yes
+    state: started

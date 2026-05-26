@@ -79,52 +79,13 @@
     - ansible.builtin.import_role:
         name: display-manager
 
-   # CRONIE  --------------------------------------------------------------------
-    - name: install cronie
-      pacman:
-        name:
-          - cronie
-
-    - name: enable and start cronie.service
-      systemd:
-        name: cronie
-        enabled: yes
-        state: started
+    - ansible.builtin.import_role:
+        name: maintenance
 
     # ARCHLINUX-KEYRING WEEKLY UPDATE  -------------------------------------------
     - name: archlinux-keyring - enable weekly update
       systemd:
         name: archlinux-keyring-wkd-sync.timer
-        enabled: yes
-        state: started
-
-    # SSD TRIM SCHEDULED  --------------------------------------------------------
-    - name: install util-linux
-      pacman:
-        name:
-          - util-linux
-
-    - name: enable and start weekly ssd disks trim using fstrim timer
-      systemd:
-        name: fstrim.timer
-        enabled: yes
-        state: started
-
-    # LOGROTATE  -----------------------------------------------------------------
-    - name: install logrotate
-      pacman:
-        name:
-          - logrotate
-
-    - name: logrotate - enable compression
-      lineinfile:
-        path: /etc/logrotate.conf
-        regexp: '^#compress$'
-        line: 'compress'
-
-    - name: enable and start daily logs rotation, cleanup
-      systemd:
-        name: logrotate.timer
         enabled: yes
         state: started
 
