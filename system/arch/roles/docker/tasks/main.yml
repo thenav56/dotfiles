@@ -1,6 +1,37 @@
 ---
-# Tasks for the docker role.
-# Migrated from monolithic playbooks in issue 03.
-- name: docker placeholder
-  ansible.builtin.debug:
-    msg: "docker role scaffolded; tasks pending issue 03."
+# DOCKER SETUP/CONFIGURATION --------------------------------------------------------------
+- name: install docker
+  pacman:
+    name:
+      - docker
+      - docker-compose
+      - ctop
+
+- name: add the user to the wheel group
+  user:
+    name: "{{ username }}"
+    groups: docker
+    append: yes
+
+- name: enable docker
+  systemd:
+    name: docker
+    enabled: yes
+
+- name: Create /etc/docker directory if it does not exist
+  file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+- name: set default max logs size to 250MB and set logs rotation
+  copy:
+    dest: '/etc/docker/daemon.json'
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "50m",
+          "max-file": "5"
+        }
+      }
