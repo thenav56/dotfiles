@@ -10,7 +10,6 @@
 - name: pacman -Sy
   community.general.pacman:
     update_cache: true
-    force: true
 
 # REFLECTOR TO REGULARLY UPDATE MIRRORLIST
 - name: install reflector

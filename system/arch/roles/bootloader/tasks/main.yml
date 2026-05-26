@@ -12,6 +12,9 @@
       --target=x86_64-efi \
       --efi-directory=/boot/ \
       --bootloader-id=GRUB
+  args:
+    creates: /boot/EFI/GRUB/grubx64.efi
+  check_mode: false
   notify: regenerate grub config
 
 - name: Update grub timeout to 1

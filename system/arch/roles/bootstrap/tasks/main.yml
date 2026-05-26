@@ -11,6 +11,8 @@
 
 - name: Update hardware clock
   ansible.builtin.command: hwclock --systohc
+  changed_when: false
+  check_mode: false
 
 # -- Locale
 - name: Enable en_US locale

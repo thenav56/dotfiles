@@ -4,7 +4,7 @@
 - name: change number of failed logins that triger 10min lockout
   ansible.builtin.lineinfile:
     path: /etc/security/faillock.conf
-    regexp: '^# deny = 3$'
+    regexp: '^#?\s*deny\s*='
     line: 'deny = 10'
 
 # SSH ------------------------------------------------------------------------

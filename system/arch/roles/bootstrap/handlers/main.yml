@@ -1,4 +1,6 @@
 ---
 - name: generate locale
   listen: generate locale
-  ansible.builtin.command: locale-gen
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present

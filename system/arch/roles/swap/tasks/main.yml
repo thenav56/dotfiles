@@ -21,6 +21,9 @@
 
 - name: Create swap file
   ansible.builtin.shell: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
+  args:
+    creates: "{{ swap_vars.path }}"
+  check_mode: false
 
 - name: Update /etc/fstab
   ansible.builtin.blockinfile:
@@ -32,6 +35,8 @@
 
 - name: Activate the swap file as a swap memory using /etc/fstab
   ansible.builtin.shell: swapon -a
+  changed_when: false
+  check_mode: false
 
 - name: Define sysctl config
   ansible.builtin.blockinfile:
@@ -42,3 +47,5 @@
 
 - name: Apply new config
   ansible.builtin.shell: sysctl -p
+  changed_when: false
+  check_mode: false
