@@ -43,14 +43,21 @@
   changed_when: false
   check_mode: false
 
-- name: Define sysctl config
-  ansible.builtin.blockinfile:
-    path: /etc/sysctl.conf
-    state: present
-    block: |
+# systemd-sysctl reads /etc/sysctl.d/*.conf; /etc/sysctl.conf is no
+# longer parsed on modern Arch. Drop a dedicated file rather than
+# editing the legacy path.
+- name: Configure vm.swappiness via /etc/sysctl.d/
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-swappiness.conf
+    content: |
       vm.swappiness={{ swap_vars.swappiness }}
+    owner: root
+    group: root
+    mode: '0644'
+  register: _swappiness_conf
 
 - name: Apply new sysctl config
-  ansible.builtin.command: sysctl -p
+  ansible.builtin.command: sysctl --system
   changed_when: false
   check_mode: false
+  when: _swappiness_conf.changed
