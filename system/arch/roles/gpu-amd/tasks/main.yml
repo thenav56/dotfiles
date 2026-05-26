@@ -1,7 +1,7 @@
 ---
 - name: install packages
   become: true
-  pacman:
+  community.general.pacman:
     update_cache: yes
     name:
       # AMD packages

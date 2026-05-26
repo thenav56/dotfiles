@@ -1,6 +1,6 @@
 ---
 - name: restart docker
   listen: restart docker
-  systemd:
+  ansible.builtin.systemd:
     name: docker
     state: restarted

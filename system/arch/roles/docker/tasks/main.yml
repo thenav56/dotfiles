@@ -1,31 +1,31 @@
 ---
 # DOCKER SETUP/CONFIGURATION --------------------------------------------------------------
 - name: install docker
-  pacman:
+  community.general.pacman:
     name:
       - docker
       - docker-compose
       - ctop
 
 - name: add the user to the wheel group
-  user:
+  ansible.builtin.user:
     name: "{{ username }}"
     groups: docker
     append: yes
 
 - name: enable docker
-  systemd:
+  ansible.builtin.systemd:
     name: docker
     enabled: yes
 
 - name: Create /etc/docker directory if it does not exist
-  file:
+  ansible.builtin.file:
     path: /etc/docker
     state: directory
     mode: '0755'
 
 - name: set default max logs size to 250MB and set logs rotation
-  copy:
+  ansible.builtin.copy:
     dest: '/etc/docker/daemon.json'
     content: |
       {

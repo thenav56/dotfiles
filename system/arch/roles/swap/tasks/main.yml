@@ -3,7 +3,7 @@
 # https://wiki.archlinux.org/title/Zram
 # https://aur.archlinux.org/packages/zramswap
 - name: enable zramswap
-  systemd:
+  ansible.builtin.systemd:
     name: zramswap.service
     enabled: yes
     state: started
@@ -11,19 +11,19 @@
 # ---- Disk swap (As fallback)
 - name: Check whether "{{ swap_vars.path }}" exists
   register: idCheckSwap
-  stat:
+  ansible.builtin.stat:
     path: {{ swap_vars.path }}
 
 - name: Fail it if "{{ swap_vars.path }}" exists
-  fail:
+  ansible.builtin.fail:
     msg: Swap file exists
   when: idCheckSwap.stat.exists == true
 
 - name: Create swap file
-  shell: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
+  ansible.builtin.shell: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
 
 - name: Update /etc/fstab
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/fstab
     state: present
     marker: "# {mark} ANSIBLE MANAGED SWAP BLOCK"
@@ -31,14 +31,14 @@
       {{ swap_vars.path }} swap swap pri=0,defaults 0 0
 
 - name: Activate the swap file as a swap memory using /etc/fstab
-  shell: swapon -a
+  ansible.builtin.shell: swapon -a
 
 - name: Define sysctl config
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/sysctl.conf
     state: present
     block: |
       vm.swappiness={{ swap_vars.swappiness }}
 
 - name: Apply new config
-  shell: sysctl -p
+  ansible.builtin.shell: sysctl -p

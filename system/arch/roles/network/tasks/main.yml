@@ -1,7 +1,7 @@
 ---
 # Network configurations -------------------------------------------------
 - name: systemd-networkd - Wired
-  copy:
+  ansible.builtin.copy:
     dest: /etc/systemd/network/20-wired.network
     content: |
       [Match]
@@ -14,7 +14,7 @@
   notify: restart systemd-networkd
 
 - name: systemd-networkd - Wireless
-  copy:
+  ansible.builtin.copy:
     dest: /etc/systemd/network/25-wireless.network
     content: |
       [Match]
@@ -29,18 +29,18 @@
   notify: restart systemd-networkd
 
 - name: enable and start systemd-networkd
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-networkd
     enabled: yes
     state: started
 
 - name: install iwd
-  pacman:
+  community.general.pacman:
     name:
       - iwd
       - impala
 
 - name: enable iwd
-  systemd:
+  ansible.builtin.systemd:
     name: iwd
     enabled: yes

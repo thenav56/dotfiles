@@ -1,6 +1,6 @@
 ---
 - name: reload sshd
   listen: reload sshd
-  systemd:
+  ansible.builtin.systemd:
     name: sshd
     state: reloaded

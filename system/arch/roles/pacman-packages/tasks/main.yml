@@ -5,13 +5,13 @@
     # Other system packages
     - name: Arch Full Update
       become: true
-      pacman:
+      community.general.pacman:
         update_cache: yes
         upgrade: yes
 
     - name: install core packages
       become: true
-      pacman:
+      community.general.pacman:
         update_cache: yes
         name: '{{ packages.native }}'
 
@@ -34,7 +34,7 @@
 
     - name: Install yay build packages
       become: true
-      pacman:
+      community.general.pacman:
         update_cache: yes
         name:
           - git
@@ -75,7 +75,7 @@
 
     - name: "Clean-up: Remove `aur_builder` user"
       become: true
-      user:
+      ansible.builtin.user:
         name: aur_builder
         state: absent
         remove: true

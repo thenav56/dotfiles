@@ -1,12 +1,12 @@
 ---
 - name: Create /etc/systemd/resolved.conf.d directory if it does not exist
-  file:
+  ansible.builtin.file:
     path: /etc/systemd/resolved.conf.d
     state: directory
 
 # DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
 - name: systemd-resolved - DNS over TLS
-  copy:
+  ansible.builtin.copy:
     dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
     content: |
       [Resolve]
@@ -25,7 +25,7 @@
     # group: root
 
 - name: systemd-resolved - enable and start systemd-resolved
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-resolved
     enabled: yes
     state: started

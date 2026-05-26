@@ -2,7 +2,7 @@
 # System packages
 - name: Arch Full Update
   become: true
-  pacman:
+  community.general.pacman:
     update_cache: yes
     upgrade: yes
 
@@ -14,12 +14,12 @@
 
 # REFLECTOR TO REGULARLY UPDATE MIRRORLIST
 - name: install reflector
-  pacman:
+  community.general.pacman:
     name:
       - reflector
 
 - name: write reflector configuration file
-  copy:
+  ansible.builtin.copy:
     dest: '/etc/xdg/reflector/reflector.conf'
     content: |
       --save /etc/pacman.d/mirrorlist
@@ -29,20 +29,20 @@
       --sort rate
 
 - name: enable and start reflector timer
-  systemd:
+  ansible.builtin.systemd:
     name: reflector.timer
     enabled: yes
     state: started
 
 - name: do initial run of reflector.service
-  systemd:
+  ansible.builtin.systemd:
     name: reflector
     enabled: yes
     state: started
 
 # SYSTEM SETTINGS CHANGES ----------------------------------------------------
 - name: Custom pacman config
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/pacman.conf
     state: present
     block: |
@@ -54,19 +54,19 @@
       Include = /etc/pacman.d/mirrorlist
 
 - name: install paccache
-  pacman:
+  community.general.pacman:
     name:
       - pacman-contrib
 
 - name: Enable pacman cache clear weekly - Last 3 version per package
-  systemd:
+  ansible.builtin.systemd:
     name: paccache.timer
     enabled: yes
     state: started
 
 # ARCHLINUX-KEYRING WEEKLY UPDATE  -------------------------------------------
 - name: archlinux-keyring - enable weekly update
-  systemd:
+  ansible.builtin.systemd:
     name: archlinux-keyring-wkd-sync.timer
     enabled: yes
     state: started

@@ -1,7 +1,7 @@
 ---
 # GRUB Setup -----------------------------------------------------------------
 - name: Install Grub
-  pacman:
+  community.general.pacman:
     name:
       - grub
       - efibootmgr
@@ -15,7 +15,7 @@
   notify: regenerate grub config
 
 - name: Update grub timeout to 1
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/default/grub
     regexp: '^GRUB_TIMEOUT=5$'
     line: 'GRUB_TIMEOUT=1'

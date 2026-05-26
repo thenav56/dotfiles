@@ -14,18 +14,18 @@
 
 # -- Locale
 - name: Enable en_US locale
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/locale.gen
     regexp: '^#en_US.UTF-8 UTF-8$'
     line: 'en_US.UTF-8 UTF-8'
   notify: generate locale
 
 - name: Create /etc/locale.conf
-  copy:
+  ansible.builtin.copy:
     dest: /etc/locale.conf
     content: LANG=en_US.UTF-8
 
 - name: Set hostname
-  copy:
+  ansible.builtin.copy:
     dest: /etc/hostname
     content: "{{ new_hostname }}"
