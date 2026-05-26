@@ -69,7 +69,6 @@ packages:
     - bat
     - bind
     - nnn
-    - blueberry
     - blueman
     - bluez
     - bluez-utils
