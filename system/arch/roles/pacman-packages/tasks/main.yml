@@ -1,6 +1,87 @@
 ---
-# Tasks for the pacman-packages role.
-# Migrated from monolithic playbooks in issue 03.
-- name: pacman-packages placeholder
-  ansible.builtin.debug:
-    msg: "pacman-packages role scaffolded; tasks pending issue 03."
+- name: Install packages with pacman & yay
+
+  block:
+    # Other system packages
+    - name: Arch Full Update
+      become: true
+      pacman:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Load packages
+      include_vars:
+        file: '{{ playbook_dir }}/system/_packages.yml'
+        name: packages
+
+    - name: install core packages
+      become: true
+      pacman:
+        update_cache: yes
+        name: '{{ packages.native }}'
+
+    # Using AUR
+    - name: Create the temp `aur_builder` user
+      become: true
+      ansible.builtin.user:
+        name: aur_builder
+        create_home: yes
+        group: wheel
+
+    - name: Allow the `aur_builder` user to run `sudo pacman` without a password
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/11-install-aur_builder
+        line: 'aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman'
+        create: yes
+        mode: 0644
+        validate: 'visudo -cf %s'
+
+    - name: Install yay build packages
+      become: true
+      pacman:
+        update_cache: yes
+        name:
+          - git
+          - base-devel
+
+    - name: Install yay using makepkg if it isn't installed already
+      kewlfft.aur.aur:
+        name: yay-bin
+        use: makepkg
+        state: present
+        aur_only: yes
+      become: true
+      become_user: aur_builder
+
+    # Note: Dependency resolution will still include repository packages.
+    - name: Upgrade the system using yay, only act on AUR packages.
+      kewlfft.aur.aur:
+        upgrade: yes
+        use: yay
+        aur_only: yes
+      become: true
+      become_user: aur_builder
+
+    - name: Install packages using yay
+      kewlfft.aur.aur:
+        use: yay
+        name: '{{ packages.aur }}'
+        aur_only: yes
+      become: true
+      become_user: aur_builder
+
+  always:
+    - name: "Clean-up: Remove file (delete file)"
+      become: true
+      ansible.builtin.file:
+        path: /etc/sudoers.d/11-install-aur_builder
+        state: absent
+
+    - name: "Clean-up: Remove `aur_builder` user"
+      become: true
+      user:
+        name: aur_builder
+        state: absent
+        remove: true
+        force: true
