@@ -13,17 +13,8 @@
     state: started
   when: start_services | bool
 
-# ---- Disk swap (As fallback)
-- name: Check whether the swap file exists at "{{ swap_vars.path }}"
-  register: swap_file_check
-  ansible.builtin.stat:
-    path: "{{ swap_vars.path }}"
-
-- name: Fail when the swap file already exists
-  ansible.builtin.fail:
-    msg: "Swap file {{ swap_vars.path }} already exists."
-  when: swap_file_check.stat.exists
-
+# ---- Disk swap (fallback to zramswap)
+# mkswap is idempotent via `creates:` — re-running this role is safe.
 - name: Create swap file
   ansible.builtin.command: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
   args:
@@ -37,11 +28,15 @@
     marker: "# {mark} ANSIBLE MANAGED SWAP BLOCK"
     block: |
       {{ swap_vars.path }} swap swap pri=0,defaults 0 0
+  register: _fstab_swap
 
+# swapon -a is idempotent: re-running on an already-active swap is a
+# no-op. Only invoke when fstab actually changed.
 - name: Activate the swap file as a swap memory using /etc/fstab
   ansible.builtin.command: swapon -a
   changed_when: false
   check_mode: false
+  when: _fstab_swap.changed
 
 # systemd-sysctl reads /etc/sysctl.d/*.conf; /etc/sysctl.conf is no
 # longer parsed on modern Arch. Drop a dedicated file rather than
