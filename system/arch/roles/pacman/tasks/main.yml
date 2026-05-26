@@ -44,11 +44,20 @@
     name: reflector
     enabled: true
 
-- name: do initial run of reflector.service
+- name: stat /etc/pacman.d/mirrorlist
+  ansible.builtin.stat:
+    path: /etc/pacman.d/mirrorlist
+  register: mirrorlist_stat
+  check_mode: false
+
+- name: do initial run of reflector.service when mirrorlist is missing or stale
   ansible.builtin.systemd:
     name: reflector
     state: started
-  when: start_services | bool
+  when:
+    - start_services | bool
+    - not mirrorlist_stat.stat.exists or
+      (ansible_date_time.epoch | int) - (mirrorlist_stat.stat.mtime | int) > 86400
 
 # SYSTEM SETTINGS CHANGES ----------------------------------------------------
 - name: Custom pacman config
