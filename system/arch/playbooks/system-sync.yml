@@ -3,10 +3,41 @@
   hosts: localhost
   become: true
 
-  vars_files:
-    - ../local.yml
+  pre_tasks:
+    - name: Verify local.yml exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../local.yml"
+      register: local_yml_stat
+      check_mode: false
 
-  pre_tasks: []
+    - name: Fail clearly when local.yml is missing
+      ansible.builtin.assert:
+        that: local_yml_stat.stat.exists
+        fail_msg: >-
+          local.yml missing — run
+          `cp local.yml.example local.yml && $EDITOR local.yml`
+          from system/arch/ before invoking this playbook.
+
+    - name: Load per-user values from local.yml
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../local.yml"
+
+    - name: Verify local.yml supplies required keys
+      ansible.builtin.assert:
+        that:
+          - username is defined
+          - hostname is defined
+          - timezone is defined
+        fail_msg: >-
+          local.yml must define username, hostname, and timezone.
+
+    - name: Verify system-sync.yml is running as the per-user account, not root
+      ansible.builtin.assert:
+        that: ansible_user_id == username
+        fail_msg: >-
+          system-sync.yml must run as {{ username }} (your user account),
+          not as {{ ansible_user_id }}. Use `--ask-become-pass` so the user
+          context is preserved and sudo escalates per task.
 
   tasks:
     - name: pacman config and timers

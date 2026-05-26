@@ -7,9 +7,6 @@
   hosts: localhost
   become: true
 
-  vars_files:
-    - ../local.yml
-
   vars_prompt:
     - name: new_password
       prompt: What is your password?
@@ -17,6 +14,42 @@
       encrypt: sha512_crypt
       confirm: true
       salt_size: 7
+
+  pre_tasks:
+    - name: Verify local.yml exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../local.yml"
+      register: local_yml_stat
+      check_mode: false
+
+    - name: Fail clearly when local.yml is missing
+      ansible.builtin.assert:
+        that: local_yml_stat.stat.exists
+        fail_msg: >-
+          local.yml missing — run
+          `cp local.yml.example local.yml && $EDITOR local.yml`
+          from system/arch/ before invoking this playbook.
+
+    - name: Load per-user values from local.yml
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../local.yml"
+
+    - name: Verify local.yml supplies required keys
+      ansible.builtin.assert:
+        that:
+          - username is defined
+          - hostname is defined
+          - timezone is defined
+        fail_msg: >-
+          local.yml must define username, hostname, and timezone.
+
+    - name: Warn if init.yml is running outside arch-chroot
+      ansible.builtin.debug:
+        msg: >-
+          ansible_virtualization_type={{ ansible_virtualization_type | default('unknown') }}
+          — init.yml is intended to run inside an Arch chroot. Continuing,
+          since re-running outside chroot is a valid recovery path.
+      when: ansible_virtualization_type | default('unknown') != 'chroot'
 
   tasks:
     - ansible.builtin.import_role:
