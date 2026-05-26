@@ -31,7 +31,7 @@
 - name: enable systemd-networkd
   ansible.builtin.systemd:
     name: systemd-networkd
-    enabled: yes
+    enabled: true
 
 - name: start systemd-networkd
   ansible.builtin.systemd:
@@ -48,4 +48,4 @@
 - name: enable iwd
   ansible.builtin.systemd:
     name: iwd
-    enabled: yes
+    enabled: true

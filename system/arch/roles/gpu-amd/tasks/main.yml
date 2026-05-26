@@ -2,7 +2,7 @@
 - name: install packages
   become: true
   community.general.pacman:
-    update_cache: yes
+    update_cache: true
     name:
       # AMD packages
       - radeontop

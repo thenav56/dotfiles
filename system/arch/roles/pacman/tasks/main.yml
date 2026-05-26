@@ -3,8 +3,8 @@
 - name: Arch Full Update
   become: true
   community.general.pacman:
-    update_cache: yes
-    upgrade: yes
+    update_cache: true
+    upgrade: true
 
 # Update pacman local db
 - name: pacman -Sy
@@ -31,7 +31,7 @@
 - name: enable reflector timer
   ansible.builtin.systemd:
     name: reflector.timer
-    enabled: yes
+    enabled: true
 
 - name: start reflector timer
   ansible.builtin.systemd:
@@ -42,7 +42,7 @@
 - name: enable reflector service
   ansible.builtin.systemd:
     name: reflector
-    enabled: yes
+    enabled: true
 
 - name: do initial run of reflector.service
   ansible.builtin.systemd:
@@ -71,7 +71,7 @@
 - name: Enable pacman cache clear weekly - Last 3 version per package
   ansible.builtin.systemd:
     name: paccache.timer
-    enabled: yes
+    enabled: true
 
 - name: start paccache timer
   ansible.builtin.systemd:
@@ -83,7 +83,7 @@
 - name: archlinux-keyring - enable weekly update
   ansible.builtin.systemd:
     name: archlinux-keyring-wkd-sync.timer
-    enabled: yes
+    enabled: true
 
 - name: archlinux-keyring - start weekly update timer
   ansible.builtin.systemd:

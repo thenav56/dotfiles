@@ -5,7 +5,7 @@
 - name: enable zramswap
   ansible.builtin.systemd:
     name: zramswap.service
-    enabled: yes
+    enabled: true
 
 - name: start zramswap
   ansible.builtin.systemd:
@@ -14,18 +14,18 @@
   when: start_services | bool
 
 # ---- Disk swap (As fallback)
-- name: Check whether "{{ swap_vars.path }}" exists
-  register: idCheckSwap
+- name: Check whether the swap file exists at "{{ swap_vars.path }}"
+  register: swap_file_check
   ansible.builtin.stat:
     path: "{{ swap_vars.path }}"
 
-- name: Fail it if "{{ swap_vars.path }}" exists
+- name: Fail when the swap file already exists
   ansible.builtin.fail:
-    msg: Swap file exists
-  when: idCheckSwap.stat.exists == true
+    msg: "Swap file {{ swap_vars.path }} already exists."
+  when: swap_file_check.stat.exists
 
 - name: Create swap file
-  ansible.builtin.shell: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
+  ansible.builtin.command: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
   args:
     creates: "{{ swap_vars.path }}"
   check_mode: false
@@ -39,7 +39,7 @@
       {{ swap_vars.path }} swap swap pri=0,defaults 0 0
 
 - name: Activate the swap file as a swap memory using /etc/fstab
-  ansible.builtin.shell: swapon -a
+  ansible.builtin.command: swapon -a
   changed_when: false
   check_mode: false
 
@@ -50,7 +50,7 @@
     block: |
       vm.swappiness={{ swap_vars.swappiness }}
 
-- name: Apply new config
-  ansible.builtin.shell: sysctl -p
+- name: Apply new sysctl config
+  ansible.builtin.command: sysctl -p
   changed_when: false
   check_mode: false

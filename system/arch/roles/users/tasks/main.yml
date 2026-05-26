@@ -24,10 +24,10 @@
     state: present
     line: "%wheel ALL=(ALL:ALL) ALL"
     validate: /usr/sbin/visudo -cf %s
-    create: yes
+    create: true
 
 - name: add the user to the wheel group
   ansible.builtin.user:
     name: "{{ username }}"
     groups: wheel
-    append: yes
+    append: true

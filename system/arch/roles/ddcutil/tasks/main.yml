@@ -19,4 +19,4 @@
   ansible.builtin.user:
     name: "{{ username }}"
     groups: i2c
-    append: yes
+    append: true

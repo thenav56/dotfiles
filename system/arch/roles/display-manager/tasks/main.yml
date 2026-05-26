@@ -8,13 +8,13 @@
 - name: Enable ly
   ansible.builtin.systemd:
     name: ly@tty2.service
-    enabled: yes
+    enabled: true
 
 # https://github.com/betterlockscreen/betterlockscreen#systemd
 - name: enable betterlockscreen
   ansible.builtin.systemd:
     name: "betterlockscreen@{{ username }}"
-    enabled: yes
+    enabled: true
 
 - name: start betterlockscreen
   ansible.builtin.systemd:

@@ -33,11 +33,12 @@
 
     - name: Verify system-sync.yml is running as the per-user account, not root
       ansible.builtin.assert:
-        that: ansible_user_id == username
+        that: lookup('env', 'USER') == username
         fail_msg: >-
-          system-sync.yml must run as {{ username }} (your user account),
-          not as {{ ansible_user_id }}. Use `--ask-become-pass` so the user
-          context is preserved and sudo escalates per task.
+          system-sync.yml must be invoked as {{ username }} (your user
+          account), not as {{ lookup('env', 'USER') }}. Run with
+          `--ask-become-pass` so sudo escalates per task while the user
+          context is preserved.
 
   tasks:
     - name: pacman config and timers

@@ -25,7 +25,7 @@
 - name: enable ssh service
   ansible.builtin.systemd:
     name: sshd
-    enabled: yes
+    enabled: true
 
 - name: start ssh service
   ansible.builtin.systemd:

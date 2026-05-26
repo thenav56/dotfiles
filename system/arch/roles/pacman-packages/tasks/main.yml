@@ -6,13 +6,13 @@
     - name: Arch Full Update
       become: true
       community.general.pacman:
-        update_cache: yes
-        upgrade: yes
+        update_cache: true
+        upgrade: true
 
     - name: install core packages
       become: true
       community.general.pacman:
-        update_cache: yes
+        update_cache: true
         name: '{{ packages.native }}'
 
     # Using AUR
@@ -20,7 +20,7 @@
       become: true
       ansible.builtin.user:
         name: aur_builder
-        create_home: yes
+        create_home: true
         group: wheel
 
     - name: Allow the `aur_builder` user to run `sudo pacman` without a password
@@ -28,14 +28,14 @@
       ansible.builtin.lineinfile:
         path: /etc/sudoers.d/11-install-aur_builder
         line: 'aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman'
-        create: yes
-        mode: 0644
+        create: true
+        mode: '0644'
         validate: 'visudo -cf %s'
 
     - name: Install yay build packages
       become: true
       community.general.pacman:
-        update_cache: yes
+        update_cache: true
         name:
           - git
           - base-devel
@@ -45,16 +45,16 @@
         name: yay-bin
         use: makepkg
         state: present
-        aur_only: yes
+        aur_only: true
       become: true
       become_user: aur_builder
 
     # Note: Dependency resolution will still include repository packages.
     - name: Upgrade the system using yay, only act on AUR packages.
       kewlfft.aur.aur:
-        upgrade: yes
+        upgrade: true
         use: yay
-        aur_only: yes
+        aur_only: true
       become: true
       become_user: aur_builder
 
@@ -62,7 +62,7 @@
       kewlfft.aur.aur:
         use: yay
         name: '{{ packages.aur }}'
-        aur_only: yes
+        aur_only: true
       become: true
       become_user: aur_builder
 

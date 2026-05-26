@@ -8,7 +8,7 @@
 - name: enable cronie.service
   ansible.builtin.systemd:
     name: cronie
-    enabled: yes
+    enabled: true
 
 - name: start cronie.service
   ansible.builtin.systemd:
@@ -25,7 +25,7 @@
 - name: enable weekly ssd disks trim using fstrim timer
   ansible.builtin.systemd:
     name: fstrim.timer
-    enabled: yes
+    enabled: true
 
 - name: start fstrim timer
   ansible.builtin.systemd:
@@ -48,7 +48,7 @@
 - name: enable daily logs rotation, cleanup
   ansible.builtin.systemd:
     name: logrotate.timer
-    enabled: yes
+    enabled: true
 
 - name: start logrotate timer
   ansible.builtin.systemd:

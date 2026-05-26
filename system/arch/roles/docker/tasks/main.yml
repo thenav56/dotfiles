@@ -11,12 +11,12 @@
   ansible.builtin.user:
     name: "{{ username }}"
     groups: docker
-    append: yes
+    append: true
 
 - name: enable docker
   ansible.builtin.systemd:
     name: docker
-    enabled: yes
+    enabled: true
 
 - name: Create /etc/docker directory if it does not exist
   ansible.builtin.file:

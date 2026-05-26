@@ -52,31 +52,37 @@
       when: ansible_virtualization_type | default('unknown') != 'chroot'
 
   tasks:
-    - ansible.builtin.import_role:
+    - name: Bootstrap (timezone, locale, hostname)
+      ansible.builtin.import_role:
         name: bootstrap
       tags: [bootstrap, init-only]
 
-    - ansible.builtin.import_role:
+    - name: Bootloader (grub)
+      ansible.builtin.import_role:
         name: bootloader
       tags: [bootloader, init-only]
 
-    - ansible.builtin.import_role:
+    - name: Users (create user, sudoers, wheel)
+      ansible.builtin.import_role:
         name: users
       tags: [users]
 
-    - ansible.builtin.import_role:
+    - name: Network (enable-only in chroot)
+      ansible.builtin.import_role:
         name: network
       vars:
         start_services: false
       tags: [network]
 
-    - ansible.builtin.import_role:
+    - name: DNS (enable-only in chroot)
+      ansible.builtin.import_role:
         name: dns
       vars:
         start_services: false
       tags: [dns]
 
-    - ansible.builtin.import_role:
+    - name: Pacman config (enable-only in chroot)
+      ansible.builtin.import_role:
         name: pacman
       vars:
         start_services: false
