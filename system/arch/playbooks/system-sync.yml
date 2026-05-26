@@ -41,11 +41,6 @@
           context is preserved.
 
   tasks:
-    - name: pacman config and timers
-      ansible.builtin.import_role:
-        name: pacman
-      tags: [pacman]
-
     - name: network (systemd-networkd, iwd, impala)
       ansible.builtin.import_role:
         name: network
@@ -55,6 +50,11 @@
       ansible.builtin.import_role:
         name: dns
       tags: [dns]
+
+    - name: pacman config and timers
+      ansible.builtin.import_role:
+        name: pacman
+      tags: [pacman]
 
     - name: security (ssh hardening, faillock)
       ansible.builtin.import_role:
