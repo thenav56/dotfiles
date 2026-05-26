@@ -6,9 +6,9 @@
       - sudo
       - zsh
 
-- name: Create new user with "{{ new_username }}"
+- name: Create new user with "{{ username }}"
   ansible.builtin.user:
-    name: "{{ new_username }}"
+    name: "{{ username }}"
     password: "{{ new_password }}"
     shell: /bin/zsh
     create_home: true
@@ -28,6 +28,6 @@
 
 - name: add the user to the wheel group
   ansible.builtin.user:
-    name: "{{ new_username }}"
+    name: "{{ username }}"
     groups: wheel
     append: yes

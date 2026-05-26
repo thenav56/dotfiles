@@ -5,7 +5,7 @@
   ansible.builtin.lineinfile:
     path: /etc/security/faillock.conf
     regexp: '^#?\s*deny\s*='
-    line: 'deny = 10'
+    line: "deny = {{ faillock_deny }}"
 
 # SSH ------------------------------------------------------------------------
 - name: install ssh

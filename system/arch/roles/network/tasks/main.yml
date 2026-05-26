@@ -18,7 +18,7 @@
     dest: /etc/systemd/network/25-wireless.network
     content: |
       [Match]
-      Name=wlan0
+      Name={{ wireless_iface }}
       [Network]
       DHCP=yes
       IgnoreCarrierLoss=3s

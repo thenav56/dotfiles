@@ -5,13 +5,11 @@
 - name: Archlinux base setup - During install only
   hosts: localhost
   become: true
+
+  vars_files:
+    - ../local.yml
+
   vars_prompt:
-    - name: new_hostname
-      prompt: What is your hostname?
-      private: false
-    - name: new_username
-      prompt: What is your username?
-      private: false
     - name: new_password
       prompt: What is your password?
       private: true

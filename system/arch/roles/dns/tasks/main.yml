@@ -10,8 +10,7 @@
     dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
     content: |
       [Resolve]
-      DNS=1.1.1.1 1.0.0.1
-      # DNS=8.8.8.8 8.8.4.4
+      DNS={{ dns_servers | join(' ') }}
       DNSOverTLS=yes
   notify: restart systemd-resolved
 

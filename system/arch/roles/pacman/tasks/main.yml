@@ -23,7 +23,7 @@
     content: |
       --save /etc/pacman.d/mirrorlist
       --protocol http
-      --country Singapore
+      --country {{ reflector_country }}
       --score 20
       --sort rate
 

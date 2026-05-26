@@ -17,9 +17,9 @@
   check_mode: false
   notify: regenerate grub config
 
-- name: Update grub timeout to 1
+- name: Update grub timeout
   ansible.builtin.lineinfile:
     path: /etc/default/grub
-    regexp: '^GRUB_TIMEOUT=5$'
-    line: 'GRUB_TIMEOUT=1'
+    regexp: '^GRUB_TIMEOUT='
+    line: "GRUB_TIMEOUT={{ grub_timeout }}"
   notify: regenerate grub config

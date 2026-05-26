@@ -1,0 +1,40 @@
+---
+# Per-user values. Copy this file to local.yml and fill in. local.yml is
+# gitignored so your personal settings stay out of the repo.
+#
+#   cp local.yml.example local.yml
+#   $EDITOR local.yml
+
+# Required ---------------------------------------------------------------
+
+# Your unprivileged user account.
+username: your_username
+
+# Hostname for this machine.
+hostname: your_hostname
+
+# Timezone in /usr/share/zoneinfo form, e.g. "Europe/Berlin" or
+# "America/Los_Angeles". See:
+#   https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+timezone: Asia/Kathmandu
+
+# Country reflector ranks mirrors for. Pick the country with the
+# closest fast mirrors to you.
+reflector_country: Singapore
+
+# Wireless network interface name. Check with `ip link` after boot.
+wireless_iface: wlan0
+
+# Optional --------------------------------------------------------------
+
+# Feature flags. Defaults live in group_vars/all.yml. Uncomment any
+# entry below to override the default for this host.
+#
+# features:
+#   gpu_amd: false
+#   zfs: false
+#   ddcutil: false
+#   docker: true
+#   display_manager: true
+#   swap: false
+#   user_tools: true

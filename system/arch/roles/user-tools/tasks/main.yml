@@ -5,17 +5,4 @@
   args:
     executable: /bin/bash
     creates: "{{ ansible_env.HOME }}/.local/bin/{{ item }}"
-  loop:
-    - neovim-remote
-    - --with requests ipython
-    - django
-    - pre-commit
-    - flake8
-    - isort
-    - ruff
-    - line-profiler
-    - snakeviz
-    - --with openpyxl visidata
-    - azure-cli
-    - --with requests jupyterlab
-    - ddcci_plasmoid_backend
+  loop: "{{ uv_tools }}"

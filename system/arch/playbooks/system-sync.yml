@@ -3,10 +3,8 @@
   hosts: localhost
   become: true
 
-  vars_prompt:
-    - name: username
-      prompt: What is your username?
-      private: false
+  vars_files:
+    - ../local.yml
 
   pre_tasks: []
 

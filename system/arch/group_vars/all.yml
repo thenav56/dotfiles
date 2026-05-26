@@ -2,6 +2,51 @@
 # Shared defaults loaded by every play in this inventory.
 # Per-user values live in ../local.yml (created from local.yml.example, gitignored).
 
+# DNS resolvers used by the dns role (systemd-resolved).
+dns_servers:
+  - 1.1.1.1
+  - 1.0.0.1
+
+# faillock.conf deny count. After this many failed logins the account
+# locks for 10 minutes.
+faillock_deny: 10
+
+# docker daemon log rotation (passed verbatim into log-opts).
+docker_log_opts:
+  max-size: "50m"
+  max-file: "5"
+
+# GRUB menu countdown seconds.
+grub_timeout: 1
+
+# Feature flags. Override in local.yml.
+features:
+  gpu_amd: false
+  zfs: false
+  ddcutil: false
+  docker: true
+  display_manager: true
+  swap: false
+  user_tools: true
+
+# Python tools installed via `uv tool install` by the user-tools role.
+# Each entry is passed unquoted to `uv tool install` so prefixes like
+# `--with <extra>` work.
+uv_tools:
+  - neovim-remote
+  - --with requests ipython
+  - django
+  - pre-commit
+  - flake8
+  - isort
+  - ruff
+  - line-profiler
+  - snakeviz
+  - --with openpyxl visidata
+  - azure-cli
+  - --with requests jupyterlab
+  - ddcci_plasmoid_backend
+
 packages:
   native:
     - uv

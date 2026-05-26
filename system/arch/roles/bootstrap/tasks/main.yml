@@ -1,9 +1,9 @@
 ---
 # Arch install setups --AFTER CHROOT--------------------------------------
 # https://wiki.archlinux.org/title/installation_guide#Configure_the_system
-- name: Set timezone (Asia/Kathmandu)
+- name: Set timezone
   ansible.builtin.file:
-    src: /usr/share/zoneinfo/Asia/Kathmandu
+    src: "/usr/share/zoneinfo/{{ timezone }}"
     dest: /etc/localtime
     owner: root
     group: root
@@ -30,4 +30,4 @@
 - name: Set hostname
   ansible.builtin.copy:
     dest: /etc/hostname
-    content: "{{ new_hostname }}"
+    content: "{{ hostname }}"
