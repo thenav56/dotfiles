@@ -1,0 +1,9 @@
+profile: moderate
+exclude_paths:
+  - .cache/
+  - .ansible/
+skip_list:
+  - role-name
+warn_list:
+  - experimental
+  - fqcn[keyword]
