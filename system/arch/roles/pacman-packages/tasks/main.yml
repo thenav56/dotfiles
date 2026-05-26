@@ -1,12 +1,16 @@
 ---
 - name: Install packages with pacman & yay
   block:
-    # Other system packages
+    # community.general.pacman with upgrade:true is not safely
+    # simulatable: it reports "changed" in --check even when nothing
+    # would actually upgrade. Skip in check mode so the idempotency
+    # gate is honest; the real run still performs upgrades.
     - name: Arch Full Update
       become: true
       community.general.pacman:
         update_cache: true
         upgrade: true
+      when: not ansible_check_mode
 
     # update_cache was already done by `Arch Full Update` above; running
     # it again here makes this task always-changed under --check.
@@ -67,6 +71,11 @@
     # OOM, network blip, upstream breakage) should NOT abort the play —
     # downstream roles still need to run. Failures are flagged and a
     # loud warning fires at end-of-play.
+    # kewlfft.aur.aur with upgrade:true runs `yay -Qu`, which returns
+    # rc=1 when nothing is upgradable — the module surfaces that as a
+    # task failure, triggering our rescue every check-mode run on a
+    # synced system. Skip the upgrade in check mode for the same reason
+    # we skip pacman upgrades; the install task remains check-safe.
     - name: AUR upgrade and install (best-effort)
       block:
         - name: Upgrade the system using yay, only act on AUR packages.
@@ -76,6 +85,7 @@
             aur_only: true
           become: true
           become_user: aur_builder
+          when: not ansible_check_mode
 
         - name: Install packages using yay
           kewlfft.aur.aur:
