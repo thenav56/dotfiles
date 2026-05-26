@@ -1,6 +1,21 @@
 ---
-# Tasks for the user-tools role.
-# Migrated from monolithic playbooks in issue 03.
-- name: user-tools placeholder
-  ansible.builtin.debug:
-    msg: "user-tools role scaffolded; tasks pending issue 03."
+- name: Install packages with uv tool install
+  ansible.builtin.shell: |
+    uv tool install --no-progress {{ item }}
+  args:
+    executable: /bin/bash
+    creates: "{{ ansible_env.HOME }}/.local/bin/{{ item }}"
+  loop:
+    - neovim-remote
+    - --with requests ipython
+    - django
+    - pre-commit
+    - flake8
+    - isort
+    - ruff
+    - line-profiler
+    - snakeviz
+    - --with openpyxl visidata
+    - azure-cli
+    - --with requests jupyterlab
+    - ddcci_plasmoid_backend
