@@ -67,47 +67,8 @@
         name: bootloader
 
     # Few from ./system/config.yml
-    # Network configurations -------------------------------------------------
-    - name: systemd-networkd - Wired
-      copy:
-        dest: /etc/systemd/network/20-wired.network
-        content: |
-          [Match]
-          Name=en*
-          [Network]
-          DHCP=yes
-          [DHCPv4]
-          RouteMetric=100
-          [IPv6AcceptRA]
-
-    - name: systemd-networkd - Wireless
-      copy:
-        dest: /etc/systemd/network/25-wireless.network
-        content: |
-          [Match]
-          Name=wlan0
-          [Network]
-          DHCP=yes
-          IgnoreCarrierLoss=3s
-          [DHCPv4]
-          RouteMetric=200
-          [IPv6AcceptRA]
-          RouteMetric=200
+    - ansible.builtin.import_role:
+        name: network
 
     - ansible.builtin.import_role:
         name: dns
-
-    - name: enable and start systemd-networkd
-      systemd:
-        name: systemd-networkd
-        enabled: yes
-
-    - name: install iwd
-      pacman:
-        name:
-          - iwd
-
-    - name: enable and start systemd-networkd
-      systemd:
-        name: iwd
-        enabled: yes
