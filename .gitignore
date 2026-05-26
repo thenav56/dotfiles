@@ -9,3 +9,7 @@ config/kitty/search.py
 # Ansible refactor: per-user values and runtime cache
 system/arch/local.yml
 system/arch/.ansible/
+
+# Ansible refactor: planning artifacts (kept locally; not part of repo history)
+system/arch/REFACTOR_PLAN.md
+system/arch/issues/
