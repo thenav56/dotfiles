@@ -1,0 +1,6 @@
+---
+# Tasks for the network role.
+# Migrated from monolithic playbooks in issue 03.
+- name: network placeholder
+  ansible.builtin.debug:
+    msg: "network role scaffolded; tasks pending issue 03."

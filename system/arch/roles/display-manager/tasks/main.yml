@@ -1,0 +1,6 @@
+---
+# Tasks for the display-manager role.
+# Migrated from monolithic playbooks in issue 03.
+- name: display-manager placeholder
+  ansible.builtin.debug:
+    msg: "display-manager role scaffolded; tasks pending issue 03."

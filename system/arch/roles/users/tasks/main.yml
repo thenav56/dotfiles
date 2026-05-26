@@ -1,0 +1,6 @@
+---
+# Tasks for the users role.
+# Migrated from monolithic playbooks in issue 03.
+- name: users placeholder
+  ansible.builtin.debug:
+    msg: "users role scaffolded; tasks pending issue 03."

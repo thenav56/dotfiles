@@ -1,0 +1,6 @@
+---
+# Tasks for the pacman-packages role.
+# Migrated from monolithic playbooks in issue 03.
+- name: pacman-packages placeholder
+  ansible.builtin.debug:
+    msg: "pacman-packages role scaffolded; tasks pending issue 03."

@@ -1,0 +1,3 @@
+---
+# Default vars for the bootloader role.
+# Overridable from group_vars/all.yml or local.yml.

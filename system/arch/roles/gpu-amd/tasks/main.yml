@@ -1,0 +1,6 @@
+---
+# Tasks for the gpu-amd role.
+# Migrated from monolithic playbooks in issue 03.
+- name: gpu-amd placeholder
+  ansible.builtin.debug:
+    msg: "gpu-amd role scaffolded; tasks pending issue 03."

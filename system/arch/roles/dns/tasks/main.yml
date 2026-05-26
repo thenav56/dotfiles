@@ -1,0 +1,6 @@
+---
+# Tasks for the dns role.
+# Migrated from monolithic playbooks in issue 03.
+- name: dns placeholder
+  ansible.builtin.debug:
+    msg: "dns role scaffolded; tasks pending issue 03."

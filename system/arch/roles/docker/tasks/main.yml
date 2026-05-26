@@ -1,0 +1,6 @@
+---
+# Tasks for the docker role.
+# Migrated from monolithic playbooks in issue 03.
+- name: docker placeholder
+  ansible.builtin.debug:
+    msg: "docker role scaffolded; tasks pending issue 03."

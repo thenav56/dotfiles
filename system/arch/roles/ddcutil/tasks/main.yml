@@ -1,0 +1,6 @@
+---
+# Tasks for the ddcutil role.
+# Migrated from monolithic playbooks in issue 03.
+- name: ddcutil placeholder
+  ansible.builtin.debug:
+    msg: "ddcutil role scaffolded; tasks pending issue 03."

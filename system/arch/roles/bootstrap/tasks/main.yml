@@ -1,0 +1,6 @@
+---
+# Tasks for the bootstrap role.
+# Migrated from monolithic playbooks in issue 03.
+- name: bootstrap placeholder
+  ansible.builtin.debug:
+    msg: "bootstrap role scaffolded; tasks pending issue 03."

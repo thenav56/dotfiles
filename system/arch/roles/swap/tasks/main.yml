@@ -1,0 +1,6 @@
+---
+# Tasks for the swap role.
+# Migrated from monolithic playbooks in issue 03.
+- name: swap placeholder
+  ansible.builtin.debug:
+    msg: "swap role scaffolded; tasks pending issue 03."

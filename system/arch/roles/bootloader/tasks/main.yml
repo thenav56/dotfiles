@@ -1,0 +1,6 @@
+---
+# Tasks for the bootloader role.
+# Migrated from monolithic playbooks in issue 03.
+- name: bootloader placeholder
+  ansible.builtin.debug:
+    msg: "bootloader role scaffolded; tasks pending issue 03."
