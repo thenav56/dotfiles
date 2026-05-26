@@ -1,6 +1,22 @@
 ---
-# Tasks for the ddcutil role.
-# Migrated from monolithic playbooks in issue 03.
-- name: ddcutil placeholder
-  ansible.builtin.debug:
-    msg: "ddcutil role scaffolded; tasks pending issue 03."
+# Load kernel modules
+# -- https://wiki.archlinux.org/title/backlight#External_monitors
+- name: install docker
+  pacman:
+    name:
+      - i2c-tools
+      - ddcutil
+
+# NOTE: ddcci is available using `ddcutil` package
+- name: i2c dev for ddcutil
+  copy:
+    dest: /etc/modules-load.d/my-ddcutil.conf
+    content: |
+      i2c_dev
+      ddcci
+
+- name: add the user to the i2c group
+  user:
+    name: "{{ username }}"
+    groups: i2c
+    append: yes
