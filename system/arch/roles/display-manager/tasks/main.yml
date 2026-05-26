@@ -10,14 +10,14 @@
     name: ly@tty2.service
     enabled: true
 
+# betterlockscreen@user is a oneshot service that generates lock-screen
+# images and exits. Enable it so it fires at boot; do NOT use
+# `state: started` here because a successfully-exited oneshot reports
+# as inactive and would be "re-started" every sync run — breaking
+# idempotency. If you need to regenerate the cache, run the service
+# manually: `systemctl start betterlockscreen@<user>`.
 # https://github.com/betterlockscreen/betterlockscreen#systemd
 - name: enable betterlockscreen
   ansible.builtin.systemd:
     name: "betterlockscreen@{{ username }}"
     enabled: true
-
-- name: start betterlockscreen
-  ansible.builtin.systemd:
-    name: "betterlockscreen@{{ username }}"
-    state: started
-  when: start_services | bool

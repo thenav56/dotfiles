@@ -8,10 +8,11 @@
         update_cache: true
         upgrade: true
 
+    # update_cache was already done by `Arch Full Update` above; running
+    # it again here makes this task always-changed under --check.
     - name: install core packages
       become: true
       community.general.pacman:
-        update_cache: true
         name: '{{ packages.native }}'
 
     # Using AUR ---------------------------------------------------------------
@@ -41,7 +42,6 @@
     - name: Install yay build packages
       become: true
       community.general.pacman:
-        update_cache: true
         name:
           - git
           - base-devel
@@ -98,21 +98,18 @@
 
   always:
     # Kill any orphaned build processes (e.g. go/make from a failed
-    # PKGBUILD) before touching aur_builder's sudoers entry. failed_when:
-    # false because pkill returns 1 when no processes match — that's the
-    # expected case on a clean run.
+    # PKGBUILD). failed_when:false because pkill returns 1 when no
+    # processes match — the expected case on a clean run.
+    # The aur_builder user and its NOPASSWD-pacman sudoers entry remain
+    # in place between runs (the account is locked: nologin shell,
+    # password '!'; sudoers only grants /usr/bin/pacman to that locked
+    # account). Re-creating both per run made the play non-idempotent.
     - name: Kill any lingering aur_builder processes
       become: true
       ansible.builtin.command: pkill -KILL -u aur_builder
       register: pkill_result
       failed_when: false
       changed_when: pkill_result.rc == 0
-
-    - name: Remove aur_builder NOPASSWD sudoers entry
-      become: true
-      ansible.builtin.file:
-        path: /etc/sudoers.d/11-install-aur_builder
-        state: absent
 
 # End-of-role warning. Runs only when AUR install/upgrade failed; uses a
 # banner so it doesn't get lost in the recap.

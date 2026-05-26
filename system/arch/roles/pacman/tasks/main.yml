@@ -1,15 +1,12 @@
 ---
-# System packages
-- name: Arch Full Update
-  become: true
-  community.general.pacman:
-    update_cache: true
-    upgrade: true
-
-# Update pacman local db
+# Refresh pacman's local DB. The actual full upgrade is handled by the
+# pacman-packages role; don't duplicate that here. `update_cache: true`
+# is intrinsically "changed" each run, so mark changed_when:false to
+# keep idempotency checks honest.
 - name: pacman -Sy
   community.general.pacman:
     update_cache: true
+  changed_when: false
   tags: [always]
 
 # REFLECTOR TO REGULARLY UPDATE MIRRORLIST
