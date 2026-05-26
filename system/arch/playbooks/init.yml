@@ -30,38 +30,8 @@
         update_cache: yes
         upgrade: yes
 
-    # USERS PERMISSIONS  ---------------------------------------------------------
-    - name: install sudo & zsh
-      pacman:
-        name:
-          - sudo
-          - zsh
-
-    - name: Create new user with "{{ new_username }}"
-      user:
-        name: "{{ new_username }}"
-        password: "{{ new_password }}"
-        shell: /bin/zsh
-        create_home: true
-
-    - name: Set same password for root
-      user:
-        name: "root"
-        password: "{{ new_password }}"
-
-    - name: enable members of wheel group to sudo
-      lineinfile:
-        path: /etc/sudoers.d/01_wheel_allow_sudo
-        state: present
-        line: "%wheel ALL=(ALL:ALL) ALL"
-        validate: /usr/sbin/visudo -cf %s
-        create: yes
-
-    - name: add the user to the wheel group
-      user:
-        name: "{{ new_username }}"
-        groups: wheel
-        append: yes
+    - ansible.builtin.import_role:
+        name: users
 
     - ansible.builtin.import_role:
         name: bootloader
