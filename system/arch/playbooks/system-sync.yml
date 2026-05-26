@@ -12,48 +12,77 @@
     - name: pacman config and timers
       ansible.builtin.import_role:
         name: pacman
+      tags: [pacman]
 
     - name: network (systemd-networkd, iwd, impala)
       ansible.builtin.import_role:
         name: network
+      tags: [network]
 
     - name: dns (systemd-resolved, DoT)
       ansible.builtin.import_role:
         name: dns
+      tags: [dns]
 
     - name: security (ssh hardening, faillock)
       ansible.builtin.import_role:
         name: security
+      tags: [security]
 
-    - name: display manager (ly, betterlockscreen)
+    - name: users (group memberships, idempotent)
       ansible.builtin.import_role:
-        name: display-manager
+        name: users
+      tags: [users]
 
     - name: maintenance (cronie, fstrim, logrotate)
       ansible.builtin.import_role:
         name: maintenance
-
-    - name: ddcutil (external monitor backlight)
-      ansible.builtin.import_role:
-        name: ddcutil
-
-    - name: zfs kernel module
-      ansible.builtin.import_role:
-        name: zfs
-
-    - name: docker daemon and tools
-      ansible.builtin.import_role:
-        name: docker
+      tags: [maintenance]
 
     - name: native and aur packages
       ansible.builtin.import_role:
         name: pacman-packages
+      tags: [pacman-packages]
+
+    - name: display manager (ly, betterlockscreen)
+      ansible.builtin.import_role:
+        name: display-manager
+      when: features.display_manager | default(false)
+      tags: [display-manager]
+
+    - name: ddcutil (external monitor backlight)
+      ansible.builtin.import_role:
+        name: ddcutil
+      when: features.ddcutil | default(false)
+      tags: [ddcutil]
+
+    - name: zfs kernel module
+      ansible.builtin.import_role:
+        name: zfs
+      when: features.zfs | default(false)
+      tags: [zfs]
+
+    - name: docker daemon and tools
+      ansible.builtin.import_role:
+        name: docker
+      when: features.docker | default(false)
+      tags: [docker]
 
     - name: user-scoped uv tools
       ansible.builtin.import_role:
         name: user-tools
+      when: features.user_tools | default(false)
       become: false
+      tags: [user-tools]
 
     - name: amd gpu packages
       ansible.builtin.import_role:
         name: gpu-amd
+      when: features.gpu_amd | default(false)
+      tags: [gpu-amd]
+
+    - name: swap (zramswap + optional swapfile)
+      ansible.builtin.import_role:
+        name: swap
+      when: features.swap | default(false)
+      tags: [swap]

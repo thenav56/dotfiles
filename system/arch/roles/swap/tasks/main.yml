@@ -17,7 +17,7 @@
 - name: Check whether "{{ swap_vars.path }}" exists
   register: idCheckSwap
   ansible.builtin.stat:
-    path: {{ swap_vars.path }}
+    path: "{{ swap_vars.path }}"
 
 - name: Fail it if "{{ swap_vars.path }}" exists
   ansible.builtin.fail:

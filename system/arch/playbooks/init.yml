@@ -21,24 +21,30 @@
   tasks:
     - ansible.builtin.import_role:
         name: bootstrap
+      tags: [bootstrap, init-only]
 
     - ansible.builtin.import_role:
         name: bootloader
+      tags: [bootloader, init-only]
 
     - ansible.builtin.import_role:
         name: users
+      tags: [users]
 
     - ansible.builtin.import_role:
         name: network
       vars:
         start_services: false
+      tags: [network]
 
     - ansible.builtin.import_role:
         name: dns
       vars:
         start_services: false
+      tags: [dns]
 
     - ansible.builtin.import_role:
         name: pacman
       vars:
         start_services: false
+      tags: [pacman]

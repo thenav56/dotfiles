@@ -9,14 +9,14 @@
 - name: Create new user with "{{ username }}"
   ansible.builtin.user:
     name: "{{ username }}"
-    password: "{{ new_password }}"
+    password: "{{ new_password | default(omit) }}"
     shell: /bin/zsh
     create_home: true
 
 - name: Set same password for root
   ansible.builtin.user:
     name: "root"
-    password: "{{ new_password }}"
+    password: "{{ new_password | default(omit) }}"
 
 - name: enable members of wheel group to sudo
   ansible.builtin.lineinfile:
