@@ -7,6 +7,11 @@ dns_servers:
   - 1.1.1.1
   - 1.0.0.1
 
+# Whether systemd-resolved should require DNS-over-TLS for the
+# configured dns_servers. Override to false in local.yml on hosts where
+# outbound port 853 is blocked (some libvirt NATs, corporate proxies).
+dns_over_tls: true
+
 # faillock.conf deny count. After this many failed logins the account
 # locks for 10 minutes.
 faillock_deny: 10

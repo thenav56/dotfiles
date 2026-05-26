@@ -25,6 +25,10 @@ reflector_country: Singapore
 # Wireless network interface name. Check with `ip link` after boot.
 wireless_iface: wlan0
 
+# Override DNS-over-TLS if your network blocks outbound port 853 (some
+# libvirt NATs, corporate proxies). Defaults to true in group_vars.
+# dns_over_tls: false
+
 # Optional --------------------------------------------------------------
 
 # Feature flags. Defaults live in group_vars/all.yml. Uncomment any

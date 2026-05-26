@@ -5,13 +5,13 @@
     state: directory
 
 # DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
-- name: systemd-resolved - DNS over TLS
+- name: systemd-resolved - upstream DNS configuration
   ansible.builtin.copy:
     dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
     content: |
       [Resolve]
       DNS={{ dns_servers | join(' ') }}
-      DNSOverTLS=yes
+      DNSOverTLS={{ 'yes' if dns_over_tls | bool else 'no' }}
   notify: restart systemd-resolved
 
 - name: systemd-resolved - Create a symbolic link for /etc/resolv.conf
