@@ -1,6 +1,18 @@
 ---
-# Tasks for the display-manager role.
-# Migrated from monolithic playbooks in issue 03.
-- name: display-manager placeholder
-  ansible.builtin.debug:
-    msg: "display-manager role scaffolded; tasks pending issue 03."
+# Install & Enable ly
+- name: install ssh
+  pacman:
+    name:
+      - ly
+
+- name: Enable ly
+  systemd:
+    name: ly@tty2.service
+    enabled: yes
+
+# https://github.com/betterlockscreen/betterlockscreen#systemd
+- name: enable betterlockscreen
+  systemd:
+    name: "betterlockscreen@{{ username }}"
+    enabled: yes
+    state: started

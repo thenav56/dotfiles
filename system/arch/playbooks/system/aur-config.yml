@@ -9,9 +9,5 @@
       private: false
 
   tasks:
-    # https://github.com/betterlockscreen/betterlockscreen#systemd
-    - name: enable betterlockscreen
-      systemd:
-        name: "betterlockscreen@{{ username }}"
-        enabled: yes
-        state: started
+    - ansible.builtin.import_role:
+        name: display-manager

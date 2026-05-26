@@ -138,16 +138,8 @@
         regexp: '^# deny = 3$'
         line: 'deny = 10'
 
-    # Install & Enable ly
-    - name: install ssh
-      pacman:
-        name:
-          - ly
-
-    - name: Enable ly
-      systemd:
-        name: ly@tty2.service
-        enabled: yes
+    - ansible.builtin.import_role:
+        name: display-manager
 
     # SSH ------------------------------------------------------------------------
     - name: install ssh
