@@ -94,19 +94,8 @@
           [IPv6AcceptRA]
           RouteMetric=200
 
-    - name: Create /etc/systemd/resolved.conf.d directory if it does not exist
-      file:
-        path: /etc/systemd/resolved.conf.d
-        state: directory
-
-    # DNS configurations
-    - name: systemd-networkd - Wireless
-      copy:
-        dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
-        content: |
-          [Resolve]
-          DNS=1.1.1.1 1.0.0.1
-          DNSOverTLS=yes
+    - ansible.builtin.import_role:
+        name: dns
 
     - name: enable and start systemd-networkd
       systemd:

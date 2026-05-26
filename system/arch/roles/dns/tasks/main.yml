@@ -1,6 +1,30 @@
 ---
-# Tasks for the dns role.
-# Migrated from monolithic playbooks in issue 03.
-- name: dns placeholder
-  ansible.builtin.debug:
-    msg: "dns role scaffolded; tasks pending issue 03."
+- name: Create /etc/systemd/resolved.conf.d directory if it does not exist
+  file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+
+# DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
+- name: systemd-networkd - Wireless
+  copy:
+    dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
+    content: |
+      [Resolve]
+      DNS=1.1.1.1 1.0.0.1
+      # DNS=8.8.8.8 8.8.4.4
+      DNSOverTLS=yes
+
+- name: systemd-resolved - Create a symbolic link for /etc/resolv.conf
+  ansible.builtin.file:
+    src: ../run/systemd/resolve/stub-resolv.conf
+    dest: /etc/resolv.conf
+    force: yes
+    state: link
+    # owner: root
+    # group: root
+
+- name: systemd-resolved - enable and start systemd-resolved
+  systemd:
+    name: systemd-resolved
+    enabled: yes
+    state: started
