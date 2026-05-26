@@ -1,3 +1,6 @@
 ---
-# Handlers for the dns role.
-# Wired in issue 05.
+- name: restart systemd-resolved
+  listen: restart systemd-resolved
+  systemd:
+    name: systemd-resolved
+    state: restarted

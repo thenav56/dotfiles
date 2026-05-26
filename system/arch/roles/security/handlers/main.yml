@@ -1,3 +1,6 @@
 ---
-# Handlers for the security role.
-# Wired in issue 05.
+- name: reload sshd
+  listen: reload sshd
+  systemd:
+    name: sshd
+    state: reloaded

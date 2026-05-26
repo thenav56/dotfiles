@@ -1,3 +1,4 @@
 ---
-# Handlers for the bootstrap role.
-# Wired in issue 05.
+- name: generate locale
+  listen: generate locale
+  ansible.builtin.command: locale-gen

@@ -11,6 +11,7 @@
       [DHCPv4]
       RouteMetric=100
       [IPv6AcceptRA]
+  notify: restart systemd-networkd
 
 - name: systemd-networkd - Wireless
   copy:
@@ -25,6 +26,7 @@
       RouteMetric=200
       [IPv6AcceptRA]
       RouteMetric=200
+  notify: restart systemd-networkd
 
 - name: enable and start systemd-networkd
   systemd:
@@ -38,7 +40,7 @@
       - iwd
       - impala
 
-- name: enable and start systemd-networkd
+- name: enable iwd
   systemd:
     name: iwd
     enabled: yes

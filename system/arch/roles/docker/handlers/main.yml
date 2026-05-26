@@ -1,3 +1,6 @@
 ---
-# Handlers for the docker role.
-# Wired in issue 05.
+- name: restart docker
+  listen: restart docker
+  systemd:
+    name: docker
+    state: restarted

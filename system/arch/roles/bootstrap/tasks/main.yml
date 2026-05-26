@@ -18,9 +18,7 @@
     path: /etc/locale.gen
     regexp: '^#en_US.UTF-8 UTF-8$'
     line: 'en_US.UTF-8 UTF-8'
-
-- name: Generate locale
-  ansible.builtin.command: locale-gen
+  notify: generate locale
 
 - name: Create /etc/locale.conf
   copy:

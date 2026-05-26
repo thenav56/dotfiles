@@ -20,6 +20,7 @@
       PermitRootLogin no
       PasswordAuthentication no
       AuthenticationMethods publickey
+  notify: reload sshd
 
 - name: enable and start ssh service
   systemd:

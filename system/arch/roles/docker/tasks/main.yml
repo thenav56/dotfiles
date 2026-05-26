@@ -35,3 +35,4 @@
           "max-file": "5"
         }
       }
+  notify: restart docker
