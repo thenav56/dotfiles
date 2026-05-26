@@ -50,7 +50,26 @@ uv_tools:
   - --with openpyxl visidata
   - azure-cli
   - --with requests jupyterlab
-  - ddcci_plasmoid_backend
+
+# Per-feature uv tools. Merged into the install list by the user-tools
+# role only when the matching feature flag is true. Keys must match the
+# names in `features:` above.
+feature_uv_tools:
+  ddcutil:
+    - ddcci_plasmoid_backend
+
+# Per-feature AUR packages. Merged into the AUR install list by the
+# pacman-packages role only when the matching feature flag is true.
+# Keys must match the names in `features:` above. Native feature
+# packages live inline in each feature role's tasks (they install
+# only when the role runs).
+feature_aur_packages:
+  zfs:
+    - zfs-dkms
+  ddcutil:
+    - ddcci-driver-linux-dkms
+  display_manager:
+    - betterlockscreen
 
 packages:
   native:
@@ -58,11 +77,8 @@ packages:
     - reflector
     - zsh
     - sudo
-    - docker
-    - docker-compose
     - efibootmgr
     - grub
-    - ly
     - openssh
     - pacman-contrib
     - atuin
@@ -75,12 +91,11 @@ packages:
     - btop
     - caja
     - curl
-    - ddcutil
     - difftastic
     - duf
     - dunst
     - eog
-    - eza
+    - lsd
     - fd
     - feh
     - firefox-developer-edition
@@ -191,18 +206,16 @@ packages:
     - viddy
     - lazydocker
     - zramswap
-    - betterlockscreen
     - google-chrome
     - aws-session-manager-plugin
     - beekeeper-studio-bin
-    - copilot-cli  # aws copilot cli (AWS Deployment tool)
-    - ddcci-driver-linux-dkms
     - duplicati-beta-bin
     - icu73-bin
     - jnv
     - jqp-bin
     - logseq-desktop-bin
     - neovim-remote
+    - tree-sitter-cli
     - nvm  # Node version manager
     - pyenv-virtualenv
     - slack-desktop
@@ -217,6 +230,8 @@ packages:
     - 1password
     - 1password-cli
     - lens-bin
-    - zfs-dkms
     - nordvpn-bin
     - activitywatch-bin
+    # NOTE: zfs-dkms / ddcci-driver-linux-dkms / betterlockscreen are
+    # NOT here — they live in `feature_aur_packages` and install only
+    # when their feature flag is on.

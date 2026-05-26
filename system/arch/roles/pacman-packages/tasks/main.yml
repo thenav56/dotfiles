@@ -1,6 +1,5 @@
 ---
 - name: Install packages with pacman & yay
-
   block:
     # Other system packages
     - name: Arch Full Update
@@ -15,13 +14,20 @@
         update_cache: true
         name: '{{ packages.native }}'
 
-    # Using AUR
-    - name: Create the temp `aur_builder` user
+    # Using AUR ---------------------------------------------------------------
+    # aur_builder is a persistent service account: no password, no shell,
+    # exists only to own AUR build directories and run yay. The sensitive
+    # NOPASSWD sudoers entry is created/removed per run (always block).
+    - name: Ensure aur_builder service user exists
       become: true
       ansible.builtin.user:
         name: aur_builder
         create_home: true
         group: wheel
+        shell: /usr/bin/nologin
+        password: '!'
+        system: false
+        state: present
 
     - name: Allow the `aur_builder` user to run `sudo pacman` without a password
       become: true
@@ -49,34 +55,86 @@
       become: true
       become_user: aur_builder
 
-    # Note: Dependency resolution will still include repository packages.
-    - name: Upgrade the system using yay, only act on AUR packages.
-      kewlfft.aur.aur:
-        upgrade: true
-        use: yay
-        aur_only: true
-      become: true
-      become_user: aur_builder
+    - name: Compose AUR install list (core + enabled feature packages)
+      ansible.builtin.set_fact:
+        _aur_to_install: >-
+          {{ packages.aur
+             + (feature_aur_packages.zfs              | default([]) if features.zfs              | default(false) else [])
+             + (feature_aur_packages.ddcutil          | default([]) if features.ddcutil          | default(false) else [])
+             + (feature_aur_packages.display_manager  | default([]) if features.display_manager  | default(false) else []) }}
 
-    - name: Install packages using yay
-      kewlfft.aur.aur:
-        use: yay
-        name: '{{ packages.aur }}'
-        aur_only: true
-      become: true
-      become_user: aur_builder
+    # AUR upgrade + install are best-effort. A single bad PKGBUILD (build
+    # OOM, network blip, upstream breakage) should NOT abort the play —
+    # downstream roles still need to run. Failures are flagged and a
+    # loud warning fires at end-of-play.
+    - name: AUR upgrade and install (best-effort)
+      block:
+        - name: Upgrade the system using yay, only act on AUR packages.
+          kewlfft.aur.aur:
+            upgrade: true
+            use: yay
+            aur_only: true
+          become: true
+          become_user: aur_builder
+
+        - name: Install packages using yay
+          kewlfft.aur.aur:
+            use: yay
+            name: '{{ _aur_to_install }}'
+            aur_only: true
+          become: true
+          become_user: aur_builder
+      rescue:
+        - name: Record AUR failure for end-of-play warning
+          ansible.builtin.set_fact:
+            _aur_failed: true
+            _aur_failed_list: "{{ _aur_to_install }}"
+
+        - name: AUR failure — continuing play, will warn at end
+          ansible.builtin.debug:
+            msg: >-
+              One or more AUR packages failed. Play will continue;
+              a summary warning will print at the end.
 
   always:
-    - name: "Clean-up: Remove file (delete file)"
+    # Kill any orphaned build processes (e.g. go/make from a failed
+    # PKGBUILD) before touching aur_builder's sudoers entry. failed_when:
+    # false because pkill returns 1 when no processes match — that's the
+    # expected case on a clean run.
+    - name: Kill any lingering aur_builder processes
+      become: true
+      ansible.builtin.command: pkill -KILL -u aur_builder
+      register: pkill_result
+      failed_when: false
+      changed_when: pkill_result.rc == 0
+
+    - name: Remove aur_builder NOPASSWD sudoers entry
       become: true
       ansible.builtin.file:
         path: /etc/sudoers.d/11-install-aur_builder
         state: absent
 
-    - name: "Clean-up: Remove `aur_builder` user"
-      become: true
-      ansible.builtin.user:
-        name: aur_builder
-        state: absent
-        remove: true
-        force: true
+# End-of-role warning. Runs only when AUR install/upgrade failed; uses a
+# banner so it doesn't get lost in the recap.
+- name: WARNING — AUR install/upgrade reported failures
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      WARNING: AUR install/upgrade had failures
+      ============================================================
+      One or more AUR packages failed during this run. Common
+      causes: build OOM (heavy Go/Rust builds like copilot-cli),
+      transient network/keyserver issues, or upstream PKGBUILD
+      breakage.
+
+      Packages attempted in this run:
+      {{ _aur_failed_list | default([]) | join('  ') }}
+
+      If a DKMS kernel module is in that list (zfs-dkms,
+      ddcci-driver-linux-dkms), the matching feature role may
+      have configured a module that is NOT installed — affected
+      modules will fail to load on next reboot until you re-run.
+
+      Re-run `ansible-playbook playbooks/system-sync.yml` to retry.
+      ============================================================
+  when: _aur_failed | default(false)

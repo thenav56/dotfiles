@@ -1,4 +1,10 @@
 ---
+- name: Compose uv_tools list (core + enabled feature tools)
+  ansible.builtin.set_fact:
+    _uv_tools_all: >-
+      {{ uv_tools
+         + (feature_uv_tools.ddcutil | default([]) if features.ddcutil | default(false) else []) }}
+
 - name: List currently-installed uv tools
   ansible.builtin.command: uv tool list
   register: uv_installed
@@ -10,7 +16,7 @@
     uv tool install --no-progress {{ item }}
   args:
     executable: /bin/bash
-  loop: "{{ uv_tools }}"
+  loop: "{{ _uv_tools_all }}"
   # `uv tool install` items can be a bare package ("django") or
   # "--with EXTRA PKG" (e.g. "--with requests ipython"). The actual
   # tool name `uv tool list` shows is always the last whitespace-
