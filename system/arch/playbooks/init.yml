@@ -23,12 +23,8 @@
     - ansible.builtin.import_role:
         name: bootstrap
 
-    # System packages
-    - name: Arch Full Update
-      become: true
-      pacman:
-        update_cache: yes
-        upgrade: yes
+    - ansible.builtin.import_role:
+        name: pacman
 
     - ansible.builtin.import_role:
         name: users

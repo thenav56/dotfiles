@@ -15,63 +15,8 @@
     - ansible.builtin.import_role:
         name: dns
 
-    # Update pacman local db
-    - name: pacman -Sy
-      community.general.pacman:
-        update_cache: true
-        force: true
-
-    # REFLECTOR TO REGULARLY UPDATE MIRRORLIST
-    - name: install reflector
-      pacman:
-        name:
-          - reflector
-
-    - name: write reflector configuration file
-      copy:
-        dest: '/etc/xdg/reflector/reflector.conf'
-        content: |
-          --save /etc/pacman.d/mirrorlist
-          --protocol http
-          --country Singapore
-          --score 20
-          --sort rate
-
-    - name: enable and start reflector timer
-      systemd:
-        name: reflector.timer
-        enabled: yes
-        state: started
-
-    - name: do initial run of reflector.service
-      systemd:
-        name: reflector
-        enabled: yes
-        state: started
-
-    # SYSTEM SETTINGS CHANGES ----------------------------------------------------
-    - name: Custom pacman config
-      blockinfile:
-        path: /etc/pacman.conf
-        state: present
-        block: |
-          [options]
-          Color
-          ParallelDownloads = 5
-
-          [multilib]
-          Include = /etc/pacman.d/mirrorlist
-
-    - name: install paccache
-      pacman:
-        name:
-          - pacman-contrib
-
-    - name: Enable pacman cache clear weekly - Last 3 version per package
-      systemd:
-        name: paccache.timer
-        enabled: yes
-        state: started
+    - ansible.builtin.import_role:
+        name: pacman
 
     - ansible.builtin.import_role:
         name: security
@@ -81,13 +26,6 @@
 
     - ansible.builtin.import_role:
         name: maintenance
-
-    # ARCHLINUX-KEYRING WEEKLY UPDATE  -------------------------------------------
-    - name: archlinux-keyring - enable weekly update
-      systemd:
-        name: archlinux-keyring-wkd-sync.timer
-        enabled: yes
-        state: started
 
     - ansible.builtin.import_role:
         name: ddcutil
