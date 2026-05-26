@@ -20,38 +20,8 @@
       salt_size: 7
 
   tasks:
-    # Arch install setups --AFTER CHROOT--------------------------------------
-    # https://wiki.archlinux.org/title/installation_guide#Configure_the_system
-    - name: Set timezone (Asia/Kathmandu)
-      ansible.builtin.file:
-        src: /usr/share/zoneinfo/Asia/Kathmandu
-        dest: /etc/localtime
-        owner: root
-        group: root
-        state: link
-
-    - name: Update hardware clock
-      ansible.builtin.command: hwclock --systohc
-
-    # -- Locale
-    - name: Enable en_US locale
-      lineinfile:
-        path: /etc/locale.gen
-        regexp: '^#en_US.UTF-8 UTF-8$'
-        line: 'en_US.UTF-8 UTF-8'
-
-    - name: Generate locale
-      ansible.builtin.command: locale-gen
-
-    - name: Create /etc/locale.conf
-      copy:
-        dest: /etc/locale.conf
-        content: LANG=en_US.UTF-8
-
-    - name: Set hostname
-      copy:
-        dest: /etc/hostname
-        content: "{{ new_hostname }}"
+    - ansible.builtin.import_role:
+        name: bootstrap
 
     # System packages
     - name: Arch Full Update
