@@ -1,6 +1,23 @@
 ---
-# Tasks for the bootloader role.
-# Migrated from monolithic playbooks in issue 03.
-- name: bootloader placeholder
-  ansible.builtin.debug:
-    msg: "bootloader role scaffolded; tasks pending issue 03."
+# GRUB Setup -----------------------------------------------------------------
+- name: Install Grub
+  pacman:
+    name:
+      - grub
+      - efibootmgr
+
+- name: Grub bootloader install
+  ansible.builtin.command: |
+    grub-install \
+      --target=x86_64-efi \
+      --efi-directory=/boot/ \
+      --bootloader-id=GRUB
+
+- name: Update grub timeout to 1
+  lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_TIMEOUT=5$'
+    line: 'GRUB_TIMEOUT=1'
+
+- name: Generate grub config
+  ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
