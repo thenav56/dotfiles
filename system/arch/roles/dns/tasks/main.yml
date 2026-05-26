@@ -20,7 +20,7 @@
     dest: /etc/resolv.conf
     force: true
     state: link
-  when: ansible_virtualization_type | default('unknown') != 'chroot'
+  when: ansible_facts['virtualization_type'] | default('unknown') != 'chroot'
 
 - name: enable systemd-resolved
   ansible.builtin.systemd:

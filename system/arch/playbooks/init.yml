@@ -46,10 +46,10 @@
     - name: Warn if init.yml is running outside arch-chroot
       ansible.builtin.debug:
         msg: >-
-          ansible_virtualization_type={{ ansible_virtualization_type | default('unknown') }}
+          virtualization_type={{ ansible_facts['virtualization_type'] | default('unknown') }}
           — init.yml is intended to run inside an Arch chroot. Continuing,
           since re-running outside chroot is a valid recovery path.
-      when: ansible_virtualization_type | default('unknown') != 'chroot'
+      when: ansible_facts['virtualization_type'] | default('unknown') != 'chroot'
 
   tasks:
     - name: Bootstrap (timezone, locale, hostname)

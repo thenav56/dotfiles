@@ -57,7 +57,7 @@
   when:
     - start_services | bool
     - not mirrorlist_stat.stat.exists or
-      (ansible_date_time.epoch | int) - (mirrorlist_stat.stat.mtime | int) > 86400
+      (ansible_facts['date_time'].epoch | int) - (mirrorlist_stat.stat.mtime | int) > 86400
 
 # SYSTEM SETTINGS CHANGES ----------------------------------------------------
 - name: Custom pacman config
