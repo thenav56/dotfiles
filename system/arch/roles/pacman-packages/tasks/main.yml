@@ -1,28 +1,50 @@
 ---
-- name: Install packages with pacman & yay
+# community.general.pacman with upgrade:true is not safely simulatable:
+# it reports "changed" in --check even when nothing would actually
+# upgrade. Skip in check mode so the idempotency gate is honest; the
+# real run still performs upgrades.
+- name: Arch Full Update
+  become: true
+  community.general.pacman:
+    update_cache: true
+    upgrade: true
+  when: not ansible_check_mode
+
+# update_cache was already done by `Arch Full Update` above; running it
+# again here makes this task always-changed under --check.
+- name: install core packages
+  become: true
+  community.general.pacman:
+    name: '{{ packages.native }}'
+
+# AUR ------------------------------------------------------------------------
+# Compose the desired AUR list, then install only what's actually
+# missing. The whole AUR build apparatus (aur_builder NOPASSWD sudoers
+# entry, yay build deps) is stood up ONLY when there's something to
+# install — so an already-synced system does zero AUR work and the
+# sensitive sudoers entry never appears. Upgrades are intentionally NOT
+# handled here: run `yay -Syu` manually when you want to upgrade.
+- name: Compose AUR install list (core + enabled feature packages)
+  ansible.builtin.set_fact:
+    _aur_to_install: >-
+      {{ packages.aur
+         + (feature_aur_packages.zfs              | default([]) if features.zfs              | default(false) else [])
+         + (feature_aur_packages.ddcutil          | default([]) if features.ddcutil          | default(false) else [])
+         + (feature_aur_packages.display_manager  | default([]) if features.display_manager  | default(false) else []) }}
+
+- name: Query installed packages
+  ansible.builtin.command: pacman -Qq
+  register: _installed_pkgs
+  changed_when: false
+  check_mode: false
+
+- name: Determine which AUR packages are missing
+  ansible.builtin.set_fact:
+    _aur_missing: "{{ _aur_to_install | difference(_installed_pkgs.stdout_lines) }}"
+
+- name: Install missing AUR packages
+  when: _aur_missing | length > 0
   block:
-    # community.general.pacman with upgrade:true is not safely
-    # simulatable: it reports "changed" in --check even when nothing
-    # would actually upgrade. Skip in check mode so the idempotency
-    # gate is honest; the real run still performs upgrades.
-    - name: Arch Full Update
-      become: true
-      community.general.pacman:
-        update_cache: true
-        upgrade: true
-      when: not ansible_check_mode
-
-    # update_cache was already done by `Arch Full Update` above; running
-    # it again here makes this task always-changed under --check.
-    - name: install core packages
-      become: true
-      community.general.pacman:
-        name: '{{ packages.native }}'
-
-    # Using AUR ---------------------------------------------------------------
-    # aur_builder is a persistent service account: no password, no shell,
-    # exists only to own AUR build directories and run yay. The sensitive
-    # NOPASSWD sudoers entry is created/removed per run (always block).
     - name: Ensure aur_builder service user exists
       become: true
       ansible.builtin.user:
@@ -59,38 +81,15 @@
       become: true
       become_user: aur_builder
 
-    - name: Compose AUR install list (core + enabled feature packages)
-      ansible.builtin.set_fact:
-        _aur_to_install: >-
-          {{ packages.aur
-             + (feature_aur_packages.zfs              | default([]) if features.zfs              | default(false) else [])
-             + (feature_aur_packages.ddcutil          | default([]) if features.ddcutil          | default(false) else [])
-             + (feature_aur_packages.display_manager  | default([]) if features.display_manager  | default(false) else []) }}
-
-    # AUR upgrade + install are best-effort. A single bad PKGBUILD (build
-    # OOM, network blip, upstream breakage) should NOT abort the play —
-    # downstream roles still need to run. Failures are flagged and a
-    # loud warning fires at end-of-play.
-    # kewlfft.aur.aur with upgrade:true runs `yay -Qu`, which returns
-    # rc=1 when nothing is upgradable — the module surfaces that as a
-    # task failure, triggering our rescue every check-mode run on a
-    # synced system. Skip the upgrade in check mode for the same reason
-    # we skip pacman upgrades; the install task remains check-safe.
-    - name: AUR upgrade and install (best-effort)
+    # Best-effort: a single bad PKGBUILD (build OOM, network blip,
+    # upstream breakage) should warn, not abort the play — downstream
+    # roles still need to run.
+    - name: Install missing AUR packages (best-effort)
       block:
-        - name: Upgrade the system using yay, only act on AUR packages.
-          kewlfft.aur.aur:
-            upgrade: true
-            use: yay
-            aur_only: true
-          become: true
-          become_user: aur_builder
-          when: not ansible_check_mode
-
         - name: Install packages using yay
           kewlfft.aur.aur:
             use: yay
-            name: '{{ _aur_to_install }}'
+            name: '{{ _aur_missing }}'
             aur_only: true
           become: true
           become_user: aur_builder
@@ -98,7 +97,7 @@
         - name: Record AUR failure for end-of-play warning
           ansible.builtin.set_fact:
             _aur_failed: true
-            _aur_failed_list: "{{ _aur_to_install }}"
+            _aur_failed_list: "{{ _aur_missing }}"
 
         - name: AUR failure — continuing play, will warn at end
           ansible.builtin.debug:
@@ -107,40 +106,47 @@
               a summary warning will print at the end.
 
   always:
-    # Kill any orphaned build processes (e.g. go/make from a failed
-    # PKGBUILD). failed_when:false because pkill returns 1 when no
-    # processes match — the expected case on a clean run.
-    # The aur_builder user and its NOPASSWD-pacman sudoers entry remain
-    # in place between runs (the account is locked: nologin shell,
-    # password '!'; sudoers only grants /usr/bin/pacman to that locked
-    # account). Re-creating both per run made the play non-idempotent.
+    # Tear down per-run state. Both tasks are gated on the same
+    # condition as the block so they never fire on a no-op
+    # (already-synced) run. aur_builder itself is left in place — it's
+    # locked (nologin, password '!') and without the sudoers entry has
+    # no privileges, but keeping it preserves the yay build cache.
+    # pkill returns 1 when no processes match (the clean case), hence
+    # failed_when:false.
     - name: Kill any lingering aur_builder processes
       become: true
       ansible.builtin.command: pkill -KILL -u aur_builder
       register: pkill_result
       failed_when: false
       changed_when: pkill_result.rc == 0
+      when: _aur_missing | length > 0
 
-# End-of-role warning. Runs only when AUR install/upgrade failed; uses a
+    - name: Remove aur_builder NOPASSWD sudoers entry
+      become: true
+      ansible.builtin.file:
+        path: /etc/sudoers.d/11-install-aur_builder
+        state: absent
+      when: _aur_missing | length > 0
+
+# End-of-role warning. Runs only when an AUR install failed; uses a
 # banner so it doesn't get lost in the recap.
-- name: WARNING — AUR install/upgrade reported failures
+- name: WARNING — AUR install reported failures
   ansible.builtin.debug:
     msg: |
       ============================================================
-      WARNING: AUR install/upgrade had failures
+      WARNING: AUR install had failures
       ============================================================
-      One or more AUR packages failed during this run. Common
-      causes: build OOM (heavy Go/Rust builds like copilot-cli),
-      transient network/keyserver issues, or upstream PKGBUILD
-      breakage.
+      One or more AUR packages failed to build/install. Common
+      causes: build OOM (heavy Go/Rust builds), transient network
+      or keyserver issues, or upstream PKGBUILD breakage.
 
       Packages attempted in this run:
       {{ _aur_failed_list | default([]) | join('  ') }}
 
       If a DKMS kernel module is in that list (zfs-dkms,
-      ddcci-driver-linux-dkms), the matching feature role may
-      have configured a module that is NOT installed — affected
-      modules will fail to load on next reboot until you re-run.
+      ddcci-driver-linux-dkms), the matching feature role may have
+      configured a module that is NOT installed — affected modules
+      will fail to load on next reboot until you re-run.
 
       Re-run `ansible-playbook playbooks/system-sync.yml` to retry.
       ============================================================
