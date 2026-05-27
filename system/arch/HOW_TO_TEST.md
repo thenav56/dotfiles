@@ -230,6 +230,34 @@ expected because those feature flags default to false.
     swappiness: 60
   ```
 
+- **AUR PGP keyserver unreachable from VM NAT**: many AUR packages
+  require importing a maintainer PGP key (e.g. spotify, arc-gtk-theme,
+  1password). libvirt's NAT often blocks the keyserver ports, so
+  `yay` aborts with `keyserver receive failed: Connection timed out`.
+  These packages land in the best-effort AUR banner and the play still
+  completes (`failed=0`) — that's expected, NOT a refactor bug. To make
+  the test install them anyway, disable yay's PGP fetch + skip makepkg
+  PGP check for the `aur_builder` account ONLY (test-env workaround,
+  never do this on a real machine):
+
+  ```bash
+  sudo tee /home/aur_builder/.config/yay/config.json >/dev/null <<'JSON'
+  {
+    "mflags": "--skippgpcheck",
+    "pgpfetch": false,
+    "cleanAfter": true
+  }
+  JSON
+  sudo chown aur_builder:wheel /home/aur_builder/.config/yay/config.json
+  ```
+
+  Note: even with this, `_aur_missing` stays non-empty for any package
+  that genuinely can't be fetched, so the AUR sudoers create/teardown
+  tasks will show `changed` on every run. That churn is inherent to
+  "package can't install here" and disappears on a machine where all
+  AUR packages install (then `_aur_missing` empties and the whole AUR
+  block skips → `changed=0`).
+
 ---
 
 ## 5. Run `./install` — dotbot symlinks
