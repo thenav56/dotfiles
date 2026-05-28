@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 
-if ! [[ -z "$VIM_ACTIVE_THEME" ]]; then
-    ACTIVE_THEME=$VIM_ACTIVE_THEME
-fi
+set -euo pipefail
 
-echo "Updating neovim instances with $ACTIVE_THEME"
-for servername in $(nvr --serverlist 2>/dev/null):
-do
-    # Only for parent node
-    if [[ $servername == *.0 ]]; then
-        echo ' -' $servername
-        nvr -s \
-            --servername $servername \
-            --nostart \
-            --remote-send \
-            "<ESC>:colorscheme $ACTIVE_THEME<ENTER>"
-    fi
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RESET='\033[0m'
+
+theme="${VIM_ACTIVE_THEME:?VIM_ACTIVE_THEME not set}"
+theme_display="${BLUE}$theme${RESET}"
+
+echo -e "Updating neovim instances with $theme_display"
+nvr --serverlist 2>/dev/null |
+while read -r s; do
+    [[ $s == *.0 ]] || continue
+    echo " - Updating $s"
+    nvr --servername "$s" --nostart -c "colorscheme $theme"
 done
 
-echo " * Update $VIM_ACTIVE_THEME_FILE with $ACTIVE_THEME"
-echo $ACTIVE_THEME > $VIM_ACTIVE_THEME_FILE
+echo -e " - * Updating ${YELLOW}$VIM_ACTIVE_THEME_FILE${RESET} with $theme_display"
+[[ -n ${VIM_ACTIVE_THEME_FILE:-} ]] &&
+    printf '%s\n' "$theme" > "$VIM_ACTIVE_THEME_FILE"
