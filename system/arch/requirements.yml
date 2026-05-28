@@ -1,2 +1,7 @@
 collections:
   - name: kewlfft.aur
+    version: ">=0.11.0"
+  - name: community.general
+    version: ">=8.0.0"
+  - name: ansible.posix
+    version: ">=1.5.0"

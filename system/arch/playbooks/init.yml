@@ -1,17 +1,13 @@
-# https://phelipetls.github.io/posts/introduction-to-ansible/
-# https://www.reddit.com/r/archlinux/comments/y5e6wy/learned_bit_of_ansible_to_automate_some/
-# https://github.com/DoTheEvo/ansible-arch/blob/main/playbook_zsh.yml
+# Phase 1 — runs from `arch-chroot /mnt` on the live ISO, as root,
+# before the installed system has booted. `systemctl start` doesn't
+# work in chroot (no PID 1, partial /proc) so every role imported here
+# passes start_services:false; services get enabled only.
 ---
 - name: Archlinux base setup - During install only
   hosts: localhost
   become: true
+
   vars_prompt:
-    - name: new_hostname
-      prompt: What is your hostname?
-      private: false
-    - name: new_username
-      prompt: What is your username?
-      private: false
     - name: new_password
       prompt: What is your password?
       private: true
@@ -19,156 +15,75 @@
       confirm: true
       salt_size: 7
 
+  pre_tasks:
+    - name: Verify local.yml exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../local.yml"
+      register: local_yml_stat
+      check_mode: false
+
+    - name: Fail clearly when local.yml is missing
+      ansible.builtin.assert:
+        that: local_yml_stat.stat.exists
+        fail_msg: >-
+          local.yml missing — run
+          `cp local.yml.example local.yml && $EDITOR local.yml`
+          from system/arch/ before invoking this playbook.
+
+    - name: Load per-user values from local.yml
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../local.yml"
+
+    - name: Verify local.yml supplies required keys
+      ansible.builtin.assert:
+        that:
+          - username is defined
+          - hostname is defined
+          - timezone is defined
+        fail_msg: >-
+          local.yml must define username, hostname, and timezone.
+
+    - name: Warn if init.yml is running outside arch-chroot
+      ansible.builtin.debug:
+        msg: >-
+          virtualization_type={{ ansible_facts['virtualization_type'] | default('unknown') }}
+          — init.yml is intended to run inside an Arch chroot. Continuing,
+          since re-running outside chroot is a valid recovery path.
+      when: ansible_facts['virtualization_type'] | default('unknown') != 'chroot'
+
   tasks:
-    # Arch install setups --AFTER CHROOT--------------------------------------
-    # https://wiki.archlinux.org/title/installation_guide#Configure_the_system
-    - name: Set timezone (Asia/Kathmandu)
-      ansible.builtin.file:
-        src: /usr/share/zoneinfo/Asia/Kathmandu
-        dest: /etc/localtime
-        owner: root
-        group: root
-        state: link
+    - name: Bootstrap (timezone, locale, hostname)
+      ansible.builtin.import_role:
+        name: bootstrap
+      tags: [bootstrap, init-only]
 
-    - name: Update hardware clock
-      ansible.builtin.command: hwclock --systohc
+    - name: Bootloader (grub)
+      ansible.builtin.import_role:
+        name: bootloader
+      tags: [bootloader, init-only]
 
-    # -- Locale
-    - name: Enable en_US locale
-      lineinfile:
-        path: /etc/locale.gen
-        regexp: '^#en_US.UTF-8 UTF-8$'
-        line: 'en_US.UTF-8 UTF-8'
+    - name: Users (create user, sudoers, wheel)
+      ansible.builtin.import_role:
+        name: users
+      tags: [users]
 
-    - name: Generate locale
-      ansible.builtin.command: locale-gen
+    - name: Network (enable-only in chroot)
+      ansible.builtin.import_role:
+        name: network
+      vars:
+        start_services: false
+      tags: [network]
 
-    - name: Create /etc/locale.conf
-      copy:
-        dest: /etc/locale.conf
-        content: LANG=en_US.UTF-8
+    - name: DNS (enable-only in chroot)
+      ansible.builtin.import_role:
+        name: dns
+      vars:
+        start_services: false
+      tags: [dns]
 
-    - name: Set hostname
-      copy:
-        dest: /etc/hostname
-        content: "{{ new_hostname }}"
-
-    # System packages
-    - name: Arch Full Update
-      become: true
-      pacman:
-        update_cache: yes
-        upgrade: yes
-
-    # USERS PERMISSIONS  ---------------------------------------------------------
-    - name: install sudo & zsh
-      pacman:
-        name:
-          - sudo
-          - zsh
-
-    - name: Create new user with "{{ new_username }}"
-      user:
-        name: "{{ new_username }}"
-        password: "{{ new_password }}"
-        shell: /bin/zsh
-        create_home: true
-
-    - name: Set same password for root
-      user:
-        name: "root"
-        password: "{{ new_password }}"
-
-    - name: enable members of wheel group to sudo
-      lineinfile:
-        path: /etc/sudoers.d/01_wheel_allow_sudo
-        state: present
-        line: "%wheel ALL=(ALL:ALL) ALL"
-        validate: /usr/sbin/visudo -cf %s
-        create: yes
-
-    - name: add the user to the wheel group
-      user:
-        name: "{{ new_username }}"
-        groups: wheel
-        append: yes
-
-    # GRUB Setup -----------------------------------------------------------------
-    - name: Install Grub
-      pacman:
-        name:
-          - grub
-          - efibootmgr
-
-    - name: Grub bootloader install
-      ansible.builtin.command: |
-        grub-install \
-          --target=x86_64-efi \
-          --efi-directory=/boot/ \
-          --bootloader-id=GRUB
-
-    - name: Update grub timeout to 1
-      lineinfile:
-        path: /etc/default/grub
-        regexp: '^GRUB_TIMEOUT=5$'
-        line: 'GRUB_TIMEOUT=1'
-
-    - name: Generate grub config
-      ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
-
-    # Few from ./system/config.yml
-    # Network configurations -------------------------------------------------
-    - name: systemd-networkd - Wired
-      copy:
-        dest: /etc/systemd/network/20-wired.network
-        content: |
-          [Match]
-          Name=en*
-          [Network]
-          DHCP=yes
-          [DHCPv4]
-          RouteMetric=100
-          [IPv6AcceptRA]
-
-    - name: systemd-networkd - Wireless
-      copy:
-        dest: /etc/systemd/network/25-wireless.network
-        content: |
-          [Match]
-          Name=wlan0
-          [Network]
-          DHCP=yes
-          IgnoreCarrierLoss=3s
-          [DHCPv4]
-          RouteMetric=200
-          [IPv6AcceptRA]
-          RouteMetric=200
-
-    - name: Create /etc/systemd/resolved.conf.d directory if it does not exist
-      file:
-        path: /etc/systemd/resolved.conf.d
-        state: directory
-
-    # DNS configurations
-    - name: systemd-networkd - Wireless
-      copy:
-        dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
-        content: |
-          [Resolve]
-          DNS=1.1.1.1 1.0.0.1
-          DNSOverTLS=yes
-
-    - name: enable and start systemd-networkd
-      systemd:
-        name: systemd-networkd
-        enabled: yes
-
-    - name: install iwd
-      pacman:
-        name:
-          - iwd
-
-    - name: enable and start systemd-networkd
-      systemd:
-        name: iwd
-        enabled: yes
+    - name: Pacman config (enable-only in chroot)
+      ansible.builtin.import_role:
+        name: pacman
+      vars:
+        start_services: false
+      tags: [pacman]

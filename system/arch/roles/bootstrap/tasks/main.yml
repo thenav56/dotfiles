@@ -1,0 +1,37 @@
+---
+# Arch install setups --AFTER CHROOT--------------------------------------
+# https://wiki.archlinux.org/title/installation_guide#Configure_the_system
+- name: Set timezone
+  ansible.builtin.file:
+    src: "/usr/share/zoneinfo/{{ timezone }}"
+    dest: /etc/localtime
+    owner: root
+    group: root
+    state: link
+
+- name: Update hardware clock
+  ansible.builtin.command: hwclock --systohc
+  changed_when: false
+  check_mode: false
+
+# -- Locale
+- name: Enable en_US locale
+  ansible.builtin.lineinfile:
+    path: /etc/locale.gen
+    regexp: '^#en_US.UTF-8 UTF-8$'
+    line: 'en_US.UTF-8 UTF-8'
+
+- name: Generate en_US.UTF-8 locale
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
+- name: Create /etc/locale.conf
+  ansible.builtin.copy:
+    dest: /etc/locale.conf
+    content: LANG=en_US.UTF-8
+
+- name: Set hostname
+  ansible.builtin.copy:
+    dest: /etc/hostname
+    content: "{{ hostname }}"

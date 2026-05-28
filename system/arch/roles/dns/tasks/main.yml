@@ -1,0 +1,44 @@
+---
+- name: Create /etc/systemd/resolved.conf.d directory if it does not exist
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+
+# DNS configurations - https://wiki.archlinux.org/title/systemd-resolved
+- name: systemd-resolved - upstream DNS configuration
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/dns_over_tls.conf
+    content: |
+      [Resolve]
+      DNS={{ dns_servers | join(' ') }}
+      DNSOverTLS={{ 'yes' if dns_over_tls | bool else 'no' }}
+  notify: restart systemd-resolved
+
+# Inside arch-chroot, /etc/resolv.conf is a bind-mount from the host
+# and cannot be replaced (EBUSY). Detect bind-mount directly instead of
+# guessing the environment — works regardless of how we got here.
+- name: Check whether /etc/resolv.conf is bind-mounted
+  ansible.builtin.command: findmnt -n /etc/resolv.conf
+  register: _resolv_mount
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: systemd-resolved - Create a symbolic link for /etc/resolv.conf
+  ansible.builtin.file:
+    src: ../run/systemd/resolve/stub-resolv.conf
+    dest: /etc/resolv.conf
+    force: true
+    state: link
+  when: _resolv_mount.rc != 0
+
+- name: enable systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: true
+
+- name: start systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: started
+  when: start_services | bool

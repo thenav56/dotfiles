@@ -1,0 +1,15 @@
+---
+- name: install packages
+  become: true
+  community.general.pacman:
+    update_cache: true
+    name:
+      # AMD packages
+      - radeontop
+      - vulkan-radeon
+      - s-tui
+      - mesa-utils
+      - lib32-systemd
+      # Gaming
+      - steam
+      - steam-native-runtime

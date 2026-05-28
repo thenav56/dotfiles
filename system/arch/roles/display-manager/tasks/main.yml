@@ -1,0 +1,35 @@
+---
+# Install & Enable ly
+- name: install ly
+  community.general.pacman:
+    name:
+      - ly
+
+- name: Enable ly
+  ansible.builtin.systemd:
+    name: ly@tty2.service
+    enabled: true
+
+# betterlockscreen comes from the AUR (feature_aur_packages), which is
+# installed best-effort — a keyserver/build failure there must not hard
+# -fail this role. Gate the unit enable on the package actually being
+# present; the AUR banner already warns if it's missing.
+- name: Check whether betterlockscreen is installed
+  ansible.builtin.command: pacman -Q betterlockscreen
+  register: _betterlockscreen_q
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+# betterlockscreen@user is a oneshot service that generates lock-screen
+# images and exits. Enable it so it fires at boot; do NOT use
+# `state: started` here because a successfully-exited oneshot reports
+# as inactive and would be "re-started" every sync run — breaking
+# idempotency. If you need to regenerate the cache, run the service
+# manually: `systemctl start betterlockscreen@<user>`.
+# https://github.com/betterlockscreen/betterlockscreen#systemd
+- name: enable betterlockscreen
+  ansible.builtin.systemd:
+    name: "betterlockscreen@{{ username }}"
+    enabled: true
+  when: _betterlockscreen_q.rc == 0

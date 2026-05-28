@@ -1,0 +1,47 @@
+---
+# GRUB Setup -----------------------------------------------------------------
+- name: Install Grub
+  community.general.pacman:
+    name:
+      - grub
+      - efibootmgr
+
+- name: Grub bootloader install
+  ansible.builtin.command: |
+    grub-install \
+      --target=x86_64-efi \
+      --efi-directory=/boot/ \
+      --bootloader-id=GRUB
+  args:
+    creates: /boot/EFI/GRUB/grubx64.efi
+  check_mode: false
+  register: _grub_install
+
+- name: Update grub timeout
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_TIMEOUT='
+    line: "GRUB_TIMEOUT={{ grub_timeout }}"
+  register: _grub_default
+
+- name: Check whether grub.cfg exists
+  ansible.builtin.stat:
+    path: /boot/grub/grub.cfg
+  register: _grub_cfg
+  check_mode: false
+
+# Regenerate grub.cfg as a regular task, NOT a handler. A handler is
+# only flushed at end-of-play, so if init.yml fails after grub-install
+# but before the flush, the queued handler is lost — and on re-run
+# neither grub-install (creates:) nor the timeout lineinfile changes,
+# so the handler never re-fires and grub.cfg stays missing → GRUB drops
+# to its rescue shell. Running it here, gated on "inputs changed OR
+# grub.cfg absent", is self-healing across partial/failed runs.
+- name: Regenerate grub config
+  ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
+  check_mode: false
+  changed_when: true
+  when: >-
+    _grub_install is changed
+    or _grub_default is changed
+    or not _grub_cfg.stat.exists

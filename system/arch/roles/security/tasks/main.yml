@@ -1,0 +1,34 @@
+---
+# https://wiki.archlinux.org/title/security
+# TODO: Confirm if this persists
+- name: change number of failed logins that triger 10min lockout
+  ansible.builtin.lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: '^#?\s*deny\s*='
+    line: "deny = {{ faillock_deny }}"
+
+# SSH ------------------------------------------------------------------------
+- name: install ssh
+  community.general.pacman:
+    name:
+      - openssh
+
+- name: ssh secure configuration
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/100-my_secure_config.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      AuthenticationMethods publickey
+  notify: reload sshd
+
+- name: enable ssh service
+  ansible.builtin.systemd:
+    name: sshd
+    enabled: true
+
+- name: start ssh service
+  ansible.builtin.systemd:
+    name: sshd
+    state: started
+  when: start_services | bool

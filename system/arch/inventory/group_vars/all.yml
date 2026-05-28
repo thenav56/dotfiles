@@ -1,0 +1,237 @@
+---
+# Shared defaults loaded by every play in this inventory.
+# Per-user values live in ../local.yml (created from local.yml.example, gitignored).
+
+# DNS resolvers used by the dns role (systemd-resolved).
+dns_servers:
+  - 1.1.1.1
+  - 1.0.0.1
+
+# Whether systemd-resolved should require DNS-over-TLS for the
+# configured dns_servers. Override to false in local.yml on hosts where
+# outbound port 853 is blocked (some libvirt NATs, corporate proxies).
+dns_over_tls: true
+
+# faillock.conf deny count. After this many failed logins the account
+# locks for 10 minutes.
+faillock_deny: 10
+
+# docker daemon log rotation (passed verbatim into log-opts).
+docker_log_opts:
+  max-size: "50m"
+  max-file: "5"
+
+# GRUB menu countdown seconds.
+grub_timeout: 1
+
+# Feature flags. Override in local.yml.
+features:
+  gpu_amd: false
+  zfs: false
+  ddcutil: false
+  docker: true
+  display_manager: true
+  swap: false
+  user_tools: true
+
+# Python tools installed via `uv tool install` by the user-tools role.
+# Each entry is passed unquoted to `uv tool install` so prefixes like
+# `--with <extra>` work.
+uv_tools:
+  - neovim-remote
+  - --with requests ipython
+  - django
+  - pre-commit
+  - flake8
+  - isort
+  - ruff
+  - line-profiler
+  - snakeviz
+  - --with openpyxl visidata
+  - azure-cli
+  - --with requests jupyterlab
+
+# Per-feature uv tools. Merged into the install list by the user-tools
+# role only when the matching feature flag is true. Keys must match the
+# names in `features:` above.
+feature_uv_tools:
+  ddcutil:
+    - ddcci_plasmoid_backend
+
+# Per-feature AUR packages. Merged into the AUR install list by the
+# pacman-packages role only when the matching feature flag is true.
+# Keys must match the names in `features:` above. Native feature
+# packages live inline in each feature role's tasks (they install
+# only when the role runs).
+feature_aur_packages:
+  zfs:
+    - zfs-dkms
+  ddcutil:
+    - ddcci-driver-linux-dkms
+  display_manager:
+    - betterlockscreen
+
+packages:
+  native:
+    - uv
+    - reflector
+    - zsh
+    - sudo
+    - efibootmgr
+    - grub
+    - openssh
+    - pacman-contrib
+    - atuin
+    - bat
+    - bind
+    - nnn
+    - blueman
+    - bluez
+    - bluez-utils
+    - btop
+    - caja
+    - curl
+    - difftastic
+    - duf
+    - dunst
+    - eog
+    - lsd
+    - fd
+    - feh
+    - firefox-developer-edition
+    - fx
+    - fzf
+    - gcc
+    - git
+    - git-delta
+    - go
+    - gparted
+    - vim
+    - htop
+    - i3-wm
+    - iproute2
+    - iwd
+    - impala  # wifi tui
+    - jq
+    - kitty
+    - lazygit
+    - lua
+    - lxappearance
+    - maim
+    - make
+    - man-db
+    - tldr
+    - dua-cli
+    - neovim
+    - tree-sitter-cli
+    - net-tools
+    - ngrep
+    - nmap
+    - noto-fonts
+    - noto-fonts-cjk
+    - noto-fonts-emoji
+    - noto-fonts-extra
+    - pavucontrol
+    - picom
+    - polybar
+    - pyenv
+    - python-pip
+    - python-pipenv
+    - python-poetry
+    - python-setuptools
+    - ripgrep
+    - rofi
+    - rsync
+    - socat
+    - sqlite
+    - stow
+    - tigervnc
+    - tmux
+    - tree
+    - ttf-cascadia-code-nerd
+    - ttf-font-awesome
+    - ttf-hack-nerd
+    - usbutils
+    - wget
+    - which
+    - x11vnc
+    - xclip
+    - xorg-server
+    - xorg-xinit
+    - xsettingsd
+    - zoxide
+    - xdg-utils
+    - traceroute
+    - vlc
+    - unzip
+    - sqlitebrowser
+    - zathura
+    - zathura-pdf-mupdf
+    - smartmontools
+    - pam_mount
+    - ncdu
+    - gdu
+    - miniserve
+    - k9s
+    - arandr
+    - arch-install-scripts
+    - aria2
+    - asciinema
+    - csvlens
+    - drawing
+    - dust
+    - ethtool
+    - gnome-keyring
+    - go-yq  # A lightweight and portable command-line YAML processor.
+    - asciiquarium
+    - cmatrix
+    # Sound
+    - pulseaudio-alsa
+    - pipewire-pulse
+    - alsa-tools
+    - alsa-utils
+    # K8
+    - helm
+    - kubectl
+    # Misc
+    - polkit  # gui for sudo
+    - libreoffice-fresh
+    - croc  # Send files
+    - dbeaver  # DB GUI
+    - mdp  # Markdown presentation tool
+
+  aur:
+    - arc-gtk-theme
+    - xautolock
+    - viddy
+    - lazydocker
+    - zramswap
+    - google-chrome
+    - aws-session-manager-plugin
+    - beekeeper-studio-bin
+    - duplicati-beta-bin
+    - icu73-bin
+    - jnv
+    - jqp-bin
+    - logseq-desktop-bin
+    - neovim-remote
+    - tree-sitter-cli
+    - nvm  # Node version manager
+    - pyenv-virtualenv
+    - slack-desktop
+    - spotify
+    - teleport-client-bin
+    # K8
+    - kubecolor
+    # Energy
+    - auto-cpufreq
+    - energygraph
+    # --
+    - 1password
+    - 1password-cli
+    - lens-bin
+    - nordvpn-bin
+    - activitywatch-bin
+    # NOTE: zfs-dkms / ddcci-driver-linux-dkms / betterlockscreen are
+    # NOT here — they live in `feature_aur_packages` and install only
+    # when their feature flag is on.

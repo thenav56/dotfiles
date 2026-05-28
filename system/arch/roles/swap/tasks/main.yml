@@ -1,0 +1,58 @@
+---
+# https://wiki.archlinux.org/title/swap#Swap_file
+# https://wiki.archlinux.org/title/Zram
+# https://aur.archlinux.org/packages/zramswap
+- name: enable zramswap
+  ansible.builtin.systemd:
+    name: zramswap.service
+    enabled: true
+
+- name: start zramswap
+  ansible.builtin.systemd:
+    name: zramswap.service
+    state: started
+  when: start_services | bool
+
+# ---- Disk swap (fallback to zramswap)
+# mkswap is idempotent via `creates:` — re-running this role is safe.
+- name: Create swap file
+  ansible.builtin.command: mkswap -U clear --size {{ swap_vars.size }} --file {{ swap_vars.path }}
+  args:
+    creates: "{{ swap_vars.path }}"
+  check_mode: false
+
+- name: Update /etc/fstab
+  ansible.builtin.blockinfile:
+    path: /etc/fstab
+    state: present
+    marker: "# {mark} ANSIBLE MANAGED SWAP BLOCK"
+    block: |
+      {{ swap_vars.path }} swap swap pri=0,defaults 0 0
+  register: _fstab_swap
+
+# swapon -a is idempotent: re-running on an already-active swap is a
+# no-op. Only invoke when fstab actually changed.
+- name: Activate the swap file as a swap memory using /etc/fstab
+  ansible.builtin.command: swapon -a
+  changed_when: false
+  check_mode: false
+  when: _fstab_swap.changed
+
+# systemd-sysctl reads /etc/sysctl.d/*.conf; /etc/sysctl.conf is no
+# longer parsed on modern Arch. Drop a dedicated file rather than
+# editing the legacy path.
+- name: Configure vm.swappiness via /etc/sysctl.d/
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-swappiness.conf
+    content: |
+      vm.swappiness={{ swap_vars.swappiness }}
+    owner: root
+    group: root
+    mode: '0644'
+  register: _swappiness_conf
+
+- name: Apply new sysctl config
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+  check_mode: false
+  when: _swappiness_conf.changed

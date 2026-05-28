@@ -1,0 +1,33 @@
+---
+# USERS PERMISSIONS  ---------------------------------------------------------
+- name: install sudo & zsh
+  community.general.pacman:
+    name:
+      - sudo
+      - zsh
+
+- name: Create new user with "{{ username }}"
+  ansible.builtin.user:
+    name: "{{ username }}"
+    password: "{{ new_password | default(omit) }}"
+    shell: /bin/zsh
+    create_home: true
+
+- name: Set same password for root
+  ansible.builtin.user:
+    name: "root"
+    password: "{{ new_password | default(omit) }}"
+
+- name: enable members of wheel group to sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/01_wheel_allow_sudo
+    state: present
+    line: "%wheel ALL=(ALL:ALL) ALL"
+    validate: /usr/sbin/visudo -cf %s
+    create: true
+
+- name: add the user to the wheel group
+  ansible.builtin.user:
+    name: "{{ username }}"
+    groups: wheel
+    append: true

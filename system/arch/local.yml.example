@@ -1,0 +1,128 @@
+---
+# Per-user values. Copy this file to local.yml and fill in. local.yml is
+# gitignored so your personal settings stay out of the repo.
+#
+#   cp local.yml.example local.yml
+#   $EDITOR local.yml
+#
+# NOTE: This file lists every variable you can override from local.yml.
+# Sources of defaults (lowest → highest precedence):
+#   1. roles/<role>/defaults/main.yml  — per-role fallbacks
+#   2. inventory/group_vars/all.yml    — repo-wide defaults
+#   3. THIS FILE (local.yml)           — your overrides
+# If you want to see the upstream value for any variable below, check
+# group_vars/all.yml first, then the role's defaults/main.yml.
+
+# ============================================================================
+# Required
+# ============================================================================
+
+# Your unprivileged user account.
+username: your_username
+
+# Hostname for this machine.
+hostname: your_hostname
+
+# Timezone in /usr/share/zoneinfo form, e.g. "Europe/Berlin" or
+# "America/Los_Angeles". See:
+#   https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+timezone: Asia/Kathmandu
+
+# Country reflector ranks mirrors for. Pick the country with the
+# closest fast mirrors to you.
+reflector_country: Singapore
+
+# Wireless network interface name. Check with `ip link` after boot.
+wireless_iface: wlan0
+
+# ============================================================================
+# Optional — uncomment any line below to override the default.
+# ============================================================================
+
+# --- DNS (roles/dns, group_vars/all.yml) ------------------------------------
+# Upstream resolvers used by systemd-resolved.
+# dns_servers:
+#   - 1.1.1.1
+#   - 1.0.0.1
+#
+# Require DNS-over-TLS (port 853). Set to false on hosts where 853 is
+# blocked — e.g. some libvirt NATs or corporate proxies.
+# dns_over_tls: true
+
+# --- Security (roles/security) ----------------------------------------------
+# faillock.conf deny count. After this many failed logins the account
+# locks for 10 minutes.
+# faillock_deny: 10
+
+# --- Docker (roles/docker) --------------------------------------------------
+# docker daemon log rotation — passed verbatim into log-opts.
+# docker_log_opts:
+#   max-size: "50m"
+#   max-file: "5"
+
+# --- Bootloader (roles/bootloader) ------------------------------------------
+# GRUB menu countdown in seconds.
+# grub_timeout: 1
+
+# --- Swap (roles/swap, only used when features.swap = true) -----------------
+# swap_vars:
+#   size: 8G
+#   path: /swapfile
+#   swappiness: 60
+
+# --- Feature flags (group_vars/all.yml) -------------------------------------
+# Toggle optional roles. Defaults shown.
+# features:
+#   gpu_amd: false
+#   zfs: false
+#   ddcutil: false
+#   docker: true
+#   display_manager: true
+#   swap: false
+#   user_tools: true
+
+# --- Service start gating (every role with services) ------------------------
+# Set to false to install & enable units but NOT start them (used by
+# init.yml during chroot). You almost never need to set this here —
+# init.yml passes false explicitly; system-sync.yml uses the default.
+# start_services: true
+
+# --- User tools (roles/user-tools) ------------------------------------------
+# Python tools installed via `uv tool install`. Each entry is passed
+# unquoted, so prefixes like `--with <extra>` work. Override to replace
+# the list entirely (Ansible does not merge lists by default).
+# uv_tools:
+#   - neovim-remote
+#   - --with requests ipython
+#   - django
+#   - pre-commit
+
+# --- Packages (roles/pacman-packages) ---------------------------------------
+# Core native and AUR package lists. Override to replace entirely
+# (Ansible does not merge lists).
+# See group_vars/all.yml for the full default list (~150 packages).
+# packages:
+#   native:
+#     - vim
+#     - tmux
+#   aur:
+#     - 1password
+
+# --- Per-feature packages ---------------------------------------------------
+# These packages install ONLY when their feature flag is on. Native
+# feature packages live inline in each role (docker installs docker,
+# display-manager installs ly, ddcutil installs i2c-tools+ddcutil,
+# gpu-amd installs its AMD packages). AUR feature packages are
+# composed into the install list by pacman-packages.
+#
+# feature_aur_packages:
+#   zfs:
+#     - zfs-dkms
+#   ddcutil:
+#     - ddcci-driver-linux-dkms
+#   display_manager:
+#     - betterlockscreen
+#
+# feature_uv_tools:
+#   ddcutil:
+#     - ddcci_plasmoid_backend

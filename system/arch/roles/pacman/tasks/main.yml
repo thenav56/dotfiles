@@ -1,0 +1,98 @@
+---
+# Refresh pacman's local DB. The actual full upgrade is handled by the
+# pacman-packages role; don't duplicate that here. `update_cache: true`
+# is intrinsically "changed" each run, so mark changed_when:false to
+# keep idempotency checks honest.
+- name: pacman -Sy
+  community.general.pacman:
+    update_cache: true
+  changed_when: false
+  tags: [always]
+
+# REFLECTOR TO REGULARLY UPDATE MIRRORLIST
+- name: install reflector
+  community.general.pacman:
+    name:
+      - reflector
+
+- name: write reflector configuration file
+  ansible.builtin.copy:
+    dest: '/etc/xdg/reflector/reflector.conf'
+    content: |
+      --save /etc/pacman.d/mirrorlist
+      --protocol http
+      --country {{ reflector_country }}
+      --score 20
+      --sort rate
+
+- name: enable reflector timer
+  ansible.builtin.systemd:
+    name: reflector.timer
+    enabled: true
+
+- name: start reflector timer
+  ansible.builtin.systemd:
+    name: reflector.timer
+    state: started
+  when: start_services | bool
+
+- name: enable reflector service
+  ansible.builtin.systemd:
+    name: reflector
+    enabled: true
+
+- name: stat /etc/pacman.d/mirrorlist
+  ansible.builtin.stat:
+    path: /etc/pacman.d/mirrorlist
+  register: mirrorlist_stat
+  check_mode: false
+
+- name: do initial run of reflector.service when mirrorlist is missing or stale
+  ansible.builtin.systemd:
+    name: reflector
+    state: started
+  when:
+    - start_services | bool
+    - not mirrorlist_stat.stat.exists or
+      (ansible_facts['date_time'].epoch | int) - (mirrorlist_stat.stat.mtime | int) > 86400
+
+# SYSTEM SETTINGS CHANGES ----------------------------------------------------
+- name: Custom pacman config
+  ansible.builtin.blockinfile:
+    path: /etc/pacman.conf
+    state: present
+    block: |
+      [options]
+      Color
+      ParallelDownloads = 5
+
+      [multilib]
+      Include = /etc/pacman.d/mirrorlist
+
+- name: install paccache
+  community.general.pacman:
+    name:
+      - pacman-contrib
+
+- name: Enable pacman cache clear weekly - Last 3 version per package
+  ansible.builtin.systemd:
+    name: paccache.timer
+    enabled: true
+
+- name: start paccache timer
+  ansible.builtin.systemd:
+    name: paccache.timer
+    state: started
+  when: start_services | bool
+
+# ARCHLINUX-KEYRING WEEKLY UPDATE  -------------------------------------------
+- name: archlinux-keyring - enable weekly update
+  ansible.builtin.systemd:
+    name: archlinux-keyring-wkd-sync.timer
+    enabled: true
+
+- name: archlinux-keyring - start weekly update timer
+  ansible.builtin.systemd:
+    name: archlinux-keyring-wkd-sync.timer
+    state: started
+  when: start_services | bool

@@ -1,8 +1,120 @@
 ---
-- name: Archlinux sync configuration from all playbooks (except init.yml)
+- name: Archlinux system sync
   hosts: localhost
+  become: true
 
-- import_playbook: ./system/config.yml
-- import_playbook: ./system/packages.yml
-- import_playbook: ./system/aur-config.yml
-- import_playbook: ./system/amd-gpu-config.yml
+  pre_tasks:
+    - name: Verify local.yml exists
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../local.yml"
+      register: local_yml_stat
+      check_mode: false
+
+    - name: Fail clearly when local.yml is missing
+      ansible.builtin.assert:
+        that: local_yml_stat.stat.exists
+        fail_msg: >-
+          local.yml missing — run
+          `cp local.yml.example local.yml && $EDITOR local.yml`
+          from system/arch/ before invoking this playbook.
+
+    - name: Load per-user values from local.yml
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../local.yml"
+
+    - name: Verify local.yml supplies required keys
+      ansible.builtin.assert:
+        that:
+          - username is defined
+          - hostname is defined
+          - timezone is defined
+        fail_msg: >-
+          local.yml must define username, hostname, and timezone.
+
+    - name: Verify system-sync.yml is running as the per-user account, not root
+      ansible.builtin.assert:
+        that: lookup('env', 'USER') == username
+        fail_msg: >-
+          system-sync.yml must be invoked as {{ username }} (your user
+          account), not as {{ lookup('env', 'USER') }}. Run with
+          `--ask-become-pass` so sudo escalates per task while the user
+          context is preserved.
+
+  tasks:
+    - name: network (systemd-networkd, iwd, impala)
+      ansible.builtin.import_role:
+        name: network
+      tags: [network]
+
+    - name: dns (systemd-resolved, DoT)
+      ansible.builtin.import_role:
+        name: dns
+      tags: [dns]
+
+    - name: pacman config and timers
+      ansible.builtin.import_role:
+        name: pacman
+      tags: [pacman]
+
+    - name: security (ssh hardening, faillock)
+      ansible.builtin.import_role:
+        name: security
+      tags: [security]
+
+    - name: users (group memberships, idempotent)
+      ansible.builtin.import_role:
+        name: users
+      tags: [users]
+
+    - name: maintenance (cronie, fstrim, logrotate)
+      ansible.builtin.import_role:
+        name: maintenance
+      tags: [maintenance]
+
+    - name: native and aur packages
+      ansible.builtin.import_role:
+        name: pacman-packages
+      tags: [pacman-packages]
+
+    - name: display manager (ly, betterlockscreen)
+      ansible.builtin.import_role:
+        name: display-manager
+      when: features.display_manager | default(false)
+      tags: [display-manager]
+
+    - name: ddcutil (external monitor backlight)
+      ansible.builtin.import_role:
+        name: ddcutil
+      when: features.ddcutil | default(false)
+      tags: [ddcutil]
+
+    - name: zfs kernel module
+      ansible.builtin.import_role:
+        name: zfs
+      when: features.zfs | default(false)
+      tags: [zfs]
+
+    - name: docker daemon and tools
+      ansible.builtin.import_role:
+        name: docker
+      when: features.docker | default(false)
+      tags: [docker]
+
+    - name: user-scoped uv tools
+      ansible.builtin.import_role:
+        name: user-tools
+      when: features.user_tools | default(false)
+      become: false
+      tags: [user-tools]
+
+    - name: amd gpu packages
+      ansible.builtin.import_role:
+        name: gpu-amd
+      when: features.gpu_amd | default(false)
+      tags: [gpu-amd]
+
+    - name: swap (zramswap + optional swapfile)
+      ansible.builtin.import_role:
+        name: swap
+      when: features.swap | default(false)
+      tags: [swap]

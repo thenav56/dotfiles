@@ -1,0 +1,26 @@
+---
+- name: Compose uv_tools list (core + enabled feature tools)
+  ansible.builtin.set_fact:
+    _uv_tools_all: >-
+      {{ uv_tools
+         + (feature_uv_tools.ddcutil | default([]) if features.ddcutil | default(false) else []) }}
+
+- name: List currently-installed uv tools
+  ansible.builtin.command: uv tool list
+  register: uv_installed
+  changed_when: false
+  check_mode: false
+
+- name: Install missing uv tools
+  ansible.builtin.shell: |
+    uv tool install --no-progress {{ item }}
+  args:
+    executable: /bin/bash
+  loop: "{{ _uv_tools_all }}"
+  # `uv tool install` items can be a bare package ("django") or
+  # "--with EXTRA PKG" (e.g. "--with requests ipython"). The actual
+  # tool name `uv tool list` shows is always the last whitespace-
+  # separated token; strip an extra trailing slash or punctuation.
+  # Underscores in our list (e.g. ddcci_plasmoid_backend) are rendered
+  # as hyphens by uv, so normalize both sides for comparison.
+  when: (item.split() | last | replace('_', '-')) not in (uv_installed.stdout_lines | map('regex_replace', ' v[0-9].*$', '') | map('replace', '_', '-') | list)

@@ -1,0 +1,5 @@
+---
+- name: Enable ZFS kernel module
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/my-zfs.conf
+    content: zfs

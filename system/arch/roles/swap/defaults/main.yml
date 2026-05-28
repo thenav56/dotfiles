@@ -1,0 +1,8 @@
+---
+# Default vars for the swap role.
+# Overridable from group_vars/all.yml or local.yml.
+swap_vars:
+  size: 8G
+  path: /swapfile
+  swappiness: 60  # Default
+start_services: true

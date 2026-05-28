@@ -1,0 +1,4 @@
+---
+# Default vars for the security role.
+# Overridable from group_vars/all.yml or local.yml.
+start_services: true

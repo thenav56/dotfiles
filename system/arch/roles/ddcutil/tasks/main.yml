@@ -1,0 +1,22 @@
+---
+# Load kernel modules
+# -- https://wiki.archlinux.org/title/backlight#External_monitors
+- name: install docker
+  community.general.pacman:
+    name:
+      - i2c-tools
+      - ddcutil
+
+# NOTE: ddcci is available using `ddcutil` package
+- name: i2c dev for ddcutil
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/my-ddcutil.conf
+    content: |
+      i2c_dev
+      ddcci
+
+- name: add the user to the i2c group
+  ansible.builtin.user:
+    name: "{{ username }}"
+    groups: i2c
+    append: true

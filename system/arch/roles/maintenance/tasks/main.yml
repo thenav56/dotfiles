@@ -1,0 +1,57 @@
+---
+# CRONIE  --------------------------------------------------------------------
+- name: install cronie
+  community.general.pacman:
+    name:
+      - cronie
+
+- name: enable cronie.service
+  ansible.builtin.systemd:
+    name: cronie
+    enabled: true
+
+- name: start cronie.service
+  ansible.builtin.systemd:
+    name: cronie
+    state: started
+  when: start_services | bool
+
+# SSD TRIM SCHEDULED  --------------------------------------------------------
+- name: install util-linux
+  community.general.pacman:
+    name:
+      - util-linux
+
+- name: enable weekly ssd disks trim using fstrim timer
+  ansible.builtin.systemd:
+    name: fstrim.timer
+    enabled: true
+
+- name: start fstrim timer
+  ansible.builtin.systemd:
+    name: fstrim.timer
+    state: started
+  when: start_services | bool
+
+# LOGROTATE  -----------------------------------------------------------------
+- name: install logrotate
+  community.general.pacman:
+    name:
+      - logrotate
+
+- name: logrotate - enable compression
+  ansible.builtin.lineinfile:
+    path: /etc/logrotate.conf
+    regexp: '^#compress$'
+    line: 'compress'
+
+- name: enable daily logs rotation, cleanup
+  ansible.builtin.systemd:
+    name: logrotate.timer
+    enabled: true
+
+- name: start logrotate timer
+  ansible.builtin.systemd:
+    name: logrotate.timer
+    state: started
+  when: start_services | bool
