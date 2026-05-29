@@ -1,9 +1,10 @@
 ---
-- name: Compose uv_tools list (core + enabled feature tools)
+- name: Compose uv_tools list (core + add + enabled feature tools − skip)
   ansible.builtin.set_fact:
     _uv_tools_all: >-
-      {{ uv_tools
-         + (feature_uv_tools.ddcutil | default([]) if features.ddcutil | default(false) else []) }}
+      {{ (uv_tools + uv_tools_add
+         + (feature_uv_tools.ddcutil | default([]) if feature_ddcutil | default(false) else []))
+         | difference(uv_tools_skip) }}
 
 - name: List currently-installed uv tools
   ansible.builtin.command: uv tool list

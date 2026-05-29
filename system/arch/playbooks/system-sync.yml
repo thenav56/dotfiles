@@ -79,42 +79,42 @@
     - name: display manager (ly, betterlockscreen)
       ansible.builtin.import_role:
         name: display-manager
-      when: features.display_manager | default(false)
+      when: feature_display_manager | default(false)
       tags: [display-manager]
 
     - name: ddcutil (external monitor backlight)
       ansible.builtin.import_role:
         name: ddcutil
-      when: features.ddcutil | default(false)
+      when: feature_ddcutil | default(false)
       tags: [ddcutil]
 
     - name: zfs kernel module
       ansible.builtin.import_role:
         name: zfs
-      when: features.zfs | default(false)
+      when: feature_zfs | default(false)
       tags: [zfs]
 
     - name: docker daemon and tools
       ansible.builtin.import_role:
         name: docker
-      when: features.docker | default(false)
+      when: feature_docker | default(false)
       tags: [docker]
 
     - name: user-scoped uv tools
       ansible.builtin.import_role:
         name: user-tools
-      when: features.user_tools | default(false)
+      when: feature_user_tools | default(false)
       become: false
       tags: [user-tools]
 
     - name: amd gpu packages
       ansible.builtin.import_role:
         name: gpu-amd
-      when: features.gpu_amd | default(false)
+      when: feature_gpu_amd | default(false)
       tags: [gpu-amd]
 
     - name: swap (zramswap + optional swapfile)
       ansible.builtin.import_role:
         name: swap
-      when: features.swap | default(false)
+      when: feature_swap | default(false)
       tags: [swap]

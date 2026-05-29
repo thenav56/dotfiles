@@ -24,15 +24,24 @@ docker_log_opts:
 # GRUB menu countdown seconds.
 grub_timeout: 1
 
-# Feature flags. Override in local.yml.
-features:
-  gpu_amd: false
-  zfs: false
-  ddcutil: false
-  docker: true
-  display_manager: true
-  swap: false
-  user_tools: true
+# Feature flags — individual scalars so you can flip ONE in local.yml
+# without re-listing the rest.
+feature_gpu_amd: false
+feature_zfs: false
+feature_ddcutil: false
+feature_docker: true
+feature_display_manager: true
+feature_swap: false
+feature_user_tools: true
+
+# Package-list deltas. Override THESE in local.yml instead of redefining the
+# full lists. `_add` appends, `_skip` removes; skip wins on conflict.
+packages_native_add:  []
+packages_native_skip: []
+packages_aur_add:     []
+packages_aur_skip:    []
+uv_tools_add:         []
+uv_tools_skip:        []
 
 # Python tools installed via `uv tool install` by the user-tools role.
 # Each entry is passed unquoted to `uv tool install` so prefixes like
@@ -53,14 +62,14 @@ uv_tools:
 
 # Per-feature uv tools. Merged into the install list by the user-tools
 # role only when the matching feature flag is true. Keys must match the
-# names in `features:` above.
+# suffix of the `feature_*` flags above.
 feature_uv_tools:
   ddcutil:
     - ddcci_plasmoid_backend
 
 # Per-feature AUR packages. Merged into the AUR install list by the
 # pacman-packages role only when the matching feature flag is true.
-# Keys must match the names in `features:` above. Native feature
+# Keys must match the suffix of the `feature_*` flags above. Native feature
 # packages live inline in each feature role's tasks (they install
 # only when the role runs).
 feature_aur_packages:
