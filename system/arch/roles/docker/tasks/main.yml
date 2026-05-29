@@ -5,6 +5,7 @@
     name:
       - docker
       - docker-compose
+      - docker-buildx
       - ctop
 
 - name: add the user to the wheel group
