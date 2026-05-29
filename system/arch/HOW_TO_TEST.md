@@ -47,11 +47,24 @@ ls /usr/share/edk2/x64/  # OVMF_CODE.4m.fd must exist (UEFI firmware)
 
 A throwaway test VM. Adjust paths/sizes for your host.
 
+> **WORK must be disk-backed AND reachable by the libvirt qemu user.**
+> - **Not `/tmp`:** on most Arch hosts it's a `tmpfs` (RAM-backed). The qcow2
+>   grows as packages install (10–15 GB for a full sync), so a tmpfs `WORK`
+>   silently eats RAM until the host OOM-killer kills qemu mid-install —
+>   which corrupts the guest's pacman DB.
+> - **Not `$HOME`:** with the system libvirt daemon (`qemu:///system`, used by
+>   `sudo virsh`/`virt-install` below) qemu runs as uid `libvirt-qemu` and
+>   cannot traverse a mode-700 home dir → `Cannot access storage file …
+>   Permission denied` at VM start.
+> - **Use `/var/tmp`:** disk-backed and world-traversable (mode 1777).
+>   Verify with `df -hT "$WORK"` — the FSTYPE must NOT be `tmpfs`.
+
 ```bash
 VM=arch-test
-WORK=/tmp/vm-refactor-test
+WORK=/var/tmp/vm-refactor-test    # disk-backed + qemu-traversable; NOT /tmp, NOT $HOME (see above)
 mkdir -p "$WORK"
 cd "$WORK"
+df -hT "$WORK"                    # sanity: FSTYPE must not be tmpfs
 
 # Disk image (40 GB sparse qcow2)
 qemu-img create -f qcow2 "$WORK/$VM.qcow2" 40G
@@ -332,7 +345,7 @@ Common idempotency pitfalls to scan for in the recap:
 # On the host:
 sudo virsh destroy  arch-test
 sudo virsh undefine arch-test --nvram
-rm -rf /tmp/vm-refactor-test
+rm -rf /var/tmp/vm-refactor-test
 ```
 
 ---
