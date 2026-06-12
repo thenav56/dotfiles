@@ -24,6 +24,8 @@
       path: config/wezterm
     ~/.jqp.yaml:
       path: config/jqp.yaml
+    ~/.config/herdr/config.toml:
+      path: config/herdr.toml
     # Kitty
     ~/.config/kitty/:
       path: config/kitty
@@ -40,8 +42,8 @@
       if: '[ `uname` = Darwin ]'
       path: config/k9s
     ~/.config/nvim/:
-      path: config/neovim/
-    ~/.config/nvim-refactor/:
+      path: config/neovim-refactor/
+    ~/.config/nvim-refactor/:  # TODO: Remove this, rename neovim-refactor -> neovim
       path: config/neovim-refactor/
     ~/.config/atuin/config.toml:
       path: config/atuin.toml
@@ -110,25 +112,17 @@
   -
     - '[ -f ~/.git-additional.config ] || cat ~/.dotfiles/additional-template/.git-additional.config >> ~/.git-additional.config'
     - Initialize git additional configs
+  # Misc
+  -
+    description: Set default browser as firefox
+    command: 'if [ `uname` != Darwin ]; then xdg-settings set default-web-browser $(ls /usr/share/applications/ | grep firefox | head -n 1 -); fi'
+    stderr: true
+  -
+    description: Install tmux plugins using tpm
+    command: ~/.dotfiles/tools/tmux-tpm/bin/install_plugins
+    stderr: true
   # NVIM Related installs
   -
     description: Install nvm latest node
     command: source $NVM_DIR/nvm.sh && nvm install node && node --version
-    stderr: true
-  - 
-    description: Install nvim plugins
-    command: nvim --headless +"lua require('lazy').install()" +qa
-    stderr: true
-  - 
-    description: Update nvim TreeSetter
-    command: nvim --headless -c "TSUpdate" -c qall
-    stderr: true
-  # Misc
-  - 
-    description: Set default browser as firefox
-    command: 'if [ `uname` != Darwin ]; then xdg-settings set default-web-browser $(ls /usr/share/applications/ | grep firefox | head -n 1 -); fi'
-    stderr: true
-  - 
-    description: Install tmux plugins using tpm
-    command: ~/.dotfiles/tools/tmux-tpm/bin/install_plugins
     stderr: true

@@ -1,0 +1,14 @@
+onboarding = false
+
+[theme]
+name = "one-dark"
+
+[ui.toast]
+delivery = "terminal"
+
+[ui]
+show_agent_labels_on_pane_borders = true
+
+[keys]
+next_agent = "prefix+n"
+previous_agent = "prefix+p"

@@ -8,6 +8,15 @@
 
 ## Manual
 
+### Neovim First Setup and Care
+
+- Install packages with vim.pack (vim will ask you when you first open it)
+    - To update later, use `:=vim.pack.update()` or `:packupdate`
+- Install or update treesitter
+    - :TSUpdate
+    - :TSInstall all
+
+
 ### Git configuration
 Create a new file ~/.git-additional.config and add sensitive configurations there
 Sample:
