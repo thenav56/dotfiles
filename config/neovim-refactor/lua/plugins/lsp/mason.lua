@@ -34,6 +34,7 @@ local servers = {
     "harper_ls",
     "gh_actions_ls",
     "postgres_lsp",
+    "systemd_lsp",
     -- Not working anymore
     -- "nginx_language_server",
 }

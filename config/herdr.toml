@@ -1,7 +1,7 @@
 onboarding = false
 
 [theme]
-name = "one-dark"
+name = "one-light"
 
 [ui.toast]
 delivery = "terminal"
@@ -10,5 +10,6 @@ delivery = "terminal"
 show_agent_labels_on_pane_borders = true
 
 [keys]
-next_agent = "prefix+n"
-previous_agent = "prefix+p"
+next_agent = "prefix+space"
+previous_agent = "prefix+shift+space"
+next_workspace = "prefix+]"
