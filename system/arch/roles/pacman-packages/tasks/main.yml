@@ -12,10 +12,16 @@
 
 # update_cache was already done by `Arch Full Update` above; running it
 # again here makes this task always-changed under --check.
+- name: Compose native install list (core + add − skip)
+  ansible.builtin.set_fact:
+    _native_to_install: >-
+      {{ (packages.native + packages_native_add)
+         | difference(packages_native_skip) }}
+
 - name: install core packages
   become: true
   community.general.pacman:
-    name: '{{ packages.native }}'
+    name: '{{ _native_to_install }}'
 
 # AUR ------------------------------------------------------------------------
 # Compose the desired AUR list, then install only what's actually
@@ -24,13 +30,14 @@
 # install — so an already-synced system does zero AUR work and the
 # sensitive sudoers entry never appears. Upgrades are intentionally NOT
 # handled here: run `yay -Syu` manually when you want to upgrade.
-- name: Compose AUR install list (core + enabled feature packages)
+- name: Compose AUR install list (core + add + enabled feature packages − skip)
   ansible.builtin.set_fact:
     _aur_to_install: >-
-      {{ packages.aur
-         + (feature_aur_packages.zfs              | default([]) if features.zfs              | default(false) else [])
-         + (feature_aur_packages.ddcutil          | default([]) if features.ddcutil          | default(false) else [])
-         + (feature_aur_packages.display_manager  | default([]) if features.display_manager  | default(false) else []) }}
+      {{ ((packages.aur + packages_aur_add)
+         + (feature_aur_packages.zfs             | default([]) if feature_zfs             | default(false) else [])
+         + (feature_aur_packages.ddcutil         | default([]) if feature_ddcutil         | default(false) else [])
+         + (feature_aur_packages.display_manager | default([]) if feature_display_manager | default(false) else []))
+         | difference(packages_aur_skip) }}
 
 - name: Query installed packages
   ansible.builtin.command: pacman -Qq

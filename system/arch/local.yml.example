@@ -40,7 +40,8 @@ wireless_iface: wlan0
 # ============================================================================
 
 # --- DNS (roles/dns, group_vars/all.yml) ------------------------------------
-# Upstream resolvers used by systemd-resolved.
+# Upstream resolvers used by systemd-resolved. NOTE: overriding REPLACES the
+# whole list — list every server you want, not just additions.
 # dns_servers:
 #   - 1.1.1.1
 #   - 1.0.0.1
@@ -55,7 +56,8 @@ wireless_iface: wlan0
 # faillock_deny: 10
 
 # --- Docker (roles/docker) --------------------------------------------------
-# docker daemon log rotation — passed verbatim into log-opts.
+# docker daemon log rotation — passed verbatim into log-opts. NOTE: overriding
+# REPLACES the whole dict — list every key you want.
 # docker_log_opts:
 #   max-size: "50m"
 #   max-file: "5"
@@ -64,22 +66,23 @@ wireless_iface: wlan0
 # GRUB menu countdown in seconds.
 # grub_timeout: 1
 
-# --- Swap (roles/swap, only used when features.swap = true) -----------------
+# --- Swap (roles/swap, only used when feature_swap = true) ------------------
+# NOTE: overriding REPLACES the whole dict — list every key you want.
 # swap_vars:
 #   size: 8G
 #   path: /swapfile
 #   swappiness: 60
 
 # --- Feature flags (group_vars/all.yml) -------------------------------------
-# Toggle optional roles. Defaults shown.
-# features:
-#   gpu_amd: false
-#   zfs: false
-#   ddcutil: false
-#   docker: true
-#   display_manager: true
-#   swap: false
-#   user_tools: true
+# Toggle optional roles. Each flag is an independent scalar, so you can flip
+# just ONE without re-listing the rest. Defaults shown.
+# feature_gpu_amd: false
+# feature_zfs: false
+# feature_ddcutil: false
+# feature_docker: true
+# feature_display_manager: true
+# feature_swap: false
+# feature_user_tools: true
 
 # --- Service start gating (every role with services) ------------------------
 # Set to false to install & enable units but NOT start them (used by
@@ -87,26 +90,21 @@ wireless_iface: wlan0
 # init.yml passes false explicitly; system-sync.yml uses the default.
 # start_services: true
 
-# --- User tools (roles/user-tools) ------------------------------------------
-# Python tools installed via `uv tool install`. Each entry is passed
-# unquoted, so prefixes like `--with <extra>` work. Override to replace
-# the list entirely (Ansible does not merge lists by default).
-# uv_tools:
-#   - neovim-remote
-#   - --with requests ipython
-#   - django
-#   - pre-commit
-
-# --- Packages (roles/pacman-packages) ---------------------------------------
-# Core native and AUR package lists. Override to replace entirely
-# (Ansible does not merge lists).
-# See group_vars/all.yml for the full default list (~150 packages).
-# packages:
-#   native:
-#     - vim
-#     - tmux
-#   aur:
-#     - 1password
+# --- Package & tool deltas (roles/pacman-packages, roles/user-tools) --------
+# Add or remove individual entries WITHOUT re-listing the full upstream lists.
+# `_add` appends; `_skip` removes. `_skip` wins on conflict. See
+# group_vars/all.yml for the canonical lists you are adjusting.
+#
+# NOTE: `_skip` matches EXACT entries. For uv_tools that means the whole
+# string, e.g. to drop "--with openpyxl visidata" write that entire line.
+# Ordering is not preserved (matching is set-based) — harmless for pacman/uv.
+#
+# packages_native_add:  [docker-compose, obsidian]
+# packages_native_skip: [vlc]
+# packages_aur_add:     [my-aur-pkg]
+# packages_aur_skip:    [spotify]
+# uv_tools_add:         [httpie]
+# uv_tools_skip:        [azure-cli]
 
 # --- Per-feature packages ---------------------------------------------------
 # These packages install ONLY when their feature flag is on. Native
