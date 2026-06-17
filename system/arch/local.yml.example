@@ -50,6 +50,15 @@ wireless_iface: wlan0
 # blocked — e.g. some libvirt NATs or corporate proxies.
 # dns_over_tls: true
 
+# --- Internal / split DNS (roles/network) -----------------------------------
+# Pin an internal resolver to specific domains on both wired and wireless
+# links. Queries for the listed domains go to internal_dns (plaintext);
+# everything else uses the global encrypted resolvers. Routing domains keep it
+# active only while a link is up. Leave unset on machines with no internal DNS.
+# internal_dns: 192.168.88.23
+# internal_dns_domains:
+#   - m.togglecorp.com
+
 # --- Security (roles/security) ----------------------------------------------
 # faillock.conf deny count. After this many failed logins the account
 # locks for 10 minutes.

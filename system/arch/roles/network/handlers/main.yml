@@ -4,3 +4,8 @@
   ansible.builtin.systemd:
     name: systemd-networkd
     state: restarted
+
+- name: apply sysctl
+  listen: apply sysctl
+  ansible.builtin.command: sysctl --system
+  changed_when: true

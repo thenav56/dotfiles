@@ -3,12 +3,15 @@
   hosts: localhost
   become: true
 
+  # Tagged `always` so per-user vars (local.yml) load even when the run is
+  # narrowed with --tags; otherwise roles reference undefined vars.
   pre_tasks:
     - name: Verify local.yml exists
       ansible.builtin.stat:
         path: "{{ playbook_dir }}/../local.yml"
       register: local_yml_stat
       check_mode: false
+      tags: [always]
 
     - name: Fail clearly when local.yml is missing
       ansible.builtin.assert:
@@ -17,10 +20,12 @@
           local.yml missing — run
           `cp local.yml.example local.yml && $EDITOR local.yml`
           from system/arch/ before invoking this playbook.
+      tags: [always]
 
     - name: Load per-user values from local.yml
       ansible.builtin.include_vars:
         file: "{{ playbook_dir }}/../local.yml"
+      tags: [always]
 
     - name: Verify local.yml supplies required keys
       ansible.builtin.assert:
@@ -30,6 +35,7 @@
           - timezone is defined
         fail_msg: >-
           local.yml must define username, hostname, and timezone.
+      tags: [always]
 
     - name: Verify system-sync.yml is running as the per-user account, not root
       ansible.builtin.assert:
@@ -39,6 +45,7 @@
           account), not as {{ lookup('env', 'USER') }}. Run with
           `--ask-become-pass` so sudo escalates per task while the user
           context is preserved.
+      tags: [always]
 
   tasks:
     - name: network (systemd-networkd, iwd, impala)

@@ -2,3 +2,9 @@
 # Default vars for the network role.
 # Overridable from group_vars/all.yml or local.yml.
 start_services: true
+
+# Internal/split-DNS resolver, link-scoped on both wired and wireless
+# (office LAN/wifi). Routing domains keep it active only when the link is
+# up. Set in local.yml. Empty = no internal DNS configured.
+internal_dns: ""
+internal_dns_domains: []

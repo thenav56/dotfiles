@@ -8,6 +8,11 @@
       Name=en*
       [Network]
       DHCP=yes
+      {% if internal_dns %}
+      DNS={{ internal_dns }}
+      Domains={{ internal_dns_domains | map('regex_replace', '^', '~') | join(' ') }}
+      DNSOverTLS=no
+      {% endif %}
       [DHCPv4]
       RouteMetric=100
       [IPv6AcceptRA]
@@ -22,11 +27,31 @@
       [Network]
       DHCP=yes
       IgnoreCarrierLoss=3s
+      {% if internal_dns %}
+      DNS={{ internal_dns }}
+      Domains={{ internal_dns_domains | map('regex_replace', '^', '~') | join(' ') }}
+      DNSOverTLS=no
+      {% endif %}
       [DHCPv4]
       RouteMetric=200
       [IPv6AcceptRA]
       RouteMetric=200
   notify: restart systemd-networkd
+
+- name: Disable ICMP redirect acceptance (workstation, not a router)
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-disable-redirects.conf
+    content: |
+      # Workstation does not route; honoring ICMP redirects let the gateway
+      # poison the route cache for off-subnet hosts (blackholed local
+      # services until a manual `ip route flush cache`). Disable acceptance.
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.secure_redirects = 0
+      net.ipv4.conf.default.secure_redirects = 0
+      net.ipv6.conf.all.accept_redirects = 0
+      net.ipv6.conf.default.accept_redirects = 0
+  notify: apply sysctl
 
 - name: enable systemd-networkd
   ansible.builtin.systemd:
@@ -38,12 +63,6 @@
     name: systemd-networkd
     state: started
   when: start_services | bool
-
-- name: install iwd
-  community.general.pacman:
-    name:
-      - iwd
-      - impala
 
 - name: enable iwd
   ansible.builtin.systemd:
