@@ -24,8 +24,6 @@
       path: config/wezterm
     ~/.jqp.yaml:
       path: config/jqp.yaml
-    ~/.config/herdr/config.toml:
-      path: config/herdr.toml
     # Kitty
     ~/.config/kitty/:
       path: config/kitty
@@ -87,6 +85,12 @@
     ~/.config/xsettingsd/:
       if: '[ `uname` != Darwin ]'
       path: config/xsettingsd/
+    ~/.claude/:
+      path: config/claude
+    ~/.config/herdr/config.toml:
+      path: config/herdr.toml
+    ~/.config/ccstatusline/settings.json:
+      path: config/ccstatusline.json
 
 - create:
     - ~/.local/bin

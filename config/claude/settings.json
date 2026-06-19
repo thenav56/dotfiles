@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "companyAnnouncements": [],
+  "editorMode": "vim",
+  "effortLevel": "high",
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "toggle@tc": true,
+    "typescript-lsp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "tc": {
+      "source": {
+        "source": "git",
+        "url": "https://gitea.local.togglecorp.com/togglecorp/skills.git"
+      }
+    }
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "command": "msg=$(jq -r '.message // \"Claude Code needs input\"' | tr -d '\\r\\n\\033\\007'); tty=$(readlink /proc/$PPID/fd/1 2>/dev/null); case \"$tty\" in /dev/pts/*) printf '\\033]9;%s\\007' \"${msg:-Claude Code}\" > \"$tty\" 2>/dev/null;; esac; true",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" blocked",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" working",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"$HOME/.claude/hooks/rtk-rewrite.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" release",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" idle",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "tty=$(readlink /proc/$PPID/fd/1 2>/dev/null); case \"$tty\" in /dev/pts/*) printf '\\033]9;Claude Code finished\\007' > \"$tty\" 2>/dev/null;; esac; true",
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" idle",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" working",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "Bash(git -c:* push:*)",
+      "Bash(git -C:* push:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git revert:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git am:*)",
+      "Bash(git citool:*)",
+      "Bash(git gui:*)"
+    ]
+  },
+  "statusLine": {
+    "command": "npx -y ccstatusline@latest",
+    "padding": 0,
+    "type": "command"
+  },
+  "theme": "auto-dual",
+  "tui": "fullscreen"
+}

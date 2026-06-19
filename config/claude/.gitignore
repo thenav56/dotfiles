@@ -1,0 +1,7 @@
+*
+!settings.json
+!.gitignore
+
+# !/skills/
+# !/skills/custom/
+# !/skills/custom/**
