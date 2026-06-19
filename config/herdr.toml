@@ -5,11 +5,13 @@ name = "one-light"
 
 [ui.toast]
 delivery = "terminal"
+delay_seconds = 2
 
 [ui]
 show_agent_labels_on_pane_borders = true
 
 [keys]
-next_agent = "prefix+space"
-previous_agent = "prefix+shift+space"
-next_workspace = "prefix+]"
+next_agent = "prefix+enter"
+previous_agent = "prefix+shift+enter"
+next_workspace = "prefix+shift+j"
+previous_workspace = "prefix+shift+k"
