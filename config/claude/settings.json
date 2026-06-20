@@ -19,16 +19,6 @@
     }
   },
   "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "command": "msg=$(jq -r '.message // \"Claude Code needs input\"' | tr -d '\\r\\n\\033\\007'); tty=$(readlink /proc/$PPID/fd/1 2>/dev/null); case \"$tty\" in /dev/pts/*) printf '\\033]9;%s\\007' \"${msg:-Claude Code}\" > \"$tty\" 2>/dev/null;; esac; true",
-            "type": "command"
-          }
-        ]
-      }
-    ],
     "PermissionRequest": [
       {
         "hooks": [
@@ -87,14 +77,6 @@
       }
     ],
     "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "tty=$(readlink /proc/$PPID/fd/1 2>/dev/null); case \"$tty\" in /dev/pts/*) printf '\\033]9;Claude Code finished\\007' > \"$tty\" 2>/dev/null;; esac; true",
-            "type": "command"
-          }
-        ]
-      },
       {
         "hooks": [
           {
