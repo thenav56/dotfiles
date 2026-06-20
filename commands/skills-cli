@@ -1,0 +1,606 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["PyYAML>=6", "typer>=0.12", "rich>=13"]
+# ///
+"""skills-cli - declarative sync of agent skills from git repos.
+
+A personal, Brewfile-style tool. You declare which skills (from which repos,
+for which agents) you want in `skills.yaml`; the tool clones at a pinned commit
+and copies them into each agent's global skills dir.
+
+  skills-cli update [--prune]   resolve manifest -> rewrite lock -> install
+  skills-cli sync   [--prune]   install exactly what the lock pins (reproducible)
+
+Reproducibility: the lock pins a real commit SHA per repo. `sync` fetches and
+checks out that exact SHA, so two machines on the same lock get identical files.
+
+Safety: the tool only ever touches skill dirs it installed itself, marked with a
+`.skills-cli.json` sentinel. Hand-authored skills are never overwritten or pruned.
+
+Files:
+  skills.yaml       you author this (manifest)
+  skills.lock.json  committed; pinned SHAs (sync reads this)
+  <skill>/.skills-cli.json  per-machine sentinel marking a managed install
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Optional
+
+import typer
+import yaml
+from rich.console import Console
+from rich.tree import Tree
+
+LOCK_VERSION = 1
+SENTINEL = ".skills-cli.json"
+
+console = Console()
+err_console = Console(stderr=True)
+
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    help="Declarative sync of agent skills from git repos.",
+)
+
+# Resolved from global options in the @app.callback.
+STATE: dict[str, Path] = {}
+
+
+# agent name -> global skills dir. Extend here to support more agents.
+def agent_dirs() -> dict[str, Path]:
+    claude_home = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
+    codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    return {
+        "claude-code": claude_home / "skills",
+        "codex": codex_home / "skills",
+    }
+
+
+# --- output ----------------------------------------------------------------
+def info(msg: str) -> None:
+    console.print(f"  [dim]{msg}[/dim]")
+
+
+def step(msg: str) -> None:
+    console.print(f"[cyan]›[/cyan] {msg}")
+
+
+def ok(msg: str) -> None:
+    console.print(f"  [green]✓[/green] {msg}")
+
+
+def warn(msg: str) -> None:
+    console.print(f"  [yellow]![/yellow] {msg}")
+
+
+class Abort(Exception):
+    """Recoverable user-facing error; rendered then exits non-zero."""
+
+
+def die(msg: str) -> "typing.NoReturn":  # noqa: F821
+    """Abort immediately — for unrecoverable, single-point failures."""
+    raise Abort(msg)
+
+
+# Accumulate non-fatal errors so we can report every problem at once instead
+# of dying on the first. Call flush() at safe checkpoints to exit if any.
+_ERRORS: list[str] = []
+
+
+def reset_errors() -> None:
+    _ERRORS.clear()
+
+
+def record(msg: str) -> None:
+    _ERRORS.append(msg)
+
+
+def flush(context: str) -> None:
+    """If errors were recorded, print them all and abort. No-op otherwise."""
+    if not _ERRORS:
+        return
+    lines = [f"{context} — {len(_ERRORS)} error(s):"] + [f"  • {e}" for e in _ERRORS]
+    raise Abort("\n".join(lines))
+
+
+# --- git helpers (async) ---------------------------------------------------
+async def run(*cmd: str, cwd: str | None = None) -> tuple[int, str, str]:
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=cwd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+    )
+    out, errb = await proc.communicate()
+    return proc.returncode, out.decode(errors="replace"), errb.decode(errors="replace")
+
+
+async def resolve_sha(repo: str, ref: str | None) -> str:
+    """Resolve a branch/tag (or default HEAD) to a commit SHA via ls-remote."""
+    target = ref or "HEAD"
+    code, out, errs = await run("git", "ls-remote", repo, target)
+    if code != 0 or not out.strip():
+        raise RuntimeError(f"could not resolve {target!r} in {repo}: "
+                           f"{errs.strip() or 'no such ref'}")
+    sha = out.split("\n", 1)[0].split("\t", 1)[0].strip()
+    if len(sha) < 7:
+        raise RuntimeError(f"unexpected ls-remote output for {repo} {target!r}")
+    return sha
+
+
+async def clone_at_sha(repo: str, sha: str, dest: str) -> bool:
+    """Shallow-fetch a single commit and check it out (GitHub serves reachable SHAs).
+
+    Returns True on success; records an error and returns False on failure.
+    """
+    for cmd in (
+        ("git", "init", "-q", dest),
+        ("git", "-C", dest, "remote", "add", "origin", repo),
+        ("git", "-C", dest, "fetch", "-q", "--depth", "1", "origin", sha),
+        ("git", "-C", dest, "checkout", "-q", "FETCH_HEAD"),
+    ):
+        code, _, errs = await run(*cmd)
+        if code != 0:
+            record(f"clone {repo}@{sha[:8]} failed ({' '.join(cmd[:3])}…): {errs.strip()}")
+            return False
+    return True
+
+
+# --- manifest / lock -------------------------------------------------------
+def load_manifest(path: Path) -> dict:
+    if not path.exists():
+        die(f"manifest not found: {path}")
+    data = yaml.safe_load(path.read_text()) or {}
+    if not isinstance(data, dict):
+        die(f"manifest must be a mapping: {path}")
+    return data
+
+
+def build_desired(manifest: dict) -> dict[str, dict]:
+    """Flatten manifest into {install_name: {repo, ref, path, agents}}.
+
+    Enforces: known agents, explicit name->path skills, no duplicate install names.
+    """
+    known = set(agent_dirs())
+    default_agents = manifest.get("agents") or []
+    repos = manifest.get("repos") or []
+    desired: dict[str, dict] = {}
+
+    for entry in repos:
+        repo = entry.get("repo")
+        if not repo:
+            record("a repo entry is missing its 'repo:' url")
+            continue
+        ref = entry.get("ref")  # optional; None -> HEAD
+        # replace-not-merge: a repo's agents fully override the global default.
+        agents = entry.get("agents") if entry.get("agents") is not None else default_agents
+        if not agents:
+            record(f"no agents for {repo} (set top-level 'agents:' or per-repo 'agents:')")
+            continue
+        bad = [a for a in agents if a not in known]
+        if bad:
+            record(f"unknown agent(s) {bad} for {repo}; known: {sorted(known)}")
+            continue
+
+        skills = entry.get("skills") or {}
+        if not isinstance(skills, dict):
+            record(f"'skills:' for {repo} must be a map of name -> path")
+            continue
+        for name, subpath in skills.items():
+            if not subpath or not isinstance(subpath, str):
+                record(f"skill {name!r} in {repo} needs a string path")
+                continue
+            if name in desired:
+                prev = desired[name]["repo"]
+                record(f"duplicate skill name {name!r} (from {prev} and {repo}); "
+                       "install names must be globally unique")
+                continue
+            desired[name] = {
+                "repo": repo,
+                "ref": ref,
+                "path": subpath.strip("/"),
+                "agents": list(agents),
+            }
+    return desired
+
+
+def load_lock(path: Path) -> dict:
+    if not path.exists():
+        return {"version": LOCK_VERSION, "skills": {}}
+    data = json.loads(path.read_text())
+    if data.get("version") != LOCK_VERSION:
+        die(f"lock version {data.get('version')} unsupported (expected {LOCK_VERSION})")
+    return data
+
+
+def write_lock(path: Path, skills: dict[str, dict]) -> None:
+    ordered = {k: skills[k] for k in sorted(skills)}
+    path.write_text(json.dumps({"version": LOCK_VERSION, "skills": ordered}, indent=2) + "\n")
+
+
+def desired_pairs(lock_skills: dict[str, dict]) -> set[tuple[str, str]]:
+    """Set of (skill_name, agent) the lock wants installed."""
+    pairs = set()
+    for name, e in lock_skills.items():
+        for agent in e["agents"]:
+            pairs.add((name, agent))
+    return pairs
+
+
+# --- install / sentinel ----------------------------------------------------
+def read_sentinel(skill_dir: Path) -> dict | None:
+    f = skill_dir / SENTINEL
+    if not f.exists():
+        return None
+    try:
+        return json.loads(f.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def install_one(name: str, entry: dict, sha: str, src_root: Path) -> None:
+    """Copy <repo>/<path> into each agent dir as <name>, writing a sentinel.
+
+    Skips agents already at the right SHA. Refuses to clobber an unmanaged dir.
+    """
+    src = src_root / entry["path"]
+    if not (src / "SKILL.md").is_file():
+        record(f"{name}: {entry['path']}/SKILL.md not found in {entry['repo']}@{sha[:8]}")
+        return
+
+    dirs = agent_dirs()
+    for agent in entry["agents"]:
+        base = dirs[agent]
+        target = base / name
+        existing = read_sentinel(target)
+        if target.exists() and existing is None:
+            record(f"{name}: {target} exists but is not managed by skills-cli "
+                   "(hand-authored?). Refusing to overwrite. Remove it manually to proceed.")
+            continue
+        if existing and existing.get("sha") == sha:
+            ok(f"[b]{name}[/b] → {agent} [dim](up to date)[/dim]")
+            continue
+        base.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(src, target)
+        (target / SENTINEL).write_text(json.dumps(
+            {"name": name, "repo": entry["repo"], "ref": entry.get("ref"),
+             "sha": sha, "path": entry["path"]}, indent=2) + "\n")
+        ok(f"[b]{name}[/b] → {agent}")
+
+
+def prune(desired: set[tuple[str, str]]) -> int:
+    """Remove managed (sentinel) skill dirs whose (name, agent) isn't desired."""
+    removed = 0
+    for agent, base in agent_dirs().items():
+        if not base.is_dir():
+            continue
+        for child in sorted(base.iterdir()):
+            if not child.is_dir():
+                continue
+            if read_sentinel(child) is None:
+                continue  # not ours — never touch
+            if (child.name, agent) not in desired:
+                shutil.rmtree(child)
+                warn(f"pruned [b]{child.name}[/b] ← {agent}")
+                removed += 1
+    return removed
+
+
+def render_plan(skills: dict[str, dict]) -> None:
+    """Print skills grouped by repo → ref@commit → skill (path, agents)."""
+    if not skills:
+        return
+    # repo -> (ref, sha) -> [(name, entry)]
+    by_repo: dict[str, dict[tuple[str | None, str | None], list[tuple[str, dict]]]] = {}
+    for name, e in skills.items():
+        (by_repo.setdefault(e["repo"], {})
+         .setdefault((e.get("ref"), e.get("sha")), []).append((name, e)))
+
+    tree = Tree("[bold]skills[/bold]")
+    for repo in sorted(by_repo):
+        repo_node = tree.add(f"[u]{repo}[/u]")
+        for (ref, sha), items in by_repo[repo].items():
+            label = f"[cyan]{ref or 'HEAD'}[/cyan]"
+            if sha:
+                label += f" @ [yellow]{sha[:8]}[/yellow]"
+            ref_node = repo_node.add(label)
+            for name, e in sorted(items):
+                ref_node.add(
+                    f"[b]{name}[/b]  [dim]{e['path']}[/dim]  "
+                    f"→ {', '.join(e['agents'])}")
+    console.print(tree)
+
+
+# --- apply (shared by sync & update) --------------------------------------
+async def apply(lock_skills: dict[str, dict], do_prune: bool) -> None:
+    if not lock_skills:
+        warn("lock has no skills; nothing to install")
+    else:
+        # Group by (repo, sha) so each unique commit is cloned at most once.
+        groups: dict[tuple[str, str], list[str]] = {}
+        for name, e in lock_skills.items():
+            groups.setdefault((e["repo"], e["sha"]), []).append(name)
+
+        dirs = agent_dirs()
+
+        def group_done(names: list[str]) -> bool:
+            for n in names:
+                for agent in lock_skills[n]["agents"]:
+                    sent = read_sentinel(dirs[agent] / n)
+                    if not sent or sent.get("sha") != lock_skills[n]["sha"]:
+                        return False
+            return True
+
+        pending = {k: v for k, v in groups.items() if not group_done(v)}
+        for (repo, sha), names in groups.items():
+            if (repo, sha) not in pending:
+                for n in names:
+                    ok(f"[b]{n}[/b] [dim](up to date)[/dim]")
+
+        async def handle(repo: str, sha: str, names: list[str], tmp: str) -> None:
+            dest = os.path.join(tmp, sha[:12])
+            step(f"clone [u]{repo}[/u] @ [yellow]{sha[:8]}[/yellow]")
+            if not await clone_at_sha(repo, sha, dest):
+                return  # error recorded; skip installs that depend on this clone
+            for n in names:
+                install_one(n, lock_skills[n], sha, Path(dest))
+
+        if pending:
+            with tempfile.TemporaryDirectory(prefix="skills-cli-") as tmp:
+                await asyncio.gather(*[
+                    handle(repo, sha, names, tmp) for (repo, sha), names in pending.items()
+                ])
+
+    # Report every clone/install problem at once; skip prune if anything failed.
+    flush("install")
+
+    if do_prune:
+        n = prune(desired_pairs(lock_skills))
+        if n == 0:
+            info("prune: nothing to remove")
+
+
+# --- command bodies (async) ------------------------------------------------
+async def resolve_lock(manifest_path: Path, lock_path: Path) -> dict[str, dict]:
+    """Build desired from the manifest, resolve refs->SHAs, write the lock.
+
+    Shared by `lock` (stop here) and `update` (then install). Resets and flushes
+    the error accumulator itself.
+    """
+    reset_errors()
+    manifest = load_manifest(manifest_path)
+    desired = build_desired(manifest)
+    flush("manifest")  # report all validation problems together
+    if not desired:
+        warn("manifest declares no skills")
+
+    step(f"resolving {len(desired)} skill(s)")
+    uniq: dict[tuple[str, str | None], None] = {}
+    for e in desired.values():
+        uniq[(e["repo"], e["ref"])] = None
+    keys = list(uniq)
+    # Resolve all refs; collect every failure before giving up so a typo in one
+    # repo doesn't hide a second typo in another.
+    results = await asyncio.gather(
+        *[resolve_sha(repo, ref) for repo, ref in keys], return_exceptions=True)
+    resolved: dict[tuple[str, str | None], str] = {}
+    for (repo, ref), res in zip(keys, results):
+        if isinstance(res, str):
+            resolved[(repo, ref)] = res
+        else:
+            record(str(res))
+    flush("resolve")  # don't write a partial lock if any ref failed
+
+    lock_skills: dict[str, dict] = {}
+    for name, e in desired.items():
+        sha = resolved[(e["repo"], e["ref"])]
+        lock_skills[name] = {
+            "repo": e["repo"], "ref": e["ref"], "path": e["path"],
+            "sha": sha, "agents": e["agents"],
+        }
+    render_plan(lock_skills)
+    write_lock(lock_path, lock_skills)
+    ok(f"wrote [u]{lock_path}[/u]")
+    return lock_skills
+
+
+async def _lock(manifest_path: Path, lock_path: Path) -> None:
+    await resolve_lock(manifest_path, lock_path)
+
+
+async def _update(manifest_path: Path, lock_path: Path, do_prune: bool) -> None:
+    lock_skills = await resolve_lock(manifest_path, lock_path)
+    await apply(lock_skills, do_prune)
+
+
+async def _sync(lock_path: Path, do_prune: bool) -> None:
+    reset_errors()
+    if not lock_path.exists():
+        die(f"no lock found at {lock_path} — run `skills-cli update` first")
+    lock = load_lock(lock_path)
+    lock_skills = lock.get("skills") or {}
+    step(f"sync from [u]{lock_path.name}[/u] ({len(lock_skills)} skill(s))")
+    render_plan(lock_skills)
+
+    # Drift detection: warn (don't fail) if a locked ref now points elsewhere
+    # upstream — i.e. a branch moved or a tag was force-pushed since `update`.
+    uniq: dict[tuple[str, str | None], str] = {}
+    for e in lock_skills.values():
+        uniq[(e["repo"], e.get("ref"))] = e["sha"]
+    keys = list(uniq)
+    if keys:
+        current = await asyncio.gather(
+            *[resolve_sha(repo, ref) for repo, ref in keys], return_exceptions=True)
+        for (repo, ref), now in zip(keys, current):
+            if isinstance(now, str) and now != uniq[(repo, ref)]:
+                warn(f"drift: {repo} @ {ref or 'HEAD'} moved "
+                     f"{uniq[(repo, ref)][:8]} → {now[:8]} (run `update` to bump)")
+
+    await apply(lock_skills, do_prune)
+
+
+def _sig(e: dict) -> tuple:
+    """Structural identity of a skill, ignoring the resolved SHA."""
+    return (e["repo"], e.get("ref"), e["path"], tuple(sorted(e["agents"])))
+
+
+def report_manifest_lock(manifest_path: Path, lock_skills: dict[str, dict]) -> None:
+    """Print whether skills.yaml and the lock agree (purely structural, no network)."""
+    if not manifest_path.exists():
+        warn(f"no manifest at {manifest_path}")
+        return
+    reset_errors()
+    desired = build_desired(load_manifest(manifest_path))
+    if _ERRORS:  # broken manifest — note it but don't abort a read-only status
+        warn(f"manifest has {len(_ERRORS)} error(s); skipping manifest↔lock check "
+             "(run `lock` to see them)")
+        reset_errors()
+        return
+
+    added = [n for n in desired if n not in lock_skills]
+    removed = [n for n in lock_skills if n not in desired]
+    changed = [n for n in desired if n in lock_skills and _sig(desired[n]) != _sig(lock_skills[n])]
+
+    if not (added or removed or changed):
+        ok("manifest ↔ lock: [green]in sync[/green]")
+        return
+    warn("manifest ↔ lock: [yellow]out of sync[/yellow] — run "
+         "[b]skills-cli lock[/b] (or [b]update[/b])")
+    for n in sorted(added):
+        console.print(f"    [green]+[/green] {n} [dim](in manifest, not locked)[/dim]")
+    for n in sorted(removed):
+        console.print(f"    [red]-[/red] {n} [dim](locked, not in manifest)[/dim]")
+    for n in sorted(changed):
+        console.print(f"    [yellow]~[/yellow] {n} [dim](definition changed)[/dim]")
+
+
+async def _status(manifest_path: Path, lock_path: Path) -> None:
+    reset_errors()
+    lock_skills = (load_lock(lock_path).get("skills") or {}) if lock_path.exists() else {}
+
+    report_manifest_lock(manifest_path, lock_skills)
+    console.print()
+
+    # desired (name, agent) -> locked sha
+    want: dict[tuple[str, str], str] = {}
+    for name, e in lock_skills.items():
+        for agent in e["agents"]:
+            want[(name, agent)] = e["sha"]
+
+    if not lock_path.exists():
+        warn(f"no lock at {lock_path} — everything on disk shows as untracked")
+
+    counts = {"tracked": 0, "drifted": 0, "orphaned": 0, "untracked": 0, "missing": 0}
+    tree = Tree("[bold]skill status[/bold]")
+    seen: set[tuple[str, str]] = set()
+
+    for agent, base in agent_dirs().items():
+        node = tree.add(f"[u]{agent}[/u]  [dim]{base}[/dim]")
+        rows: list[tuple[str, str]] = []
+        if base.is_dir():
+            for child in sorted(p for p in base.iterdir() if p.is_dir()):
+                key = (child.name, agent)
+                sent = read_sentinel(child)
+                if sent is None:
+                    counts["untracked"] += 1
+                    rows.append((child.name, "[blue]untracked[/blue] [dim](hand-authored)[/dim]"))
+                    continue
+                seen.add(key)
+                locked = want.get(key)
+                if locked is None:
+                    counts["orphaned"] += 1
+                    rows.append((child.name,
+                                 "[yellow]orphaned[/yellow] [dim](managed, not in lock — "
+                                 "`--prune` removes)[/dim]"))
+                elif sent.get("sha") != locked:
+                    counts["drifted"] += 1
+                    rows.append((child.name,
+                                 f"[yellow]drifted[/yellow] [dim]{str(sent.get('sha'))[:8]} → "
+                                 f"{locked[:8]} (run `sync`)[/dim]"))
+                else:
+                    counts["tracked"] += 1
+                    rows.append((child.name, f"[green]tracked[/green] [dim]{locked[:8]}[/dim]"))
+        # skills the lock wants on this agent but aren't on disk
+        for (name, ag), sha in want.items():
+            if ag == agent and (name, ag) not in seen:
+                counts["missing"] += 1
+                rows.append((name, f"[red]missing[/red] [dim]{sha[:8]} (run `sync`)[/dim]"))
+        if rows:
+            for name, status in sorted(rows):
+                node.add(f"[b]{name}[/b]  {status}")
+        else:
+            node.add("[dim](none)[/dim]")
+
+    console.print(tree)
+    colors = {"tracked": "green", "drifted": "yellow", "orphaned": "yellow",
+              "untracked": "blue", "missing": "red"}
+    summary = "  ".join(f"[{colors[k]}]{v} {k}[/]" for k, v in counts.items() if v)
+    console.print(f"\n{summary or '[dim]nothing found[/dim]'}")
+
+
+def _execute(coro) -> None:
+    try:
+        asyncio.run(coro)
+    except Abort as exc:
+        err_console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+    except KeyboardInterrupt:
+        err_console.print("[red]✗ interrupted[/red]")
+        raise typer.Exit(130)
+
+
+# --- typer wiring ----------------------------------------------------------
+@app.callback()
+def main(
+    manifest: Path = typer.Option(
+        None, "--manifest", "-m", help="Path to skills.yaml.", show_default=False),
+    lock: Path = typer.Option(
+        None, "--lock", "-l", help="Path to skills.lock.json.", show_default=False),
+) -> None:
+    """Declarative sync of agent skills from git repos."""
+    dot = Path(os.environ.get("DOTFILES_DIR", Path.home() / "dotfiles"))
+    STATE["manifest"] = manifest or dot / "skills.yaml"
+    STATE["lock"] = lock or dot / "skills.lock.json"
+
+
+@app.command()
+def update(
+    prune: bool = typer.Option(False, "--prune", help="Remove managed skills no longer desired."),
+) -> None:
+    """Re-resolve the manifest, rewrite the lock, then install."""
+    _execute(_update(STATE["manifest"], STATE["lock"], prune))
+
+
+@app.command()
+def sync(
+    prune: bool = typer.Option(False, "--prune", help="Remove managed skills no longer desired."),
+) -> None:
+    """Install exactly what the lock pins (reproducible)."""
+    _execute(_sync(STATE["lock"], prune))
+
+
+@app.command()
+def lock() -> None:
+    """Resolve the manifest and rewrite the lock — without installing anything."""
+    _execute(_lock(STATE["manifest"], STATE["lock"]))
+
+
+@app.command()
+def status() -> None:
+    """Audit manifest↔lock sync and each agent's skills dir (tracked/drifted/orphaned/missing)."""
+    _execute(_status(STATE["manifest"], STATE["lock"]))
+
+
+if __name__ == "__main__":
+    app()

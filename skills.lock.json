@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "repo": "https://github.com/anthropics/skills",
+      "ref": "main",
+      "path": "skills/frontend-design",
+      "sha": "57546260929473d4e0d1c1bb75297be2fdfa1949",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "grill-me": {
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "path": "skills/productivity/grill-me",
+      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "grill-with-docs": {
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "path": "skills/engineering/grill-with-docs",
+      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "handoff": {
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "path": "skills/productivity/handoff",
+      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "impeccable": {
+      "repo": "https://github.com/pbakaus/impeccable",
+      "ref": "main",
+      "path": ".claude/skills/impeccable",
+      "sha": "d5403f9d653d9192c35143f50bee4651703354e0",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "tdd": {
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "path": "skills/engineering/tdd",
+      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "to-issues": {
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "path": "skills/engineering/to-issues",
+      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "to-prd": {
+      "repo": "https://github.com/mattpocock/skills",
+      "ref": "main",
+      "path": "skills/engineering/to-prd",
+      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
+    "ui-ux-pro-max": {
+      "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "ref": "main",
+      "path": ".claude/skills/ui-ux-pro-max",
+      "sha": "b7e3af80f6e331f6fb456667b82b12cade7c9d35",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    }
+  }
+}

@@ -130,3 +130,9 @@
     description: Install nvm latest node
     command: source $NVM_DIR/nvm.sh && nvm install node && node --version
     stderr: true
+  # Agent skills
+  -
+    description: Install skills
+    command: ~/.dotfiles/commands/skills-cli sync
+    stdout: true
+    stderr: true

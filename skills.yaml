@@ -1,0 +1,38 @@
+# Declarative agent-skill manifest (Brewfile-style).
+#   skills-cli update [--prune]   resolve -> rewrite skills.lock.json -> install
+#   skills-cli sync   [--prune]   install exactly what the lock pins
+#
+# `agents` here is the global default. A repo may override it (replace, not merge).
+# Each skill is an explicit  install-name: path-within-repo  mapping.
+# `ref` is optional (branch or tag); omit for the repo's default branch.
+
+agents:
+  - claude-code
+  - codex
+
+repos:
+  - repo: https://github.com/anthropics/skills
+    ref: main
+    skills:
+      frontend-design: skills/frontend-design
+
+  - repo: https://github.com/mattpocock/skills
+    ref: main
+    skills:
+      grill-me: skills/productivity/grill-me
+      handoff: skills/productivity/handoff
+      grill-with-docs: skills/engineering/grill-with-docs
+      to-prd: skills/engineering/to-prd
+      to-issues: skills/engineering/to-issues
+      tdd: skills/engineering/tdd
+
+  - repo: https://github.com/pbakaus/impeccable
+    ref: main
+    skills:
+      # TODO: Support per agent?
+      impeccable: .claude/skills/impeccable
+
+  - repo: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+    ref: main
+    skills:
+      ui-ux-pro-max: .claude/skills/ui-ux-pro-max
