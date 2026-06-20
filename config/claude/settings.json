@@ -3,6 +3,22 @@
   "companyAnnouncements": [],
   "editorMode": "vim",
   "effortLevel": "high",
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "Bash(git -c:* push:*)",
+      "Bash(git -C:* push:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git revert:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git am:*)",
+      "Bash(git citool:*)",
+      "Bash(git gui:*)"
+    ]
+  },
   "enabledPlugins": {
     "code-review@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
@@ -99,22 +115,6 @@
         ],
         "matcher": "*"
       }
-    ]
-  },
-  "permissions": {
-    "allow": [],
-    "deny": [
-      "Bash(git push)",
-      "Bash(git push:*)",
-      "Bash(git -c:* push:*)",
-      "Bash(git -C:* push:*)",
-      "Bash(git cherry-pick:*)",
-      "Bash(git revert:*)",
-      "Bash(git merge:*)",
-      "Bash(git rebase:*)",
-      "Bash(git am:*)",
-      "Bash(git citool:*)",
-      "Bash(git gui:*)"
     ]
   },
   "statusLine": {
