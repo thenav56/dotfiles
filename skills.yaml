@@ -19,12 +19,19 @@ repos:
   - repo: https://github.com/mattpocock/skills
     ref: main
     skills:
+      # wanted directly
       grill-me: skills/productivity/grill-me
+      grilling: skills/productivity/grilling
       handoff: skills/productivity/handoff
       grill-with-docs: skills/engineering/grill-with-docs
       to-prd: skills/engineering/to-prd
       to-issues: skills/engineering/to-issues
       tdd: skills/engineering/tdd
+      # pulled in as cross-skill deps (required-by listed)
+      domain-modeling: skills/engineering/domain-modeling              # grill-with-docs, triage
+      codebase-design: skills/engineering/codebase-design              # tdd
+      setup-matt-pocock-skills: skills/engineering/setup-matt-pocock-skills  # to-prd, to-issues, triage
+      triage: skills/engineering/triage                                # setup-matt-pocock-skills
 
   - repo: https://github.com/pbakaus/impeccable
     ref: main

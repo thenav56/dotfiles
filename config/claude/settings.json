@@ -4,7 +4,10 @@
   "editorMode": "vim",
   "effortLevel": "high",
   "permissions": {
-    "allow": [],
+    "allow": [
+      "Read(~/.claude/skills/**)",
+      "Read(~/dotfiles/config/claude/skills/**)"
+    ],
     "deny": [
       "Bash(git push)",
       "Bash(git push:*)",
