@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -40,6 +41,14 @@ from rich.tree import Tree
 
 LOCK_VERSION = 1
 SENTINEL = ".skills-cli.json"
+
+# Skill cross-references in a SKILL.md: backtick-wrapped `/slash-command`
+# invocations and [[wiki-link]] mentions. Skill names are lowercase kebab-case
+# (>=2 chars). Requiring backticks around the slash form is the convention
+# these skills use (`/grilling`, `/domain-modeling`) and avoids false-matching
+# bare paths/words like `disabled`/native.
+_SLASH_REF = re.compile(r"`/([a-z][a-z0-9-]+)`")
+_WIKI_REF = re.compile(r"\[\[([a-z][a-z0-9-]+)\]\]")
 
 console = Console()
 err_console = Console(stderr=True)
@@ -247,6 +256,37 @@ def read_sentinel(skill_dir: Path) -> dict | None:
         return None
 
 
+def rewrite_skill_name(skill_md: Path, name: str) -> None:
+    """Set the SKILL.md frontmatter `name:` to the install name.
+
+    Claude Code invokes a skill by its directory (install) name, but the
+    frontmatter `name:` is the label shown in skill listings. When we install a
+    skill under a custom name (the manifest key), rewrite that label so listings
+    match the command. Operates only on the leading `---`…`---` block; inserts a
+    `name:` if one is absent. Idempotent.
+    """
+    text = skill_md.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return
+    parts = text.split("---", 2)  # ["", frontmatter, body]
+    if len(parts) < 3:
+        return
+    fm = parts[1]
+    new_fm, n = re.subn(r"(?m)^name:[^\n]*$", f"name: {name}", fm, count=1)
+    if n == 0:
+        new_fm = f"\nname: {name}{fm}"
+    if new_fm != fm:
+        skill_md.write_text(parts[0] + "---" + new_fm + "---" + parts[2], encoding="utf-8")
+
+
+def named(name: str, entry: dict) -> str:
+    """Display label for a skill: install name, noting the upstream name when
+    it was renamed (install name differs from the repo path's basename)."""
+    orig = Path(entry["path"]).name
+    suffix = f" [bright_yellow](was {orig})[/bright_yellow]" if orig and orig != name else ""
+    return f"[b]{name}[/b]{suffix}"
+
+
 def install_one(name: str, entry: dict, sha: str, src_root: Path) -> None:
     """Copy <repo>/<path> into each agent dir as <name>, writing a sentinel.
 
@@ -267,16 +307,17 @@ def install_one(name: str, entry: dict, sha: str, src_root: Path) -> None:
                    "(hand-authored?). Refusing to overwrite. Remove it manually to proceed.")
             continue
         if existing and existing.get("sha") == sha:
-            ok(f"[b]{name}[/b] → {agent} [dim](up to date)[/dim]")
+            ok(f"{named(name, entry)} → {agent} [dim](up to date)[/dim]")
             continue
         base.mkdir(parents=True, exist_ok=True)
         if target.exists():
             shutil.rmtree(target)
         shutil.copytree(src, target)
+        rewrite_skill_name(target / "SKILL.md", name)
         (target / SENTINEL).write_text(json.dumps(
             {"name": name, "repo": entry["repo"], "ref": entry.get("ref"),
              "sha": sha, "path": entry["path"]}, indent=2) + "\n")
-        ok(f"[b]{name}[/b] → {agent}")
+        ok(f"{named(name, entry)} → {agent}")
 
 
 def prune(desired: set[tuple[str, str]]) -> int:
@@ -295,6 +336,41 @@ def prune(desired: set[tuple[str, str]]) -> int:
                 warn(f"pruned [b]{child.name}[/b] ← {agent}")
                 removed += 1
     return removed
+
+
+def referenced_skills(text: str) -> set[str]:
+    """Extract skill names a SKILL.md refers to (`/slash` and [[wiki]] links)."""
+    names = {m.group(1) for m in _SLASH_REF.finditer(text)}
+    names |= {m.group(1) for m in _WIKI_REF.finditer(text)}
+    return names
+
+
+def lint_references(lock_skills: dict[str, dict]) -> None:
+    """Warn when an installed skill references a skill that isn't installed.
+
+    Skills delegate to siblings (e.g. grill-me → `/grilling`). If the sibling
+    was never declared, the reference dangles and only fails at invocation
+    time. Scan each managed SKILL.md and warn about any referenced skill
+    missing from that agent's skills dir (so it shows up at install, not use).
+    """
+    dirs = agent_dirs()
+    # every skill dir present per agent (managed or hand-authored both count)
+    present = {
+        agent: ({p.name for p in base.iterdir() if p.is_dir()} if base.is_dir() else set())
+        for agent, base in dirs.items()
+    }
+    warned = False
+    for name, e in sorted(lock_skills.items()):
+        for agent in e["agents"]:
+            skill_md = dirs[agent] / name / "SKILL.md"
+            if not skill_md.is_file():
+                continue
+            refs = referenced_skills(skill_md.read_text(errors="replace"))
+            for ref in sorted(refs - present[agent] - {name}):
+                warn(f"[b]{name}[/b] → {agent} references [b]/{ref}[/b], not installed")
+                warned = True
+    if warned:
+        info("add the referenced skill(s) to skills.yaml, then re-run update/sync")
 
 
 def render_plan(skills: dict[str, dict]) -> None:
@@ -346,7 +422,7 @@ async def apply(lock_skills: dict[str, dict], do_prune: bool) -> None:
         for (repo, sha), names in groups.items():
             if (repo, sha) not in pending:
                 for n in names:
-                    ok(f"[b]{n}[/b] [dim](up to date)[/dim]")
+                    ok(f"{named(n, lock_skills[n])} [dim](up to date)[/dim]")
 
         async def handle(repo: str, sha: str, names: list[str], tmp: str) -> None:
             dest = os.path.join(tmp, sha[:12])
@@ -369,6 +445,8 @@ async def apply(lock_skills: dict[str, dict], do_prune: bool) -> None:
         n = prune(desired_pairs(lock_skills))
         if n == 0:
             info("prune: nothing to remove")
+
+    lint_references(lock_skills)
 
 
 # --- command bodies (async) ------------------------------------------------

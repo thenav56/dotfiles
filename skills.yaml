@@ -43,3 +43,8 @@ repos:
     ref: main
     skills:
       ui-ux-pro-max: .claude/skills/ui-ux-pro-max
+
+  - repo: git@github.com:idmc-labs/skills.git
+    ref: main
+    skills:
+      idmc-deploy-to-nlp-vm: skills/deploy-to-nlp-vm

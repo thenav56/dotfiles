@@ -71,11 +71,21 @@
         "codex"
       ]
     },
+    "idmc-deploy-to-nlp-vm": {
+      "repo": "git@github.com:idmc-labs/skills.git",
+      "ref": "main",
+      "path": "skills/deploy-to-nlp-vm",
+      "sha": "725f14993ba4bba525db112006dd79304fd9c4e3",
+      "agents": [
+        "claude-code",
+        "codex"
+      ]
+    },
     "impeccable": {
       "repo": "https://github.com/pbakaus/impeccable",
       "ref": "main",
       "path": ".claude/skills/impeccable",
-      "sha": "609bbfbd5b8d4ac629267c13f06489eca8689cca",
+      "sha": "d2ab4ddee6fa63002fae680652b5fbd31735e280",
       "agents": [
         "claude-code",
         "codex"
@@ -135,7 +145,7 @@
       "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
       "ref": "main",
       "path": ".claude/skills/ui-ux-pro-max",
-      "sha": "53d670cd3050dcbfa19acb0cf0d9e631422f7ca2",
+      "sha": "1518fec29d19ce905cd0c689255137b9dcab7ccc",
       "agents": [
         "claude-code",
         "codex"

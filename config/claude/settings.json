@@ -125,6 +125,6 @@
     "padding": 0,
     "type": "command"
   },
-  "theme": "auto-dual",
+  "theme": "custom:auto-dual",
   "tui": "fullscreen"
 }
