@@ -33,7 +33,7 @@ while IFS= read -r cand; do
 done < <(type -ap claude 2>/dev/null || true)
 
 if [ -z "$real_claude" ]; then
-  echo "claude-custom: error: no 'claude' binary found on PATH" >&2
+  echo "⛔ claude-custom: error: no 'claude' binary found on PATH" >&2
   exit 127
 fi
 exec "$real_claude" "$@"

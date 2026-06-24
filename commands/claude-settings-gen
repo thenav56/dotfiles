@@ -89,12 +89,12 @@ def main() -> int:
 
     # Base is required -- refuse to write garbage if it is missing/invalid.
     if not base_path.exists():
-        print(f"error: required base not found: {base_path}", file=sys.stderr)
+        print(f"⛔ error: required base not found: {base_path}", file=sys.stderr)
         return 1
     try:
         base = json.loads(base_path.read_text())
     except (OSError, ValueError) as exc:
-        print(f"error: cannot read base {base_path}: {exc}", file=sys.stderr)
+        print(f"⛔ error: cannot read base {base_path}: {exc}", file=sys.stderr)
         return 1
 
     # Local is optional. A broken symlink, missing file, or invalid JSON must
@@ -106,7 +106,7 @@ def main() -> int:
         try:
             loaded = json.loads(local_path.read_text())
         except (OSError, ValueError) as exc:
-            print(f"note: ignoring local {local_path}: {exc}", file=sys.stderr)
+            print(f"⚠️ note: ignoring local {local_path}: {exc}", file=sys.stderr)
         else:
             # Only an object can be merged onto the base; report honestly
             # (don't claim "merged" while silently dropping a non-object local).
@@ -114,7 +114,7 @@ def main() -> int:
                 local = loaded
                 note = "merged base + local"
             else:
-                print(f"note: ignoring local {local_path}: top-level value is "
+                print(f"⚠️ note: ignoring local {local_path}: top-level value is "
                       f"{type(loaded).__name__}, expected an object", file=sys.stderr)
 
     result = deep_merge(base, local) if local is not None else base
@@ -134,7 +134,7 @@ def main() -> int:
             pass
         raise
 
-    print(f"{note} -> {out_path}")
+    print(f"✅ {note} -> {out_path}")
     return 0
 
 
