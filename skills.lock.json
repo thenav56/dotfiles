@@ -12,7 +12,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/codebase-design",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -22,7 +22,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/domain-modeling",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -42,7 +42,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/productivity/grill-me",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -52,7 +52,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/grill-with-docs",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -62,7 +62,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/productivity/grilling",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -72,7 +72,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/productivity/handoff",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -92,7 +92,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/setup-matt-pocock-skills",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -102,7 +102,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/tdd",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -112,7 +112,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/to-issues",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -122,7 +122,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/to-prd",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"
@@ -132,7 +132,7 @@
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
       "path": "skills/engineering/triage",
-      "sha": "68af5c848e1f01554a3137ea0291f4875b24850d",
+      "sha": "3252670bd682c8d1b18a45d250c63d9fc17a29db",
       "agents": [
         "claude-code",
         "codex"

@@ -26,9 +26,7 @@
     "code-review@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
-    "toggle@tc": true,
-    "idmc-skills@idmc-labs": true
+    "typescript-lsp@claude-plugins-official": true
   },
   "hooks": {
     "PermissionRequest": [
