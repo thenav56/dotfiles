@@ -40,7 +40,8 @@ zinit light-mode for \
     zdharma-continuum/zinit-annex-as-monitor \
     zdharma-continuum/zinit-annex-bin-gem-node \
     zdharma-continuum/zinit-annex-patch-dl \
-    zdharma-continuum/zinit-annex-rust
+    zdharma-continuum/zinit-annex-rust \
+    zdharma-continuum/history-search-multi-word
 
 # Load pure theme
 # with zsh-async library that's bundled with it.
@@ -66,10 +67,11 @@ zinit \
 # Loaded post-prompt (turbo) to keep the heaviest plugins off the path to first
 # prompt. fast-syntax-highlighting wraps ZLE widgets last, so it's listed last;
 # autosuggestions needs an explicit start hook when deferred.
+# NOTE: history-search-multi-word stays synchronous (above) — it binds ^R, and
+# atuin (loaded later, in the completions block) must win that key.
 zinit wait lucid light-mode for \
     atload"_zsh_autosuggest_start" \
         zsh-users/zsh-autosuggestions \
-    zdharma-continuum/history-search-multi-word \
     zdharma-continuum/fast-syntax-highlighting
 
 # Completion menu styling (consulted lazily at tab-time, so order vs compinit
@@ -164,10 +166,19 @@ function zvm_after_init() {
     # this would bind ctrl + space to accept the current suggestion.
     bindkey '^ ' autosuggest-accept
 
+    # atuin binds ^R itself, but zsh-vi-mode resets the keymaps on init and wipes
+    # it (whenever atuin loaded before zvm) — re-apply it here, after both loaded.
+    (( ${+widgets[atuin-search-viins]} )) && zvm_bindkey viins '^R' atuin-search-viins
+
     # For tsh
     bindkey -s '^f' "_tsh_ssh\n"
 
-    # From tools/fzf-git/fzf-git.sh
+    # Register these as ZLE widgets before binding them — otherwise the keys
+    # point at non-existent widgets (so ^P/^N never worked, and fast-syntax-
+    # highlighting warns "unhandled ZLE widget" once it loads).
+    autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+    zle -N up-line-or-beginning-search
+    zle -N down-line-or-beginning-search
     zvm_bindkey viins "^P" up-line-or-beginning-search
     zvm_bindkey viins "^N" down-line-or-beginning-search
     for o in files branches tags remotes hashes stashes lreflogs each_ref; do
