@@ -40,10 +40,7 @@ zinit light-mode for \
     zdharma-continuum/zinit-annex-as-monitor \
     zdharma-continuum/zinit-annex-bin-gem-node \
     zdharma-continuum/zinit-annex-patch-dl \
-    zdharma-continuum/zinit-annex-rust \
-    zdharma-continuum/fast-syntax-highlighting \
-    zdharma-continuum/history-search-multi-word \
-    zsh-users/zsh-autosuggestions
+    zdharma-continuum/zinit-annex-rust
 
 # Load pure theme
 # with zsh-async library that's bundled with it.
@@ -53,6 +50,10 @@ zinit light sindresorhus/pure
 zinit light-mode for \
     jeffreytse/zsh-vi-mode
 
+# -C: skip compinit's per-file security audit and avoid rebuilding the dump on
+# every shell. Trade-off: after adding a new completion, `rm ~/.zcompdump` once.
+ZINIT[COMPINIT_OPTS]='-C'
+
 zinit \
     atload"zicompinit; zicdreplay" \
     blockf \
@@ -61,6 +62,15 @@ zinit \
     for \
       wait @zsh-users/zsh-completions \
       wait"0" @"$HOME/.dotfiles/config/zinit/completions"
+
+# Loaded post-prompt (turbo) to keep the heaviest plugins off the path to first
+# prompt. fast-syntax-highlighting wraps ZLE widgets last, so it's listed last;
+# autosuggestions needs an explicit start hook when deferred.
+zinit wait lucid light-mode for \
+    atload"_zsh_autosuggest_start" \
+        zsh-users/zsh-autosuggestions \
+    zdharma-continuum/history-search-multi-word \
+    zdharma-continuum/fast-syntax-highlighting
 
 # Completion menu styling (consulted lazily at tab-time, so order vs compinit
 # doesn't matter). compinit runs once via the `zicompinit` atload above; custom

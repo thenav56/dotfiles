@@ -45,14 +45,24 @@ MY_COMMANDS=(
 # captures the compdef call; zicdreplay (atload) registers it after compinit.
 declare -a SOURCE_COMPLETIONS=(tsh tctl)
 
+regenerated=0
 for command completion_command in "${(@kv)MY_COMMANDS}"; do
   type "$command" > /dev/null || continue
   cache="${BASE_PATH}_${command}"
-  [ -f "$cache" ] || eval "${completion_command}" > "$cache"
+  if [ ! -f "$cache" ]; then
+    eval "${completion_command}" > "$cache"
+    regenerated=1
+  fi
   if (( ${SOURCE_COMPLETIONS[(Ie)$command]} )); then
     source "$cache"
   fi
 done
+
+# A new completion was generated. compinit runs with -C (trusts its cached dump,
+# see zshrc), so it won't notice the new file — drop the dump and let the
+# following zicompinit rebuild it. Also clears the stray ~/.zcompdump.<host>.<pid>
+# temp files that accumulate.
+(( regenerated )) && rm -f ${ZINIT[ZCOMPDUMP_PATH]:-${ZDOTDIR:-$HOME}/.zcompdump}*(N)
 
 # Try to load FZF
 [ -s "$FZF_KEY_BINDINGS" ] && source "$FZF_KEY_BINDINGS"
