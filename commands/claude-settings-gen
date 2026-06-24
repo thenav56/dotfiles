@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """claude-settings-gen - generate Claude Code settings.json from layered sources.
 
 Claude Code reads a single `settings.json`. We treat that file as GENERATED
