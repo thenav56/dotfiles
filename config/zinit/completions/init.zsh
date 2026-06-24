@@ -35,11 +35,22 @@ MY_COMMANDS=(
   ["bun"]='source "/home/navin/.bun/_bun"'
   ["task"]='task --completion zsh'
   ["tenv"]='tenv completion zsh'
+  # typer CLIs (custom tools) — replaces the hand-maintained ~/.zfunc stubs
+  ["gh_monitor"]='gh_monitor --show-completion'
+  ["togglectl"]='togglectl --show-completion'
 )
 
+# Teleport's tsh/tctl emit completion *scripts* whose leading `#compdef` is empty,
+# so compinit can't autoload them — they must be sourced. zinit's compdef shim
+# captures the compdef call; zicdreplay (atload) registers it after compinit.
+declare -a SOURCE_COMPLETIONS=(tsh tctl)
+
 for command completion_command in "${(@kv)MY_COMMANDS}"; do
-  if type "$command" > /dev/null && [ ! -f "${BASE_PATH}_${command}" ]; then
-    eval "${completion_command}" > "${BASE_PATH}_${command}"
+  type "$command" > /dev/null || continue
+  cache="${BASE_PATH}_${command}"
+  [ -f "$cache" ] || eval "${completion_command}" > "$cache"
+  if (( ${SOURCE_COMPLETIONS[(Ie)$command]} )); then
+    source "$cache"
   fi
 done
 

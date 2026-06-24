@@ -62,6 +62,11 @@ zinit \
       wait @zsh-users/zsh-completions \
       wait"0" @"$HOME/.dotfiles/config/zinit/completions"
 
+# Completion menu styling (consulted lazily at tab-time, so order vs compinit
+# doesn't matter). compinit runs once via the `zicompinit` atload above; custom
+# completions are generated/sourced in config/zinit/completions/init.zsh.
+zstyle ':completion:*' menu select
+
 zinit pack light-mode for ls_colors
 
 export NVM_COMPLETION=true
