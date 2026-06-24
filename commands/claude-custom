@@ -18,9 +18,22 @@ script_dir="$(cd -P "$(dirname "$source")" && pwd)"
 
 # Regenerate settings.json. Never block launch on a generation error.
 if ! "$script_dir/claude-settings-gen"; then
-  echo "claude-custom: warning: settings generation failed; launching anyway" >&2
+  echo "⛔ claude-custom: warning: settings generation failed; launching anyway" >&2
 fi
 
-# `command claude` resolves the real binary on PATH (the claude() shell
-# function is not defined in this non-interactive script, so no recursion).
-exec command claude "$@"
+# Launch the real claude binary. (`exec command claude` does NOT work: exec
+# needs an external program, but `command` is a shell builtin.) Enumerate the
+# claude binaries on PATH and pick the first that isn't this wrapper, so it
+# keeps working even if the wrapper is ever placed on PATH as `claude`.
+real_claude=""
+while IFS= read -r cand; do
+  [ "$cand" = "$source" ] && continue
+  real_claude="$cand"
+  break
+done < <(type -ap claude 2>/dev/null || true)
+
+if [ -z "$real_claude" ]; then
+  echo "claude-custom: error: no 'claude' binary found on PATH" >&2
+  exit 127
+fi
+exec "$real_claude" "$@"
