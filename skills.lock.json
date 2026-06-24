@@ -1,6 +1,13 @@
 {
   "version": 1,
   "skills": {
+    "claude-config": {
+      "path": "config/claude-skills/claude-config",
+      "agents": [
+        "claude-code"
+      ],
+      "local": true
+    },
     "codebase-design": {
       "repo": "https://github.com/mattpocock/skills",
       "ref": "main",
@@ -71,16 +78,6 @@
         "codex"
       ]
     },
-    "idmc-deploy-to-nlp-vm": {
-      "repo": "git@github.com:idmc-labs/skills.git",
-      "ref": "main",
-      "path": "skills/deploy-to-nlp-vm",
-      "sha": "725f14993ba4bba525db112006dd79304fd9c4e3",
-      "agents": [
-        "claude-code",
-        "codex"
-      ]
-    },
     "impeccable": {
       "repo": "https://github.com/pbakaus/impeccable",
       "ref": "main",
@@ -145,7 +142,7 @@
       "repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
       "ref": "main",
       "path": ".claude/skills/ui-ux-pro-max",
-      "sha": "1518fec29d19ce905cd0c689255137b9dcab7ccc",
+      "sha": "a13b2a02fd58d8ad325fefd9d146f62708be8456",
       "agents": [
         "claude-code",
         "codex"

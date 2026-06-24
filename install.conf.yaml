@@ -130,6 +130,12 @@
     description: Install nvm latest node
     command: source $NVM_DIR/nvm.sh && nvm install node && node --version
     stderr: true
+  # Claude Code layered settings
+  -
+    description: Generate Claude Code settings.json
+    command: ~/.dotfiles/commands/claude-settings-gen
+    stdout: true
+    stderr: true
   # Agent skills
   -
     description: Install skills

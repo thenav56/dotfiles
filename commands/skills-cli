@@ -9,6 +9,10 @@ A personal, Brewfile-style tool. You declare which skills (from which repos,
 for which agents) you want in `skills.yaml`; the tool clones at a pinned commit
 and copies them into each agent's global skills dir.
 
+Skills authored inside this repo can be declared under a `local:` block — they
+are discovered by scanning for SKILL.md and installed by SYMLINK (not copy), so
+editing the source updates the live skill instantly.
+
   skills-cli update [--prune]   resolve manifest -> rewrite lock -> install
   skills-cli sync   [--prune]   install exactly what the lock pins (reproducible)
 
@@ -71,6 +75,13 @@ def agent_dirs() -> dict[str, Path]:
         "claude-code": claude_home / "skills",
         "codex": codex_home / "skills",
     }
+
+
+# Root of the dotfiles repo (set by @app.callback; falls back to the same
+# default for code paths that run without the callback, e.g. tests).
+def dotfiles_dir() -> Path:
+    return STATE.get("dotfiles") or Path(
+        os.environ.get("DOTFILES_DIR", Path.home() / "dotfiles"))
 
 
 # --- output ----------------------------------------------------------------
@@ -222,6 +233,60 @@ def build_desired(manifest: dict) -> dict[str, dict]:
     return desired
 
 
+def build_local(manifest: dict, desired: dict[str, dict]) -> dict[str, dict]:
+    """Discover in-repo skills under `local.dir` and flatten to lock entries.
+
+    Local skills are authored inside the dotfiles repo and installed by symlink
+    (not copy), so editing the source updates the live skill instantly. Each
+    immediate subdir of `local.dir` that contains a SKILL.md becomes one skill;
+    the directory name is the install name. Returns {name: {path, agents, local}}
+    where `path` is relative to DOTFILES_DIR (no repo/ref/sha). A discovered name
+    that collides with a git-sourced skill (in `desired`) is a hard error.
+    """
+    local = manifest.get("local")
+    if not local:
+        return {}
+    if not isinstance(local, dict):
+        record("'local:' must be a mapping with a 'dir:' key")
+        return {}
+    rel = local.get("dir")
+    if not rel or not isinstance(rel, str):
+        record("'local:' needs a string 'dir:' (path relative to DOTFILES_DIR)")
+        return {}
+
+    known = set(agent_dirs())
+    default_agents = manifest.get("agents") or []
+    agents = local.get("agents") if local.get("agents") is not None else default_agents
+    if not agents:
+        record("no agents for local skills (set top-level 'agents:' or 'local.agents:')")
+        return {}
+    bad = [a for a in agents if a not in known]
+    if bad:
+        record(f"unknown agent(s) {bad} for local skills; known: {sorted(known)}")
+        return {}
+
+    root = dotfiles_dir() / rel
+    if not root.is_dir():
+        record(f"local.dir not found: {root}")
+        return {}
+
+    local_skills: dict[str, dict] = {}
+    for child in sorted(p for p in root.iterdir() if p.is_dir()):
+        if not (child / "SKILL.md").is_file():
+            continue  # not a skill dir — skip silently
+        name = child.name
+        if name in desired:
+            record(f"duplicate skill name {name!r} (from local dir {rel} and "
+                   f"{desired[name]['repo']}); install names must be globally unique")
+            continue
+        local_skills[name] = {
+            "path": (Path(rel) / name).as_posix(),
+            "agents": list(agents),
+            "local": True,
+        }
+    return local_skills
+
+
 def load_lock(path: Path) -> dict:
     if not path.exists():
         return {"version": LOCK_VERSION, "skills": {}}
@@ -320,19 +385,102 @@ def install_one(name: str, entry: dict, sha: str, src_root: Path) -> None:
         ok(f"{named(name, entry)} → {agent}")
 
 
+def read_skill_name(skill_md: Path) -> str | None:
+    """Read the frontmatter `name:` from a SKILL.md (read-only counterpart to
+    rewrite_skill_name). Returns None if absent or no frontmatter."""
+    try:
+        text = skill_md.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.startswith("---"):
+        return None
+    parts = text.split("---", 2)  # ["", frontmatter, body]
+    if len(parts) < 3:
+        return None
+    m = re.search(r"(?m)^name:[^\n]*$", parts[1])
+    if not m:
+        return None
+    return m.group(0).split(":", 1)[1].strip()
+
+
+def link_one(name: str, entry: dict) -> None:
+    """Symlink an in-repo skill into each agent dir as <name>.
+
+    The link points to the absolute source (DOTFILES_DIR / entry['path']) so
+    editing the source updates the live skill. The symlink itself is the
+    managed-marker — no sentinel is written (it would pollute the git-tracked
+    source). Refuses to clobber a hand-authored dir; replaces stale links and
+    previously copy-installed (sentinel) dirs.
+    """
+    src = (dotfiles_dir() / entry["path"]).resolve()
+    if not (src / "SKILL.md").is_file():
+        record(f"{name}: {entry['path']}/SKILL.md not found (local source)")
+        return
+
+    dirs = agent_dirs()
+    for agent in entry["agents"]:
+        base = dirs[agent]
+        target = base / name
+        if target.is_symlink():
+            if target.resolve() == src:
+                ok(f"{named(name, entry)} → {agent} [dim](up to date)[/dim]")
+                continue
+            target.unlink()  # stale link to another source — replace
+        elif target.exists():
+            # A real dir: ours only if it carries a sentinel (copy-installed).
+            if read_sentinel(target) is None:
+                record(f"{name}: {target} exists but is not managed by skills-cli "
+                       "(hand-authored?). Refusing to overwrite. Remove it manually to proceed.")
+                continue
+            shutil.rmtree(target)
+        base.mkdir(parents=True, exist_ok=True)
+        target.symlink_to(src, target_is_directory=True)
+        # Read-only name check: don't rewrite the git-tracked source.
+        fm_name = read_skill_name(target / "SKILL.md")
+        if fm_name and fm_name != name:
+            warn(f"{name}: SKILL.md frontmatter name {fm_name!r} differs from dir name; "
+                 "fix the source")
+        ok(f"{named(name, entry)} → {agent} [dim](linked)[/dim]")
+
+
+def is_managed_link(child: Path) -> bool:
+    """True if `child` is a symlink resolving into the configured local.dir
+    (i.e. one of our local-skill installs)."""
+    if not child.is_symlink():
+        return False
+    local = load_manifest(STATE["manifest"]).get("local") if STATE.get("manifest") else None
+    rel = (local or {}).get("dir") if isinstance(local, dict) else None
+    if not rel:
+        return False
+    root = (dotfiles_dir() / rel).resolve()
+    try:
+        real = child.resolve()
+    except OSError:
+        return False
+    return root == real or root in real.parents
+
+
 def prune(desired: set[tuple[str, str]]) -> int:
-    """Remove managed (sentinel) skill dirs whose (name, agent) isn't desired."""
+    """Remove managed skill dirs/links whose (name, agent) isn't desired.
+
+    Managed = a sentinel dir (copy-installed) or a symlink resolving into the
+    local.dir (link-installed). Symlinks pointing elsewhere are never ours.
+    """
     removed = 0
     for agent, base in agent_dirs().items():
         if not base.is_dir():
             continue
         for child in sorted(base.iterdir()):
-            if not child.is_dir():
+            managed_link = is_managed_link(child)
+            if not child.is_dir() and not managed_link:
                 continue
-            if read_sentinel(child) is None:
+            if not managed_link and read_sentinel(child) is None:
                 continue  # not ours — never touch
             if (child.name, agent) not in desired:
-                shutil.rmtree(child)
+                if managed_link:
+                    child.unlink()
+                else:
+                    shutil.rmtree(child)
                 warn(f"pruned [b]{child.name}[/b] ← {agent}")
                 removed += 1
     return removed
@@ -374,12 +522,20 @@ def lint_references(lock_skills: dict[str, dict]) -> None:
 
 
 def render_plan(skills: dict[str, dict]) -> None:
-    """Print skills grouped by repo → ref@commit → skill (path, agents)."""
+    """Print skills grouped by repo → ref@commit → skill (path, agents).
+
+    Local (in-repo, symlinked) skills have no repo; they render under a separate
+    "(local)" group listing name → agents and the in-repo source path.
+    """
     if not skills:
         return
     # repo -> (ref, sha) -> [(name, entry)]
     by_repo: dict[str, dict[tuple[str | None, str | None], list[tuple[str, dict]]]] = {}
+    local_items: list[tuple[str, dict]] = []
     for name, e in skills.items():
+        if e.get("local"):
+            local_items.append((name, e))
+            continue
         (by_repo.setdefault(e["repo"], {})
          .setdefault((e.get("ref"), e.get("sha")), []).append((name, e)))
 
@@ -395,6 +551,12 @@ def render_plan(skills: dict[str, dict]) -> None:
                 ref_node.add(
                     f"[b]{name}[/b]  [dim]{e['path']}[/dim]  "
                     f"→ {', '.join(e['agents'])}")
+    if local_items:
+        local_node = tree.add("[u](local: symlinked from repo)[/u]")
+        for name, e in sorted(local_items):
+            local_node.add(
+                f"[b]{name}[/b]  [dim]{e['path']}[/dim]  "
+                f"→ {', '.join(e['agents'])}")
     console.print(tree)
 
 
@@ -403,12 +565,18 @@ async def apply(lock_skills: dict[str, dict], do_prune: bool) -> None:
     if not lock_skills:
         warn("lock has no skills; nothing to install")
     else:
-        # Group by (repo, sha) so each unique commit is cloned at most once.
+        dirs = agent_dirs()
+
+        # Local (symlinked) skills install directly — no clone, no tempdir.
+        for name in sorted(n for n, e in lock_skills.items() if e.get("local")):
+            link_one(name, lock_skills[name])
+
+        # Group git skills by (repo, sha) so each unique commit is cloned once.
         groups: dict[tuple[str, str], list[str]] = {}
         for name, e in lock_skills.items():
+            if e.get("local"):
+                continue
             groups.setdefault((e["repo"], e["sha"]), []).append(name)
-
-        dirs = agent_dirs()
 
         def group_done(names: list[str]) -> bool:
             for n in names:
@@ -459,8 +627,10 @@ async def resolve_lock(manifest_path: Path, lock_path: Path) -> dict[str, dict]:
     reset_errors()
     manifest = load_manifest(manifest_path)
     desired = build_desired(manifest)
+    # Discover in-repo (symlinked) skills; collisions with git skills are errors.
+    local_skills = build_local(manifest, desired)
     flush("manifest")  # report all validation problems together
-    if not desired:
+    if not desired and not local_skills:
         warn("manifest declares no skills")
 
     step(f"resolving {len(desired)} skill(s)")
@@ -487,6 +657,7 @@ async def resolve_lock(manifest_path: Path, lock_path: Path) -> dict[str, dict]:
             "repo": e["repo"], "ref": e["ref"], "path": e["path"],
             "sha": sha, "agents": e["agents"],
         }
+    lock_skills.update(local_skills)  # additive; round-trips with git entries
     render_plan(lock_skills)
     write_lock(lock_path, lock_skills)
     ok(f"wrote [u]{lock_path}[/u]")
@@ -515,6 +686,8 @@ async def _sync(lock_path: Path, do_prune: bool) -> None:
     # upstream — i.e. a branch moved or a tag was force-pushed since `update`.
     uniq: dict[tuple[str, str | None], str] = {}
     for e in lock_skills.values():
+        if e.get("local"):
+            continue  # local skills have no upstream ref to drift
         uniq[(e["repo"], e.get("ref"))] = e["sha"]
     keys = list(uniq)
     if keys:
@@ -529,7 +702,11 @@ async def _sync(lock_path: Path, do_prune: bool) -> None:
 
 
 def _sig(e: dict) -> tuple:
-    """Structural identity of a skill, ignoring the resolved SHA."""
+    """Structural identity of a skill, ignoring the resolved SHA.
+
+    Local (symlinked) skills have no repo/ref — keyed on their in-repo path."""
+    if e.get("local"):
+        return ("local", None, e["path"], tuple(sorted(e["agents"])))
     return (e["repo"], e.get("ref"), e["path"], tuple(sorted(e["agents"])))
 
 
@@ -539,7 +716,9 @@ def report_manifest_lock(manifest_path: Path, lock_skills: dict[str, dict]) -> N
         warn(f"no manifest at {manifest_path}")
         return
     reset_errors()
-    desired = build_desired(load_manifest(manifest_path))
+    manifest = load_manifest(manifest_path)
+    desired = build_desired(manifest)
+    desired.update(build_local(manifest, desired))  # include in-repo skills
     if _ERRORS:  # broken manifest — note it but don't abort a read-only status
         warn(f"manifest has {len(_ERRORS)} error(s); skipping manifest↔lock check "
              "(run `lock` to see them)")
@@ -570,16 +749,17 @@ async def _status(manifest_path: Path, lock_path: Path) -> None:
     report_manifest_lock(manifest_path, lock_skills)
     console.print()
 
-    # desired (name, agent) -> locked sha
-    want: dict[tuple[str, str], str] = {}
+    # desired (name, agent) -> locked entry (carries sha for git, marks local)
+    want: dict[tuple[str, str], dict] = {}
     for name, e in lock_skills.items():
         for agent in e["agents"]:
-            want[(name, agent)] = e["sha"]
+            want[(name, agent)] = e
 
     if not lock_path.exists():
         warn(f"no lock at {lock_path} — everything on disk shows as untracked")
 
-    counts = {"tracked": 0, "drifted": 0, "orphaned": 0, "untracked": 0, "missing": 0}
+    counts = {"tracked": 0, "linked": 0, "drifted": 0, "orphaned": 0,
+              "untracked": 0, "missing": 0}
     tree = Tree("[bold]skill status[/bold]")
     seen: set[tuple[str, str]] = set()
 
@@ -587,33 +767,54 @@ async def _status(manifest_path: Path, lock_path: Path) -> None:
         node = tree.add(f"[u]{agent}[/u]  [dim]{base}[/dim]")
         rows: list[tuple[str, str]] = []
         if base.is_dir():
-            for child in sorted(p for p in base.iterdir() if p.is_dir()):
+            for child in sorted(p for p in base.iterdir() if p.is_dir() or is_managed_link(p)):
                 key = (child.name, agent)
+                want_e = want.get(key)
+                # Local (symlinked) installs: ours iff the link resolves into local.dir.
+                if is_managed_link(child):
+                    seen.add(key)
+                    src = child.resolve()
+                    if want_e is not None and want_e.get("local"):
+                        counts["linked"] += 1
+                        rows.append((child.name,
+                                     f"[green]linked[/green] [dim]→ {src}[/dim]"))
+                    else:
+                        counts["orphaned"] += 1
+                        rows.append((child.name,
+                                     "[yellow]orphaned[/yellow] [dim](managed link, not in lock — "
+                                     "`--prune` removes)[/dim]"))
+                    continue
                 sent = read_sentinel(child)
                 if sent is None:
                     counts["untracked"] += 1
                     rows.append((child.name, "[blue]untracked[/blue] [dim](hand-authored)[/dim]"))
                     continue
                 seen.add(key)
-                locked = want.get(key)
-                if locked is None:
+                if want_e is None:
                     counts["orphaned"] += 1
                     rows.append((child.name,
                                  "[yellow]orphaned[/yellow] [dim](managed, not in lock — "
                                  "`--prune` removes)[/dim]"))
-                elif sent.get("sha") != locked:
+                elif want_e.get("local"):
+                    # lock wants a symlink here, but a copy-installed dir is present
+                    counts["drifted"] += 1
+                    rows.append((child.name,
+                                 "[yellow]drifted[/yellow] [dim](copied, should be linked — "
+                                 "run `sync`)[/dim]"))
+                elif sent.get("sha") != want_e["sha"]:
                     counts["drifted"] += 1
                     rows.append((child.name,
                                  f"[yellow]drifted[/yellow] [dim]{str(sent.get('sha'))[:8]} → "
-                                 f"{locked[:8]} (run `sync`)[/dim]"))
+                                 f"{want_e['sha'][:8]} (run `sync`)[/dim]"))
                 else:
                     counts["tracked"] += 1
-                    rows.append((child.name, f"[green]tracked[/green] [dim]{locked[:8]}[/dim]"))
+                    rows.append((child.name, f"[green]tracked[/green] [dim]{want_e['sha'][:8]}[/dim]"))
         # skills the lock wants on this agent but aren't on disk
-        for (name, ag), sha in want.items():
+        for (name, ag), e in want.items():
             if ag == agent and (name, ag) not in seen:
                 counts["missing"] += 1
-                rows.append((name, f"[red]missing[/red] [dim]{sha[:8]} (run `sync`)[/dim]"))
+                detail = "(linked)" if e.get("local") else f"{e['sha'][:8]}"
+                rows.append((name, f"[red]missing[/red] [dim]{detail} (run `sync`)[/dim]"))
         if rows:
             for name, status in sorted(rows):
                 node.add(f"[b]{name}[/b]  {status}")
@@ -621,8 +822,8 @@ async def _status(manifest_path: Path, lock_path: Path) -> None:
             node.add("[dim](none)[/dim]")
 
     console.print(tree)
-    colors = {"tracked": "green", "drifted": "yellow", "orphaned": "yellow",
-              "untracked": "blue", "missing": "red"}
+    colors = {"tracked": "green", "linked": "green", "drifted": "yellow",
+              "orphaned": "yellow", "untracked": "blue", "missing": "red"}
     summary = "  ".join(f"[{colors[k]}]{v} {k}[/]" for k, v in counts.items() if v)
     console.print(f"\n{summary or '[dim]nothing found[/dim]'}")
 
@@ -648,6 +849,7 @@ def main(
 ) -> None:
     """Declarative sync of agent skills from git repos."""
     dot = Path(os.environ.get("DOTFILES_DIR", Path.home() / "dotfiles"))
+    STATE["dotfiles"] = dot
     STATE["manifest"] = manifest or dot / "skills.yaml"
     STATE["lock"] = lock or dot / "skills.lock.json"
 

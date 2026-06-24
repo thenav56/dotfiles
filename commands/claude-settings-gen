@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""claude-settings-gen - generate Claude Code settings.json from layered sources.
+
+Claude Code reads a single `settings.json`. We treat that file as GENERATED
+output, merged from two layers:
+
+  settings.base.json   git-tracked, shared base (REQUIRED source)
+  settings.local.json  private, machine-local override (OPTIONAL; gitignored,
+                       usually a symlink into an encrypted store that may be
+                       absent at launch)
+
+The merged result is written atomically to `settings.json`. Never hand-edit
+`settings.json` -- it gets overwritten on every run.
+
+Config dir resolution matches skills-cli: $CLAUDE_CONFIG_DIR or ~/.claude.
+
+Merge semantics (local wins):
+  * dicts   -> recursively deep-merged.
+  * arrays  -> REPLACED by default. Special form: a local value of
+               {"__append": [...]} on a key whose base value is a list appends
+               those items to the base list instead of replacing it.
+  * scalars -> local replaces base.
+Because CC's `hooks` is {EventName: [...]}, a local per-event array fully
+replaces the base one (arrays replace).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+BASE_NAME = "settings.base.json"
+LOCAL_NAME = "settings.local.json"
+OUT_NAME = "settings.json"
+
+
+def config_dir() -> Path:
+    """Resolve the Claude config dir (same convention as skills-cli)."""
+    env = os.environ.get("CLAUDE_CONFIG_DIR")
+    return Path(env).expanduser() if env else Path.home() / ".claude"
+
+
+def deep_merge(base, local):
+    """Merge `local` onto `base`, local wins. See module docstring for rules."""
+    # Both dicts -> recurse key by key.
+    if isinstance(base, dict) and isinstance(local, dict):
+        merged = dict(base)
+        for key, lval in local.items():
+            if key in merged:
+                merged[key] = deep_merge(merged[key], lval)
+            else:
+                merged[key] = lval
+        return merged
+
+    # Append form: base is a list and local is {"__append": [...]}.
+    if (
+        isinstance(base, list)
+        and isinstance(local, dict)
+        and set(local.keys()) == {"__append"}
+        and isinstance(local["__append"], list)
+    ):
+        return base + local["__append"]
+
+    # Everything else (arrays without __append, scalars, type mismatch): local wins.
+    return local
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="claude-settings-gen",
+        description=(
+            "Generate Claude Code settings.json by merging settings.base.json "
+            "(required) with settings.local.json (optional, local wins)."
+        ),
+    )
+    parser.parse_args()
+
+    cfg = config_dir()
+    base_path = cfg / BASE_NAME
+    local_path = cfg / LOCAL_NAME
+    out_path = cfg / OUT_NAME
+
+    # Base is required -- refuse to write garbage if it is missing/invalid.
+    if not base_path.exists():
+        print(f"error: required base not found: {base_path}", file=sys.stderr)
+        return 1
+    try:
+        base = json.loads(base_path.read_text())
+    except (OSError, ValueError) as exc:
+        print(f"error: cannot read base {base_path}: {exc}", file=sys.stderr)
+        return 1
+
+    # Local is optional. A broken symlink, missing file, or invalid JSON must
+    # NOT crash -- the encrypted mount may simply be absent at launch.
+    local = None
+    note = "base only"
+    try:
+        # exists() follows symlinks, so a broken symlink reads as missing here.
+        if local_path.exists():
+            local = json.loads(local_path.read_text())
+            note = "merged base + local"
+    except (OSError, ValueError) as exc:
+        print(f"note: ignoring local {local_path}: {exc}", file=sys.stderr)
+        local = None
+
+    result = deep_merge(base, local) if isinstance(local, dict) else base
+
+    # Atomic write: temp file in the same dir, then os.replace.
+    text = json.dumps(result, indent=2) + "\n"
+    fd, tmp = tempfile.mkstemp(dir=str(cfg), prefix=".settings.", suffix=".json")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(text)
+        os.replace(tmp, out_path)
+    except BaseException:
+        # Best-effort cleanup of the temp file on any failure.
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+    print(f"{note} -> {out_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

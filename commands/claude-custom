@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# claude-custom - regenerate Claude Code settings, then launch the real claude.
+#
+# settings.json is a generated file (see commands/claude-settings-gen). This
+# wrapper regenerates it from settings.base.json + settings.local.json, then
+# launches the real claude binary. Aliased as `claude` in config/zshrc.
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Regenerate settings.json. Never block launch on a generation error.
+if ! "$script_dir/claude-settings-gen"; then
+  echo "claude-custom: warning: settings generation failed; launching anyway" >&2
+fi
+
+# `command claude` resolves the real binary on PATH (the claude() shell
+# function is not defined in this non-interactive script, so no recursion).
+exec command claude "$@"

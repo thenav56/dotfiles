@@ -161,6 +161,9 @@ function zvm_after_init() {
     done
 }
 
+# Claude code: regenerate layered settings.json, then launch (see commands/claude-custom)
+alias claude="$HOME/.dotfiles/commands/claude-custom"
+
 function custom_cat {
     # Get active theme
     BAT_ACTIVE_THEME=$(command cat $BAT_THEME_VALUE_FILE)

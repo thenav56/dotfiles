@@ -10,6 +10,13 @@ agents:
   - claude-code
   - codex
 
+# Skills authored inside this repo. Installed by symlink (not copy) so editing
+# the source updates the live skill instantly. Discovered by scanning `dir` for
+# immediate subdirs containing a SKILL.md (the dir name is the install name).
+local:
+  dir: config/claude-skills
+  agents: [claude-code]
+
 repos:
   - repo: https://github.com/anthropics/skills
     ref: main
@@ -43,8 +50,3 @@ repos:
     ref: main
     skills:
       ui-ux-pro-max: .claude/skills/ui-ux-pro-max
-
-  - repo: git@github.com:idmc-labs/skills.git
-    ref: main
-    skills:
-      idmc-deploy-to-nlp-vm: skills/deploy-to-nlp-vm
