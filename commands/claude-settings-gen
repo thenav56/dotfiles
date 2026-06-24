@@ -97,16 +97,23 @@ def main() -> int:
     # NOT crash -- the encrypted mount may simply be absent at launch.
     local = None
     note = "base only"
-    try:
-        # exists() follows symlinks, so a broken symlink reads as missing here.
-        if local_path.exists():
-            local = json.loads(local_path.read_text())
-            note = "merged base + local"
-    except (OSError, ValueError) as exc:
-        print(f"note: ignoring local {local_path}: {exc}", file=sys.stderr)
-        local = None
+    # exists() follows symlinks, so a broken symlink reads as missing here.
+    if local_path.exists():
+        try:
+            loaded = json.loads(local_path.read_text())
+        except (OSError, ValueError) as exc:
+            print(f"note: ignoring local {local_path}: {exc}", file=sys.stderr)
+        else:
+            # Only an object can be merged onto the base; report honestly
+            # (don't claim "merged" while silently dropping a non-object local).
+            if isinstance(loaded, dict):
+                local = loaded
+                note = "merged base + local"
+            else:
+                print(f"note: ignoring local {local_path}: top-level value is "
+                      f"{type(loaded).__name__}, expected an object", file=sys.stderr)
 
-    result = deep_merge(base, local) if isinstance(local, dict) else base
+    result = deep_merge(base, local) if local is not None else base
 
     # Atomic write: temp file in the same dir, then os.replace.
     text = json.dumps(result, indent=2) + "\n"

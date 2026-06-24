@@ -444,20 +444,24 @@ def link_one(name: str, entry: dict) -> None:
 
 
 def is_managed_link(child: Path) -> bool:
-    """True if `child` is a symlink resolving into the configured local.dir
-    (i.e. one of our local-skill installs)."""
+    """True if `child` is a symlink resolving inside the dotfiles repo — one of
+    our local-skill installs.
+
+    Keyed on DOTFILES_DIR (always known), NOT the manifest: link_one only points
+    a skills-dir entry at a path inside the repo, so a skills-dir symlink into
+    the repo is necessarily ours. This keeps sync/status/prune working from the
+    lock alone (no manifest required, no per-child YAML parse) and still
+    recognizes an orphaned link after its `local:` entry is removed, so
+    `--prune` can clean it up. resolve() of a dangling link still lands inside
+    the repo, so a broken link is detected here too (and flagged in `status`)."""
     if not child.is_symlink():
         return False
-    local = load_manifest(STATE["manifest"]).get("local") if STATE.get("manifest") else None
-    rel = (local or {}).get("dir") if isinstance(local, dict) else None
-    if not rel:
-        return False
-    root = (dotfiles_dir() / rel).resolve()
+    root = dotfiles_dir().resolve()
     try:
         real = child.resolve()
     except OSError:
         return False
-    return root == real or root in real.parents
+    return root in real.parents
 
 
 def prune(desired: set[tuple[str, str]]) -> int:
@@ -758,8 +762,8 @@ async def _status(manifest_path: Path, lock_path: Path) -> None:
     if not lock_path.exists():
         warn(f"no lock at {lock_path} — everything on disk shows as untracked")
 
-    counts = {"tracked": 0, "linked": 0, "drifted": 0, "orphaned": 0,
-              "untracked": 0, "missing": 0}
+    counts = {"tracked": 0, "linked": 0, "broken": 0, "drifted": 0,
+              "orphaned": 0, "untracked": 0, "missing": 0}
     tree = Tree("[bold]skill status[/bold]")
     seen: set[tuple[str, str]] = set()
 
@@ -770,14 +774,18 @@ async def _status(manifest_path: Path, lock_path: Path) -> None:
             for child in sorted(p for p in base.iterdir() if p.is_dir() or is_managed_link(p)):
                 key = (child.name, agent)
                 want_e = want.get(key)
-                # Local (symlinked) installs: ours iff the link resolves into local.dir.
+                # Local (symlinked) installs: ours iff the link resolves into the repo.
                 if is_managed_link(child):
                     seen.add(key)
-                    src = child.resolve()
-                    if want_e is not None and want_e.get("local"):
+                    if not child.exists():  # dangling link — source dir removed/moved
+                        counts["broken"] += 1
+                        rows.append((child.name,
+                                     f"[red]broken[/red] [dim]→ {os.readlink(child)} "
+                                     "(source missing)[/dim]"))
+                    elif want_e is not None and want_e.get("local"):
                         counts["linked"] += 1
                         rows.append((child.name,
-                                     f"[green]linked[/green] [dim]→ {src}[/dim]"))
+                                     f"[green]linked[/green] [dim]→ {child.resolve()}[/dim]"))
                     else:
                         counts["orphaned"] += 1
                         rows.append((child.name,
@@ -822,8 +830,9 @@ async def _status(manifest_path: Path, lock_path: Path) -> None:
             node.add("[dim](none)[/dim]")
 
     console.print(tree)
-    colors = {"tracked": "green", "linked": "green", "drifted": "yellow",
-              "orphaned": "yellow", "untracked": "blue", "missing": "red"}
+    colors = {"tracked": "green", "linked": "green", "broken": "red",
+              "drifted": "yellow", "orphaned": "yellow", "untracked": "blue",
+              "missing": "red"}
     summary = "  ".join(f"[{colors[k]}]{v} {k}[/]" for k, v in counts.items() if v)
     console.print(f"\n{summary or '[dim]nothing found[/dim]'}")
 

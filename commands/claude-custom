@@ -6,7 +6,15 @@
 # launches the real claude binary. Aliased as `claude` in config/zshrc.
 set -euo pipefail
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve our own path through any symlinks so the sibling generator is found
+# even when this script is invoked via a symlink on PATH.
+source="${BASH_SOURCE[0]}"
+while [ -L "$source" ]; do
+  dir="$(cd -P "$(dirname "$source")" && pwd)"
+  source="$(readlink "$source")"
+  [[ $source != /* ]] && source="$dir/$source"
+done
+script_dir="$(cd -P "$(dirname "$source")" && pwd)"
 
 # Regenerate settings.json. Never block launch on a generation error.
 if ! "$script_dir/claude-settings-gen"; then
