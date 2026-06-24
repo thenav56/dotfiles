@@ -13,5 +13,5 @@ show_agent_labels_on_pane_borders = true
 [keys]
 previous_agent = "prefix+,"
 next_agent = "prefix+."
-previous_workspace = "prefix+shift+,"
-next_workspace = "prefix+shift+."
+previous_workspace = "prefix+<"
+next_workspace = "prefix+>"
