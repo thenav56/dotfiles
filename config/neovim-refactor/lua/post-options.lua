@@ -33,19 +33,19 @@ set_tab({
   "lua",
 }, 2)
 
-local set_clipboard = function()
-  local wezterm_executable = os.getenv("WEZTERM_EXECUTABLE")
-
-  local local_tty = (
-    os.getenv('SSH_TTY') == nil and (
-      wezterm_executable == nil or not wezterm_executable:match("mux%-server$")
+local function set_clipboard()
+  local use_osc52 =
+    os.getenv("HERDR_ENV")
+    or os.getenv("SSH_TTY")
+    or (
+      os.getenv("WEZTERM_EXECUTABLE")
+      and os.getenv("WEZTERM_EXECUTABLE"):match("mux%-server$")
     )
-  )
 
-  if local_tty then
-    opt.clipboard = opt.clipboard + 'unnamedplus'
+  if use_osc52 then
+    vim.g.clipboard = "osc52"
   else
-    vim.g.clipboard = 'osc52'
+    vim.opt.clipboard:append("unnamedplus")
   end
 end
 
