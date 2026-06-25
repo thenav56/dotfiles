@@ -1,10 +1,10 @@
 onboarding = false
 
 [theme]
-name = "tokyo-night"
+name = "gruvbox"
 auto_switch = true
-light_name = "tokyo-night-day"
-dark_name = "tokyo-night"
+light_name = "gruvbox-light"
+dark_name = "gruvbox"
 
 [ui.toast]
 delivery = "terminal"
