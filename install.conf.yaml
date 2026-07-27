@@ -20,6 +20,8 @@
       path: config/git/git.conf
     ~/.git-templates/:
       path: config/git/git-templates/
+    ~/.config/lazygit/config.yml:
+      path: config/lazygit.yml
     ~/.config/wezterm:
       path: config/wezterm
     ~/.jqp.yaml:

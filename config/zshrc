@@ -105,7 +105,6 @@ setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording en
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
 # Environment variables
-# Environment variables
 CUSTOM_PATHS=(
   "$HOME/go/bin/"
   "$HOME/.local/bin"
