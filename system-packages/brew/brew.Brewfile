@@ -1,8 +1,8 @@
 # vim: set filetype=ruby
 
 # Taps
-tap "homeport/tap"
-tap "darksworm/homebrew-tap"
+tap "homeport/tap", trusted: true
+tap "aws/tap", trusted: true
 
 # Core utils
 brew "mas"
@@ -47,6 +47,10 @@ brew "semver"
 brew "gnu-sed"
 # brew "ollama"
 
+# SSH mounts
+brew "macfuse"
+brew "sshfs-mac"
+
 # File parsers
 brew "jnv"
 brew "jq"
@@ -74,7 +78,6 @@ brew "helm"
 brew "helmfile"
 brew "logcli"                   # Loki
 brew "kubecolor"
-cask "darksworm/tap/argonaut"
 
 # Good to have
 brew "duckdb"
@@ -143,8 +146,13 @@ cask "1password"
 cask "1password-cli"
 cask "spotify"
 cask "netnewswire"
+cask "flameshot"
 cask "orbstack"   # XXX: Heavy
 cask "microsoft-teams"
+cask "claude-code@latest"
+cask "codex"
+cask "mlx"
+cask "omlx"
 
 # Good to have
 # cask "deskpad"
