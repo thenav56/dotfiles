@@ -1,0 +1,171 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""Trigger a GitHub Actions workflow and follow its run — or just follow the latest.
+
+Usage:
+  gh-run <workflow>                # trigger on current branch, then watch + view
+  gh-run <workflow> -b <branch>    # trigger on a specific branch
+  gh-run <workflow> --last         # don't trigger; watch + view the latest run
+  gh-run --list                    # list workflow files in this repo
+
+<workflow> is a workflow file basename (e.g. helm-publish.yaml); shell <TAB>
+completion suggests the files under .github/workflows/.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+POLL_INTERVAL = 2  # seconds between run-list polls
+APPEAR_TIMEOUT = 90  # max seconds to wait for the triggered run to show up
+
+
+def eprint(*a: object) -> None:
+    print(*a, file=sys.stderr, flush=True)
+
+
+def run(cmd: list[str], *, capture: bool = False, check: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        cmd,
+        check=check,
+        text=True,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=subprocess.PIPE if capture else None,
+    )
+
+
+def repo_root() -> Path | None:
+    try:
+        out = run(["git", "rev-parse", "--show-toplevel"], capture=True).stdout.strip()
+        return Path(out) if out else None
+    except subprocess.CalledProcessError:
+        return None
+
+
+def current_branch() -> str:
+    return run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
+
+
+def workflow_files() -> list[str]:
+    root = repo_root()
+    if not root:
+        return []
+    wf = root / ".github" / "workflows"
+    if not wf.is_dir():
+        return []
+    return sorted(p.name for p in wf.iterdir() if p.suffix in (".yaml", ".yml"))
+
+
+def list_runs(workflow: str, branch: str, limit: int = 20) -> list[dict]:
+    proc = run(
+        [
+            "gh", "run", "list",
+            "--workflow", workflow,
+            "--branch", branch,
+            "--limit", str(limit),
+            "--json", "databaseId,status,event,createdAt,displayTitle,url",
+        ],
+        capture=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        eprint(proc.stderr.strip())
+        sys.exit(proc.returncode)
+    return json.loads(proc.stdout or "[]")
+
+
+def latest_run_id(workflow: str, branch: str) -> int | None:
+    runs = list_runs(workflow, branch, limit=1)
+    return runs[0]["databaseId"] if runs else None
+
+
+def wait_for_new_run(workflow: str, branch: str, seen: set[int]) -> int:
+    """Poll until a run whose id is not in `seen` appears; return its id."""
+    deadline = time.monotonic() + APPEAR_TIMEOUT
+    eprint(f"⏳ waiting for the triggered run to appear ({workflow} @ {branch})...")
+    while time.monotonic() < deadline:
+        for r in list_runs(workflow, branch):
+            if r["databaseId"] not in seen:
+                eprint(f"✅ run {r['databaseId']} — {r.get('displayTitle', '')}")
+                eprint(f"   {r.get('url', '')}")
+                return r["databaseId"]
+        time.sleep(POLL_INTERVAL)
+    eprint("❌ timed out waiting for the new run to appear.")
+    sys.exit(1)
+
+
+def follow(run_id: int, workflow: str, branch: str) -> int:
+    # `gh run watch` streams progress; --exit-status returns the run's conclusion.
+    watch = run(["gh", "run", "watch", str(run_id), "--exit-status"], check=False)
+    status = "✅ success" if watch.returncode == 0 else "❌ failed"
+    subprocess.run(
+        ["notify-send", "--app-name=GH Action", f"{workflow} - {branch}", status],
+        check=False,
+    )
+    run(["gh", "run", "view", str(run_id)], check=False)
+    return watch.returncode
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="gh-run",
+        description="Trigger a GitHub Actions workflow and follow its run.",
+    )
+    parser.add_argument("workflow", nargs="?", help="workflow file basename, e.g. helm-publish.yaml")
+    parser.add_argument("-b", "--branch", help="branch to run on (default: current branch)")
+    parser.add_argument(
+        "-l", "--last", action="store_true",
+        help="don't trigger; just watch + view the latest run",
+    )
+    parser.add_argument("--list", action="store_true", help="list workflow files and exit")
+    args = parser.parse_args()
+
+    if args.list:
+        files = workflow_files()
+        if not files:
+            eprint("no workflow files found under .github/workflows/")
+            return 1
+        print("\n".join(files))
+        return 0
+
+    if not args.workflow:
+        parser.error("workflow is required (see --list)")
+
+    branch = args.branch or current_branch()
+
+    if args.last:
+        run_id = latest_run_id(args.workflow, branch)
+        if run_id is None:
+            eprint(f"no runs found for {args.workflow} @ {branch}")
+            return 1
+        eprint(f"following latest run {run_id} ({args.workflow} @ {branch})")
+        return follow(run_id, args.workflow, branch)
+
+    # Trigger, then follow the run that did not exist beforehand.
+    seen = {r["databaseId"] for r in list_runs(args.workflow, branch)}
+    eprint(f"🚀 triggering {args.workflow} @ {branch}")
+    trig = run(
+        ["gh", "workflow", "run", args.workflow, "--ref", branch],
+        check=False,
+    )
+    if trig.returncode != 0:
+        return trig.returncode
+
+    run_id = wait_for_new_run(args.workflow, branch, seen)
+    return follow(run_id, args.workflow, branch)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        eprint("\ninterrupted")
+        sys.exit(130)

@@ -102,5 +102,20 @@ if [ -s "$FZF_COMPLETION" ]; then
     }
 fi
 
+# ---- gh-run: plain <TAB> completes workflow file basenames of the current repo
+_gh-run() {
+  local root workflows
+  root=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [[ -n $root && -d $root/.github/workflows ]]; then
+    workflows=(${root}/.github/workflows/*.(yaml|yml)(N:t))
+  fi
+  _arguments -s \
+    '(-l --last)'{-l,--last}'[watch/view the latest run without triggering]' \
+    '(-b --branch)'{-b,--branch}'[branch to run on]:branch:' \
+    '--list[list workflow files and exit]' \
+    "1:workflow:(${workflows})"
+}
+compdef _gh-run gh-run
+
 # Make sure to load this after fzf
 if type "atuin" > /dev/null; then eval "$(atuin init zsh --disable-up-arrow)"; fi
