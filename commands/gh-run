@@ -9,6 +9,7 @@ Usage:
   gh-run <workflow>                # trigger on current branch, then watch + view
   gh-run <workflow> -b <branch>    # trigger on a specific branch
   gh-run <workflow> --last         # don't trigger; watch + view the latest run
+  gh-run -r <run-id>               # don't trigger; watch + view a specific run id
   gh-run --list                    # list workflow files in this repo
 
 <workflow> is a workflow file basename (e.g. helm-publish.yaml); shell <TAB>
@@ -19,27 +20,72 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import NoReturn
 
 POLL_INTERVAL = 2  # seconds between run-list polls
 APPEAR_TIMEOUT = 90  # max seconds to wait for the triggered run to show up
+GH_TIMEOUT = 60  # max seconds for a single non-streaming gh/git call
+NOTIFY_TIMEOUT = 5  # notify-send blocks while D-Bus tries to activate a daemon
+APP_NAME = "GH Action"
 
 
 def eprint(*a: object) -> None:
     print(*a, file=sys.stderr, flush=True)
 
 
-def run(cmd: list[str], *, capture: bool = False, check: bool = True) -> subprocess.CompletedProcess:
+def run(
+    cmd: list[str],
+    *,
+    capture: bool = False,
+    check: bool = True,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess:
     return subprocess.run(
         cmd,
         check=check,
         text=True,
         stdout=subprocess.PIPE if capture else None,
         stderr=subprocess.PIPE if capture else None,
+        # Never block forever on a captured call; streamed calls run unbounded.
+        timeout=timeout if timeout is not None else (GH_TIMEOUT if capture else None),
     )
+
+
+def notify(title: str, body: str, *, urgency: str = "normal") -> None:
+    """Best-effort desktop notification.
+
+    kitty's own channel goes first: it works over SSH and without a D-Bus
+    notification daemon (notify-send fails there with GDBus NameHasNoOwner, or
+    blocks while trying to activate one). notify-send is only the fallback for
+    when kitten is missing or fails. Exit status only — no output parsing.
+    """
+    candidates = [
+        ["kitten", "notify", f"--app-name={APP_NAME}", f"--urgency={urgency}", title, body],
+        ["notify-send", f"--app-name={APP_NAME}", f"--urgency={urgency}", title, body],
+    ]
+    for cmd in candidates:
+        if shutil.which(cmd[0]) is None:
+            continue
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=NOTIFY_TIMEOUT)
+        except (subprocess.TimeoutExpired, OSError):
+            continue
+        if proc.returncode == 0:
+            return
+    eprint(f"⚠️  could not send notification: {title} — {body}")
+
+
+def die(title: str, body: str, code: int = 1) -> NoReturn:
+    """Notify + exit; never wait around for input or another poll."""
+    eprint(f"❌ {title} — {body}")
+    # Keep the popup to one line; the full message already went to stderr.
+    notify(f"❌ {title}", body.splitlines()[0] if body else "failed", urgency="critical")
+    sys.exit(code)
 
 
 def repo_root() -> Path | None:
@@ -51,7 +97,11 @@ def repo_root() -> Path | None:
 
 
 def current_branch() -> str:
-    return run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
+    proc = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True, check=False)
+    branch = proc.stdout.strip()
+    if proc.returncode != 0 or not branch:
+        die("gh-run", (proc.stderr or "not a git repository").strip(), 1)
+    return branch
 
 
 def workflow_files() -> list[str]:
@@ -77,9 +127,23 @@ def list_runs(workflow: str, branch: str, limit: int = 20) -> list[dict]:
         check=False,
     )
     if proc.returncode != 0:
-        eprint(proc.stderr.strip())
-        sys.exit(proc.returncode)
+        die(f"{workflow} - {branch}", (proc.stderr or "gh run list failed").strip(), proc.returncode)
     return json.loads(proc.stdout or "[]")
+
+
+def run_meta(run_id: int) -> tuple[str, str]:
+    """Return (workflowName, headBranch) for a run id — used for labels only."""
+    proc = run(
+        ["gh", "run", "view", str(run_id), "--json", "workflowName,headBranch,displayTitle,url"],
+        capture=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        die(f"run {run_id}", (proc.stderr or "gh run view failed").strip(), proc.returncode)
+    meta = json.loads(proc.stdout or "{}")
+    eprint(f"following run {run_id} — {meta.get('displayTitle', '')}")
+    eprint(f"   {meta.get('url', '')}")
+    return meta.get("workflowName") or str(run_id), meta.get("headBranch") or "?"
 
 
 def latest_run_id(workflow: str, branch: str) -> int | None:
@@ -98,19 +162,20 @@ def wait_for_new_run(workflow: str, branch: str, seen: set[int]) -> int:
                 eprint(f"   {r.get('url', '')}")
                 return r["databaseId"]
         time.sleep(POLL_INTERVAL)
-    eprint("❌ timed out waiting for the new run to appear.")
-    sys.exit(1)
+    die(f"{workflow} - {branch}", f"timed out after {APPEAR_TIMEOUT}s waiting for the new run")
 
 
 def follow(run_id: int, workflow: str, branch: str) -> int:
     # `gh run watch` streams progress; --exit-status returns the run's conclusion.
+    # Let gh render both the progress and the summary — no output parsing here.
     watch = run(["gh", "run", "watch", str(run_id), "--exit-status"], check=False)
-    status = "✅ success" if watch.returncode == 0 else "❌ failed"
-    subprocess.run(
-        ["notify-send", "--app-name=GH Action", f"{workflow} - {branch}", status],
-        check=False,
+    ok = watch.returncode == 0
+    notify(
+        f"{'✅' if ok else '❌'} {workflow} - {branch}",
+        "success" if ok else f"failed (exit {watch.returncode})",
+        urgency="normal" if ok else "critical",
     )
-    run(["gh", "run", "view", str(run_id)], check=False)
+    run(["gh", "run", "view", str(run_id)], check=False, timeout=GH_TIMEOUT)
     return watch.returncode
 
 
@@ -125,6 +190,10 @@ def main() -> int:
         "-l", "--last", action="store_true",
         help="don't trigger; just watch + view the latest run",
     )
+    parser.add_argument(
+        "-r", "--run-id", type=int, metavar="ID",
+        help="don't trigger; watch + view this run id (any workflow/branch)",
+    )
     parser.add_argument("--list", action="store_true", help="list workflow files and exit")
     args = parser.parse_args()
 
@@ -136,16 +205,20 @@ def main() -> int:
         print("\n".join(files))
         return 0
 
+    if args.run_id is not None:
+        if args.workflow:
+            parser.error("--run-id takes the run itself; drop the workflow argument")
+        return follow(args.run_id, *run_meta(args.run_id))
+
     if not args.workflow:
-        parser.error("workflow is required (see --list)")
+        parser.error("workflow is required (see --list, or pass --run-id)")
 
     branch = args.branch or current_branch()
 
     if args.last:
         run_id = latest_run_id(args.workflow, branch)
         if run_id is None:
-            eprint(f"no runs found for {args.workflow} @ {branch}")
-            return 1
+            die(f"{args.workflow} - {branch}", "no runs found")
         eprint(f"following latest run {run_id} ({args.workflow} @ {branch})")
         return follow(run_id, args.workflow, branch)
 
@@ -155,9 +228,10 @@ def main() -> int:
     trig = run(
         ["gh", "workflow", "run", args.workflow, "--ref", branch],
         check=False,
+        timeout=GH_TIMEOUT,
     )
     if trig.returncode != 0:
-        return trig.returncode
+        die(f"{args.workflow} - {branch}", "gh workflow run failed", trig.returncode)
 
     run_id = wait_for_new_run(args.workflow, branch, seen)
     return follow(run_id, args.workflow, branch)
@@ -169,3 +243,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         eprint("\ninterrupted")
         sys.exit(130)
+    except subprocess.TimeoutExpired as exc:
+        die("gh-run", f"timed out: {' '.join(exc.cmd) if isinstance(exc.cmd, list) else exc.cmd}")
+    except Exception as exc:  # never hang or dump a bare traceback at the user
+        die("gh-run", f"{type(exc).__name__}: {exc}")

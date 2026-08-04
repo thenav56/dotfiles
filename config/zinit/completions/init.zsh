@@ -112,6 +112,7 @@ _gh-run() {
   _arguments -s \
     '(-l --last)'{-l,--last}'[watch/view the latest run without triggering]' \
     '(-b --branch)'{-b,--branch}'[branch to run on]:branch:' \
+    '(-r --run-id)'{-r,--run-id}'[watch/view a specific run id]:run id:' \
     '--list[list workflow files and exit]' \
     "1:workflow:(${workflows})"
 }

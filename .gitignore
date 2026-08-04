@@ -13,3 +13,6 @@ system/arch/.ansible/
 # Ansible refactor: planning artifacts (kept locally; not part of repo history)
 system/arch/REFACTOR_PLAN.md
 system/arch/issues/
+
+# python cache
+__pycache__/
