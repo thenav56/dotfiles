@@ -16,3 +16,6 @@ system/arch/issues/
 
 # python cache
 __pycache__/
+
+# herdr: machine-local overrides (generated config.toml is not tracked either)
+config/herdr.local.toml

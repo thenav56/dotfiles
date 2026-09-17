@@ -189,6 +189,10 @@ function zvm_after_init() {
 # Claude code: regenerate layered settings.json, then launch (see commands/claude-custom)
 alias claude="$HOME/.dotfiles/commands/claude-custom"
 
+# Herdr: refresh the generated config.toml when a layer changed, then launch
+# (see commands/herdr-custom)
+alias herdr="$HOME/.dotfiles/commands/herdr-custom"
+
 function custom_cat {
     # Get active theme
     BAT_ACTIVE_THEME=$(command cat $BAT_THEME_VALUE_FILE)

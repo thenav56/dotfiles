@@ -89,8 +89,6 @@
       path: config/xsettingsd/
     ~/.claude/:
       path: config/claude
-    ~/.config/herdr/config.toml:
-      path: config/herdr.toml
     ~/.config/ccstatusline/settings.json:
       path: config/ccstatusline.json
 
@@ -136,6 +134,12 @@
   -
     description: Generate Claude Code settings.json
     command: ~/.dotfiles/commands/claude-settings-gen
+    stdout: true
+    stderr: true
+  # Herdr layered config (herdr has no include mechanism)
+  -
+    description: Generate herdr config.toml
+    command: ~/.dotfiles/commands/herdr-config gen
     stdout: true
     stderr: true
   # Agent skills

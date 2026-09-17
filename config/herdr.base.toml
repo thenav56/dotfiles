@@ -13,6 +13,13 @@ delay_seconds = 2
 [ui]
 show_agent_labels_on_pane_borders = true
 
+[ui.sidebar.agents]
+row_gap = 0
+rows = [
+    ["state_icon", "machine", "workspace"],
+    ["agent", "state_text"],
+]
+
 [keys]
 previous_agent = "prefix+,"
 next_agent = "prefix+."

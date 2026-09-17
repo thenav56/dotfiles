@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# herdr-custom - refresh the generated herdr config, then launch the real herdr.
+#
+# ~/.config/herdr/config.toml is a generated file (see commands/herdr-config):
+# herdr reads one config and has no include mechanism, so the shared base and
+# the machine-local layer are merged into it. This wrapper regenerates it when
+# either layer is newer than the output, then launches the real herdr binary.
+# Aliased as `herdr` in config/zshrc.
+set -euo pipefail
+
+# Resolve our own path through any symlinks so the sibling generator is found
+# even when this script is invoked via a symlink on PATH.
+source="${BASH_SOURCE[0]}"
+while [ -L "$source" ]; do
+  dir="$(cd -P "$(dirname "$source")" && pwd)"
+  source="$(readlink "$source")"
+  [[ $source != /* ]] && source="$dir/$source"
+done
+script_dir="$(cd -P "$(dirname "$source")" && pwd)"
+config_dir="$(cd -P "$script_dir/.." && pwd)/config"
+
+out="${HERDR_CONFIG_PATH:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.toml}"
+base="$config_dir/herdr.base.toml"
+local_layer="$config_dir/herdr.local.toml"
+
+# Everything we say goes to stderr: this wrapper fronts every herdr subcommand,
+# and `herdr api snapshot | jq` must not get a status line mixed into its stdout.
+#
+# Unlike claude, herdr's CLI is invoked constantly (pane/agent subcommands), so
+# skip the generator unless a layer actually changed. Never block launch on a
+# generation error.
+# Per-machine sidebar colors live in the local layer, which is gitignored and
+# so never arrives with a `git pull`. Bootstrap it on a new machine, and redo it
+# whenever the saved-machine list changes -- herdr persists that list here.
+endpoints="${XDG_STATE_HOME:-$HOME/.local/state}/herdr/client/endpoints.json"
+colors_stale=""
+if ! grep -q "machine-colors (generated)" "$local_layer" 2>/dev/null; then
+  colors_stale=1
+elif [ -f "$endpoints" ] && [ "$endpoints" -nt "$local_layer" ]; then
+  colors_stale=1
+fi
+
+if [ -n "$colors_stale" ]; then
+  # `herdr machine list` needs a running server; on a cold start it fails and we
+  # fall back to a plain merge, retrying the colors on the next launch.
+  if ! "$script_dir/herdr-config" machine-colors >&2; then
+    echo "⚠️ herdr-custom: note: machine colors unavailable; merging layers only" >&2
+    "$script_dir/herdr-config" gen >&2 ||
+      echo "⛔ herdr-custom: warning: config generation failed; launching anyway" >&2
+  fi
+elif [ ! -f "$out" ] || [ "$base" -nt "$out" ] ||
+  { [ -f "$local_layer" ] && [ "$local_layer" -nt "$out" ]; }; then
+  if ! "$script_dir/herdr-config" gen >&2; then
+    echo "⛔ herdr-custom: warning: config generation failed; launching anyway" >&2
+  fi
+else
+  layers="config/herdr.base.toml"
+  [ -f "$local_layer" ] && layers="$layers + config/herdr.local.toml"
+  echo "✅ herdr config up to date ($layers) -> $out" >&2
+fi
+
+# Launch the real herdr binary. (`exec command herdr` does NOT work: exec needs
+# an external program, but `command` is a shell builtin.) Enumerate the herdr
+# binaries on PATH and pick the first that isn't this wrapper, so it keeps
+# working even if the wrapper is ever placed on PATH as `herdr`.
+real_herdr=""
+while IFS= read -r cand; do
+  [ "$cand" = "$source" ] && continue
+  real_herdr="$cand"
+  break
+done < <(type -ap herdr 2>/dev/null || true)
+
+if [ -z "$real_herdr" ]; then
+  echo "⛔ herdr-custom: error: no 'herdr' binary found on PATH" >&2
+  exit 127
+fi
+exec "$real_herdr" "$@"

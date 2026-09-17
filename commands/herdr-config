@@ -1,0 +1,421 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""herdr-config - generate ~/.config/herdr/config.toml from layered sources.
+
+Herdr reads exactly one config file (~/.config/herdr/config.toml, or
+$HERDR_CONFIG_PATH) and has no include/import mechanism. This repo is shared by
+several people, so anything machine-specific cannot live in the tracked config.
+We therefore treat the file herdr reads as GENERATED output, merged from:
+
+  config/herdr.base.toml   git-tracked, shared base (REQUIRED source)
+  config/herdr.local.toml  private, machine-local override (OPTIONAL, gitignored)
+
+Never hand-edit ~/.config/herdr/config.toml -- it is overwritten on every run.
+Edit a layer and re-run `herdr-config gen`.
+
+Merge semantics mirror claude-settings-gen (local wins):
+  * tables  -> recursively deep-merged.
+  * arrays  -> REPLACED by default. Special form: a local value of
+               { __append = [...] } on a key whose base value is an array
+               appends instead of replacing.
+  * scalars -> local replaces base.
+
+Output is written with dotted keys (`ui.sidebar.agents.row_gap = 0`) rather
+than [section] headers. That keeps the writer free of table-ordering rules; the
+file is generated, so only herdr needs to read it comfortably.
+
+Subcommands:
+  gen             merge the layers and write the config (default)
+  machine-colors  give each herdr machine its own sidebar color, into the
+                  LOCAL layer -- machine names never touch the shared base
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import socket
+import subprocess
+import sys
+import tempfile
+import tomllib
+from pathlib import Path
+
+BASE_NAME = "herdr.base.toml"
+LOCAL_NAME = "herdr.local.toml"
+
+BEGIN = "# >>> herdr-config machine-colors (generated)"
+END = "# <<< herdr-config machine-colors"
+
+# Herdr caps a sidebar token at 16 rules.
+MAX_RULES = 16
+
+# gruvbox bright, ordered so neighbours stay distinguishable.
+PALETTE = [
+    "#83a598",  # blue
+    "#d3869b",  # purple
+    "#b8bb26",  # green
+    "#fe8019",  # orange
+    "#8ec07c",  # aqua
+    "#fabd2f",  # yellow
+    "#fb4934",  # red
+    "#458588",  # dim blue
+    "#689d6a",  # dim aqua
+    "#d65d0e",  # dim orange
+]
+
+# Herdr's own default, used when the base layer sets no rows.
+DEFAULT_ROWS = [["state_icon", "machine", "workspace", "tab"], ["agent"]]
+
+
+# ---------------------------------------------------------------- paths
+
+def repo_config_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "config"
+
+
+def out_path() -> Path:
+    """Where herdr actually reads from."""
+    env = os.environ.get("HERDR_CONFIG_PATH")
+    if env:
+        return Path(env).expanduser()
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    root = Path(xdg).expanduser() if xdg else Path.home() / ".config"
+    return root / "herdr" / "config.toml"
+
+
+# ---------------------------------------------------------------- toml out
+
+BARE_KEY = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def render_key(key: str) -> str:
+    return key if BARE_KEY.match(key) else toml_str(key)
+
+
+def toml_str(value: str) -> str:
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+    )
+    return f'"{escaped}"'
+
+
+def render_value(value) -> str:
+    """Render a scalar, array, or inline table."""
+    if isinstance(value, bool):  # before int -- bool is an int subclass
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return toml_str(value)
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(render_value(v) for v in value) + "]"
+    if isinstance(value, dict):
+        inner = ", ".join(
+            f"{render_key(k)} = {render_value(v)}" for k, v in value.items()
+        )
+        return "{ " + inner + " }" if inner else "{}"
+    raise TypeError(f"cannot render {type(value).__name__} as TOML")
+
+
+def render_document(data: dict, prefix: tuple[str, ...] = ()) -> list[str]:
+    """Flatten nested tables into dotted-key assignments, document order."""
+    lines: list[str] = []
+    for key, value in data.items():
+        path = prefix + (key,)
+        if isinstance(value, dict):
+            # An empty table carries no settings; dropping it keeps the dotted
+            # key namespace open for anything deeper.
+            lines.extend(render_document(value, path))
+        else:
+            dotted = ".".join(render_key(part) for part in path)
+            lines.append(f"{dotted} = {render_value(value)}")
+    return lines
+
+
+# ---------------------------------------------------------------- merge
+
+def deep_merge(base, local):
+    """Merge `local` onto `base`, local wins. See module docstring."""
+    if isinstance(base, dict) and isinstance(local, dict):
+        merged = dict(base)
+        for key, lval in local.items():
+            merged[key] = deep_merge(merged[key], lval) if key in merged else lval
+        return merged
+
+    # Append form: base is an array and local is { __append = [...] }.
+    if (
+        isinstance(base, list)
+        and isinstance(local, dict)
+        and set(local.keys()) == {"__append"}
+        and isinstance(local["__append"], list)
+    ):
+        return base + local["__append"]
+
+    return local
+
+
+def load_toml(path: Path) -> dict:
+    with path.open("rb") as fh:
+        return tomllib.load(fh)
+
+
+def reload_server() -> None:
+    """Best effort -- during a fresh install no server is running yet."""
+    proc = subprocess.run(
+        ["herdr", "server", "reload-config"], capture_output=True, text=True
+    )
+    out = (proc.stdout or proc.stderr).strip()
+    if proc.returncode != 0:
+        print("↻ no running herdr server; config applies on next launch")
+        return
+
+    # The CLI answers with a JSON envelope. Report it as a line of English
+    # rather than pasting the envelope in front of a launching TUI.
+    try:
+        result = json.loads(out)["result"]
+        status, diagnostics = result["status"], result.get("diagnostics") or []
+    except (ValueError, KeyError, TypeError):
+        print(f"↻ {out}")  # unexpected shape -- show it rather than swallow it
+        return
+
+    print(f"↻ reloaded running herdr server ({status})")
+    for diagnostic in diagnostics:
+        print(f"⚠️ note: {diagnostic}", file=sys.stderr)
+
+    # herdr launches onto the alternate screen, so anything printed here is
+    # wiped the moment it starts. A toast is the only notice visible from
+    # inside the TUI.
+    subprocess.run(
+        [
+            "herdr",
+            "notification",
+            "show",
+            "herdr config regenerated",
+            "--body",
+            f"{status}"
+            + (f" with {len(diagnostics)} diagnostic(s)" if diagnostics else ""),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+
+# ---------------------------------------------------------------- gen
+
+def cmd_gen(args) -> int:
+    cfg = repo_config_dir()
+    base_path = cfg / BASE_NAME
+    local_path = cfg / LOCAL_NAME
+    dest = out_path()
+
+    if not base_path.exists():
+        print(f"⛔ error: required base not found: {base_path}", file=sys.stderr)
+        return 1
+    try:
+        base = load_toml(base_path)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        print(f"⛔ error: cannot read base {base_path}: {exc}", file=sys.stderr)
+        return 1
+
+    # Local is optional and may be absent on a teammate's machine.
+    note = "base only"
+    result = base
+    if local_path.exists():
+        try:
+            local = load_toml(local_path)
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            print(f"⚠️ note: ignoring local {local_path}: {exc}", file=sys.stderr)
+        else:
+            result = deep_merge(base, local)
+            note = "merged base + local"
+
+    header = [
+        "# GENERATED by commands/herdr-config -- do not edit.",
+        f"# Sources: config/{BASE_NAME}"
+        + (f" + config/{LOCAL_NAME}" if note != "base only" else ""),
+        "",
+    ]
+    text = "\n".join(header + render_document(result)) + "\n"
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    # Atomic replace -- also swaps out the old symlink into this repo.
+    fd, tmp = tempfile.mkstemp(dir=str(dest.parent), prefix=".config.", suffix=".toml")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(text)
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+    print(f"✅ {note} -> {dest}")
+    if not args.no_reload:
+        reload_server()
+    return 0
+
+
+# ---------------------------------------------------------------- colors
+
+def color_for(name: str) -> str:
+    """Stable color per name -- sha1, not hash(), which is salted per process."""
+    digest = hashlib.sha1(name.encode()).digest()
+    return PALETTE[int.from_bytes(digest[:4], "big") % len(PALETTE)]
+
+
+def machine_names() -> list[tuple[str, str]]:
+    """[(name, color)] for every known machine, aliases sharing one color."""
+    # The sidebar renders the machine LABEL, and the local machine's label is
+    # "Local" -- the hostname never appears there. Key the color off the
+    # hostname anyway so this machine keeps its own color, and let "Local"
+    # ride along as an alias.
+    groups: list[list[str]] = [[socket.gethostname(), "Local"]]
+
+    proc = subprocess.run(["herdr", "machine", "list"], capture_output=True, text=True)
+    if proc.returncode != 0:
+        print(proc.stderr.strip() or "herdr machine list failed", file=sys.stderr)
+        raise SystemExit(1)
+    for line in proc.stdout.splitlines():
+        fields = [f for f in line.split("\t") if f]
+        if len(fields) >= 3:
+            # id, label, host, ... -- label and host both get rules, since it is
+            # undocumented which one the `machine` token renders.
+            groups.append([fields[1], fields[2]])
+
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for group in groups:
+        color = color_for(group[0])
+        for name in group:
+            if name and name not in seen:
+                seen.add(name)
+                out.append((name, color))
+    return out
+
+
+def colored_rows(rows: list, names: list[tuple[str, str]]) -> list:
+    """Copy `rows`, attaching per-machine rules to every `machine` token."""
+    dropped = names[MAX_RULES:]
+    if dropped:
+        print(
+            f"⚠️ note: {len(dropped)} name(s) past herdr's {MAX_RULES}-rule cap left "
+            f"uncolored: {', '.join(n for n, _ in dropped)}",
+            file=sys.stderr,
+        )
+    rules = [{"equals": name, "fg": color} for name, color in names[:MAX_RULES]]
+
+    out = []
+    for row in rows:
+        new_row = []
+        for token in row:
+            if token == "machine":
+                new_row.append({"token": "machine", "rules": rules})
+            elif isinstance(token, dict) and token.get("token") == "machine":
+                new_row.append({**token, "rules": rules})
+            else:
+                new_row.append(token)
+        out.append(new_row)
+    return out
+
+
+def cmd_machine_colors(args) -> int:
+    cfg = repo_config_dir()
+    base = load_toml(cfg / BASE_NAME)
+    rows = (
+        base.get("ui", {})
+        .get("sidebar", {})
+        .get("agents", {})
+        .get("rows", DEFAULT_ROWS)
+    )
+    if not any(
+        t == "machine" or (isinstance(t, dict) and t.get("token") == "machine")
+        for row in rows
+        for t in row
+    ):
+        print(
+            f"⛔ error: no `machine` token in config/{BASE_NAME} "
+            "ui.sidebar.agents.rows -- nothing to color",
+            file=sys.stderr,
+        )
+        return 1
+
+    value = render_value(colored_rows(rows, machine_names()))
+    block = "\n".join(
+        [
+            BEGIN,
+            "# Per-machine sidebar colors, hashed from each machine name.",
+            "# Regenerate with `herdr-config machine-colors` after adding a machine.",
+            f"ui.sidebar.agents.rows = {value}",
+            END,
+        ]
+    )
+    if args.dry_run:
+        print(block)
+        return 0
+
+    local_path = cfg / LOCAL_NAME
+    text = local_path.read_text() if local_path.exists() else ""
+    pattern = re.compile(rf"{re.escape(BEGIN)}.*?{re.escape(END)}", re.DOTALL)
+    if pattern.search(text):
+        text = pattern.sub(lambda _: block, text)
+    else:
+        text = (text.rstrip("\n") + "\n\n" if text.strip() else "") + block + "\n"
+    local_path.write_text(text)
+    print(f"✅ wrote {local_path}")
+
+    return cmd_gen(args)
+
+
+# ---------------------------------------------------------------- cli
+
+def main() -> int:
+    # The flag is accepted on both sides of the subcommand. SUPPRESS keeps the
+    # subparser from resetting a value the main parser already saw.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--no-reload",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="skip `herdr server reload-config`",
+    )
+
+    parser = argparse.ArgumentParser(
+        prog="herdr-config", description=__doc__, parents=[common]
+    )
+    parser.set_defaults(no_reload=False)
+    sub = parser.add_subparsers(dest="cmd")
+    sub.add_parser(
+        "gen",
+        parents=[common],
+        help="merge the layers and write the config (default)",
+    )
+    colors = sub.add_parser(
+        "machine-colors",
+        parents=[common],
+        help="write per-machine sidebar colors into the local layer",
+    )
+    colors.add_argument(
+        "--dry-run", action="store_true", help="print the block, write nothing"
+    )
+
+    args = parser.parse_args()
+    if args.cmd == "machine-colors":
+        return cmd_machine_colors(args)
+    args.dry_run = False
+    return cmd_gen(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
