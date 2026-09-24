@@ -1,4 +1,4 @@
 git:
-  pagers:
+  diffRenderers:
     - colorArg: always
-      pager: delta --config=/dev/null --paging=never --diff-so-fancy --line-numbers
+      command: delta --config=/dev/null --paging=never --diff-so-fancy --line-numbers

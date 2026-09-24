@@ -21,8 +21,9 @@ sync_frequency = "1h"
 [sync]
 records = true
 
-[dotfiles]
+[daemon]
 enabled = true
+autostart = true
 
 # https://docs.atuin.sh/reference/daemon/
 # [daemon]

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "lines": [
     [
       {
@@ -171,7 +171,7 @@
         "id": "a7fdae15-8558-4b63-9d38-6393602fca44",
         "type": "git-origin-repo",
         "metadata": {
-          "hideNoRemote": "true"
+          "hide": "no-remote"
         }
       },
       {
@@ -179,14 +179,14 @@
         "type": "git-branch",
         "metadata": {
           "linkToGitHub": "false",
-          "hideNoGit": "true"
+          "hide": "no-git"
         }
       },
       {
         "id": "060f983f-54bf-48c6-94ec-6dde57ab2c54",
         "type": "git-changes",
         "metadata": {
-          "hideNoGit": "true"
+          "hide": "no-git"
         }
       }
     ]
