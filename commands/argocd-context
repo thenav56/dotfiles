@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# argocd-context - run argocd against a named context from ~/.config/argocd-context.yaml
+# (lives in secrets-configs/config/, linked by its dotbot install).
+#
+#   argocd-context                      list contexts
+#   argocd-context <name>               subshell with ARGOCD_* env set for <name>
+#   argocd-context <name> login         log in (SSO for host, admin via port-forward for kubieCtx)
+#   argocd-context <name> -- <cmd...>   run one command, e.g. `argocd-context ifrc-prod -- argocd app list`
+#
+# host entries:     ARGOCD_OPTS unset, argocd uses the saved grpc-web context.
+# kubieCtx entries: ARGOCD_OPTS=--port-forward..., wrapped in `kubie exec <ctx> <ns>`.
+# Every entry gets its own ARGOCD_CONFIG_DIR, so tokens never collide.
+set -euo pipefail
+
+config_file="${ARGOCD_CONTEXT_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/argocd-context.yaml}"
+state_root="${XDG_CONFIG_HOME:-$HOME/.config}/argocd-contexts"
+
+if [ ! -f "$config_file" ]; then
+  >&2 echo "Config not found: $config_file (run secrets-configs/install)"
+  exit 1
+fi
+
+for bin in argocd yq kubie; do
+  if ! command -v "$bin" &>/dev/null; then
+    >&2 echo "$bin is not installed. Please install it"
+    exit 1
+  fi
+done
+
+function _usage() {
+  >&2 echo "Usage: $(basename "$0") [<name> [login | -- <cmd...>]]"
+  exit 1
+}
+
+function _list() {
+  yq -r '.[] | .name + "\t" + (.host // ("kubie:" + .kubieCtx))' "$config_file" | column -t -s $'\t'
+}
+
+function _field() {
+  NAME="$name" yq -r ".[] | select(.name == strenv(NAME)) | .$1 // \"\"" "$config_file"
+}
+
+if [ $# -lt 1 ]; then
+  _list
+  exit 0
+fi
+
+name="$1"
+shift
+
+if [ -z "$(_field name)" ]; then
+  >&2 echo "Unknown context: $name. Available:"
+  >&2 _list
+  exit 1
+fi
+
+host="$(_field host)"
+kubie_ctx="$(_field kubieCtx)"
+namespace="$(_field namespace)"
+namespace="${namespace:-argocd}"
+
+if [ -n "$host" ] && [ -n "$kubie_ctx" ]; then
+  >&2 echo "Context $name: set either host or kubieCtx, not both"
+  exit 1
+fi
+
+export ARGOCD_CONFIG_DIR="$state_root/$name"
+export ARGOCD_CONTEXT="$name"
+mkdir -p "$ARGOCD_CONFIG_DIR"
+chmod 700 "$ARGOCD_CONFIG_DIR"
+
+if [ -n "$host" ]; then
+  unset ARGOCD_OPTS
+else
+  export ARGOCD_OPTS="--port-forward --port-forward-namespace $namespace --plaintext"
+fi
+
+# Run a command in this context (inside kubie for port-forward entries).
+function _exec() {
+  if [ -n "$kubie_ctx" ]; then
+    exec kubie exec --context-headers never "$kubie_ctx" "$namespace" -- "$@"
+  fi
+  exec "$@"
+}
+
+function _login() {
+  if [ -n "$host" ]; then
+    _exec argocd login "$host" --grpc-web --sso --name "$name"
+  fi
+  # SSO callback won't match through a port-forward, so use admin.
+  local password
+  password="$(kubie exec --context-headers never "$kubie_ctx" "$namespace" -- \
+    kubectl get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)"
+  if [ -z "$password" ]; then
+    >&2 echo "argocd-initial-admin-secret not found in $kubie_ctx/$namespace; prompting instead"
+    _exec argocd login --name "$name" --username admin
+  fi
+  _exec argocd login --name "$name" --username admin --password "$password"
+}
+
+# Interactive subshell. For zsh, mirror kubie: point ZDOTDIR at a generated dir
+# whose rc files source the user's own, then add a precmd hook that prefixes
+# RPS1 with [argocd:<name>] (after prompt themes like pure have run).
+function _shell() {
+  local shell="${SHELL:-bash}"
+  >&2 echo "argocd-context: $name (exit to leave)"
+  if [ "$(basename "$shell")" != zsh ]; then
+    _exec "$shell"
+  fi
+
+  local zdotdir="$ARGOCD_CONFIG_DIR/zdotdir"
+  mkdir -p "$zdotdir"
+  export _ARGOCD_CONTEXT_USER_ZDOTDIR="${ZDOTDIR:-$HOME}"
+
+  cat >"$zdotdir/.zshenv" <<'EOF'
+_argocd_context_zdotdir=$ZDOTDIR
+ZDOTDIR=$_ARGOCD_CONTEXT_USER_ZDOTDIR
+[[ -f "$ZDOTDIR/.zshenv" ]] && source "$ZDOTDIR/.zshenv"
+# The user's .zshenv may redirect ZDOTDIR; follow it, but still load our .zshrc.
+_ARGOCD_CONTEXT_USER_ZDOTDIR=$ZDOTDIR
+ZDOTDIR=$_argocd_context_zdotdir
+unset _argocd_context_zdotdir
+EOF
+
+  cat >"$zdotdir/.zshrc" <<'EOF'
+# Restore the real ZDOTDIR so nested shells (and kubie) behave normally.
+ZDOTDIR=$_ARGOCD_CONTEXT_USER_ZDOTDIR
+unset _ARGOCD_CONTEXT_USER_ZDOTDIR
+[[ -f "$ZDOTDIR/.zshrc" ]] && source "$ZDOTDIR/.zshrc"
+
+autoload -Uz add-zsh-hook
+
+function __argocd_context_precmd__() {
+    local color=yellow
+    [[ "$ARGOCD_CONTEXT" == *prod* ]] && color=red
+    local prompt="%F{$color}[argocd:$ARGOCD_CONTEXT]%f"
+    # Only prefix once; re-add if something reset RPS1.
+    if [[ "$RPS1" != *"$prompt"* ]]; then
+        RPS1="$prompt${RPS1:+ $RPS1}"
+    fi
+}
+
+add-zsh-hook precmd __argocd_context_precmd__
+EOF
+
+  export ZDOTDIR="$zdotdir"
+  _exec "$shell"
+}
+
+case "${1:-}" in
+  "")
+    _shell
+    ;;
+  login)
+    _login
+    ;;
+  --)
+    shift
+    [ $# -gt 0 ] || _usage
+    _exec "$@"
+    ;;
+  *)
+    _usage
+    ;;
+esac
