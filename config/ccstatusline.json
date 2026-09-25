@@ -114,6 +114,15 @@
     ],
     [
       {
+        "id": "969657ee-b46a-4f41-ae9f-dd53a8d77261",
+        "type": "claude-account-email",
+        "rawValue": true
+      },
+      {
+        "id": "9d3621b3-2650-4022-a763-f334095517cf",
+        "type": "separator"
+      },
+      {
         "id": "770f5b6c-1e63-47f2-892e-acd00dde05a6",
         "type": "tokens-input"
       },
