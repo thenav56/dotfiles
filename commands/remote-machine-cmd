@@ -26,18 +26,19 @@ function remote_vnc_connect {
     fi
 
     DESKTOP=${2:-i3}
+    REMOTE_XAUTHORITY=${REMOTE_XAUTHORITY:-/run/user/1000/lyxauth}
     REMOTE_MACHINE_DISPLAY=${REMOTE_MACHINE_DISPLAY:-0}
     REMOTE_MACHINE_SSH_DISPLAY_PROFILE=${REMOTE_MACHINE_SSH_DISPLAY_PROFILE:-primary}
 
     # Check connection and start multiplexer if used or just make sure remote is reachable
     ssh $REMOTE_MACHINE_SSH_HOST -t 'whoami'
     # Use primary display profile
-    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY $DOT_COMMANDS_DIR/display-profile $REMOTE_MACHINE_SSH_DISPLAY_PROFILE" || true
+    ssh $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY XAUTHORITY=$REMOTE_XAUTHORITY $DOT_COMMANDS_DIR/display-profile $REMOTE_MACHINE_SSH_DISPLAY_PROFILE" || true
     ssh $REMOTE_MACHINE_SSH_HOST -t "pkill -9 x0vncserver" || true
     ssh $REMOTE_MACHINE_SSH_HOST -t "$DOT_COMMANDS_DIR/monitor-cmd turn-all-off" || true
 
     if [[ "$DESKTOP" == "i3" ]] ; then
-        ssh -L localhost:5900:localhost:5900 $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY x0vncserver -localhost -SecurityTypes none"
+        ssh -L localhost:5900:localhost:5900 $REMOTE_MACHINE_SSH_HOST -t "DISPLAY=:$REMOTE_MACHINE_DISPLAY XAUTHORITY=$REMOTE_XAUTHORITY x0vncserver -localhost -SecurityTypes none"
         # ssh -L localhost:5900:localhost:5900 $REMOTE_MACHINE_SSH_HOST -t "x11vnc -xkb -localhost -display :$REMOTE_MACHINE_DISPLAY"
     else
         echo 'TODO:'
