@@ -3,6 +3,9 @@
 
 pkill polybar
 
+# Sync bar colors with the active base16 theme (polybar-base.ini includes the output)
+~/.dotfiles/config/polybar/scripts/gen-colors.sh
+
 NUM_OF_MONITOR=$(polybar --list-monitors | wc -l)
 
 # Single Monitor
