@@ -3,3 +3,5 @@
 .DS_Store
 *.swp
 values.local.yaml
+
+**/.claude/.cc-writes/
