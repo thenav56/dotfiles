@@ -150,6 +150,8 @@ alias ssrsync="rsync --info=progress2 -axhHAX"
 alias z="__zoxide_z"
 alias zii="__zoxide_zi"
 
+alias ash="autossh -M 0 -q"
+
 # K8s
 alias kubectl="kubecolor"
 alias k="kubecolor"
