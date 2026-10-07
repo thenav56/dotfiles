@@ -29,12 +29,14 @@ function power_all {
 }
 
 function check_power {
+    # base16 colors from config/polybar/scripts/gen-colors.sh
+    [ -f "$HOME/.config/polybar/colors.sh" ] && . "$HOME/.config/polybar/colors.sh"
     if [[ "$MONITORS_DETECT" = "DPMS sleep mode is active.  Terminating execution" ]]; then
         # OFF
-        echo "%{F#D9534F} 󰶐 %{F-}"
+        echo "%{F${POLYBAR_base08:-#D9534F}} 󰶐 %{F-}"
     else
         # ON
-        echo "%{F#20C997} 󱎴 %{F-}"
+        echo "%{F${POLYBAR_base0B:-#20C997}} 󱎴 %{F-}"
     fi
 }
 
