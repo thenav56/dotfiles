@@ -11,9 +11,9 @@ case "$1" in
         ;;
     *)
         if [ "$(dunstctl is-paused)" = "true" ]; then
-            echo "%{F${POLYBAR_base08:-#D9534F}} 󰂛 %{F-}"
+            echo "%{F${POLYBAR_base08:-#D9534F}}󰂛%{F-}"
         else
-            echo "%{F${POLYBAR_base0B:-#20C997}} 󰂚 %{F-}"
+            echo "%{F${POLYBAR_base0B:-#20C997}}󰂚%{F-}"
         fi
         ;;
 esac

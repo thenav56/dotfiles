@@ -6,6 +6,13 @@ pkill polybar
 # Sync bar colors with the active base16 theme (polybar-base.ini includes the output)
 ~/.dotfiles/config/polybar/scripts/gen-colors.sh
 
+# CPU temp sensor: hwmonN index changes across boots, so resolve by driver name
+for h in /sys/class/hwmon/hwmon*; do
+    case "$(cat "$h/name" 2>/dev/null)" in
+        coretemp|k10temp|zenpower) export CPU_TEMP_PATH="$h/temp1_input"; break ;;
+    esac
+done
+
 NUM_OF_MONITOR=$(polybar --list-monitors | wc -l)
 
 # Single Monitor
