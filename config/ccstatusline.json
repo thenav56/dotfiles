@@ -197,14 +197,31 @@
         "metadata": {
           "hide": "no-git"
         }
+      },
+      {
+        "id": "36c0d1fa-6bb8-4e58-9793-dacfa3532d3a",
+        "type": "separator"
+      },
+      {
+        "id": "e83cd573-5330-4256-a9ae-e94db1bba1a3",
+        "type": "current-working-dir",
+        "character": "🗂️",
+        "metadata": {
+          "abbreviateHome": "true",
+          "label": ""
+        }
       }
     ]
   ],
   "flexMode": "full-until-compact",
   "compactThreshold": 60,
   "colorLevel": 2,
+  "defaultPaddingSide": "both",
   "inheritSeparatorColors": false,
   "globalBold": false,
+  "gitCacheTtlSeconds": 5,
+  "terminalWidthCacheTtlSeconds": 5,
+  "customCommandCacheTtlSeconds": 0,
   "minimalistMode": false,
   "powerline": {
     "enabled": false,
