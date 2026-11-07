@@ -2,8 +2,9 @@
 # claude-custom - regenerate Claude Code settings, then launch the real claude.
 #
 # settings.json is a generated file (see commands/claude-settings-gen). This
-# wrapper regenerates it from settings.base.json + settings.local.json, then
-# launches the real claude binary. Aliased as `claude` in config/zshrc.
+# wrapper regenerates it from settings.base.json + settings.local.json +
+# settings.host.json, then launches the real claude binary. Aliased as
+# `claude` in config/zshrc.
 set -euo pipefail
 
 # Resolve our own path through any symlinks so the sibling generator is found
