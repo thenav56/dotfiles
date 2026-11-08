@@ -91,9 +91,11 @@
       path: config/claude
     ~/.config/ccstatusline/settings.json:
       path: config/ccstatusline.json
-    # Herdr GUI (Herdr.app): personal mods/layouts only; the rest of
+    # Herdr GUI (Herdr.app): personal keys, mods and layouts only; the rest of
     # ~/.config/herdr-app is app-written and stays untracked. One link per
     # tracked mod folder / layout file.
+    ~/.config/herdr-app/keys.json:
+      path: config/herdr-app/keys.json
     ~/.config/herdr-app/mods/:
       glob: true
       path: config/herdr-app/mods/*
