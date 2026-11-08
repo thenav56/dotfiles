@@ -91,6 +91,12 @@
       path: config/claude
     ~/.config/ccstatusline/settings.json:
       path: config/ccstatusline.json
+    # Herdr GUI (Herdr.app): personal mods/layouts only; the rest of
+    # ~/.config/herdr-app is app-written and stays untracked.
+    ~/.config/herdr-app/mods/agents-nav:
+      path: config/herdr-app/mods/agents-nav
+    ~/.config/herdr-app/layouts/main-nav.json:
+      path: config/herdr-app/layouts/main-nav.json
 
 - create:
     - ~/.local/bin

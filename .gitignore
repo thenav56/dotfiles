@@ -19,3 +19,8 @@ __pycache__/
 
 # herdr: machine-local overrides (generated config.toml is not tracked either)
 config/herdr.local.toml
+
+# herdr-app: type files the app (re)writes into every mod folder
+config/herdr-app/mods/*/gpui-kit.d.ts
+config/herdr-app/mods/*/herdr.d.ts
+config/herdr-app/mods/*/jsconfig.json
