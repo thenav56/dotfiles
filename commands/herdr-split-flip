@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""herdr-split-flip - toggle a Herdr pane's split between side-by-side and stacked.
+
+Herdr.app has no command for this. The running app keeps its own copy of the
+layout and ignores outside edits to its stored doc, so the flip is done with
+supported commands instead:
+
+  1. read the layout doc herdr-core keeps for the app (`herdr-app`, doc.get,
+     READ ONLY) to learn the pane's terminal, its split direction and a sibling;
+  2. terminal.park the pane's terminal (it keeps running, pane goes away);
+  3. focus the pane before it and terminal.keep the terminal back `down` (was
+     side by side) or `right` (was stacked). When the pane is first in its
+     split, its neighbour is the one moved instead, so the order is kept
+     (pane.swap would need the window's on-screen geometry).
+
+The doc's shape is not a public API; anything unrecognised aborts before step 2.
+If step 3 fails the terminal stays parked (still running): find it in the
+agents/terminals list and `terminal.keep` it.
+
+Usage: herdr-split-flip <pane-id>     (remote panes: "<machine>/<pane-id>")
+Called by the `split-flip` mod (keys.json: mod+e).
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import time
+
+DOC = "herdr-app"
+
+
+def rpc(method: str, params: dict) -> dict:
+    req = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
+    proc = subprocess.run(
+        ["hc", "connect"], input=req + "\n", capture_output=True, text=True, timeout=10
+    )
+    for line in proc.stdout.splitlines():
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            continue
+        if msg.get("id") == 1:
+            if "error" in msg:
+                raise RuntimeError(f"{method}: {msg['error'].get('message')}")
+            return msg["result"]
+    raise RuntimeError(f"{method}: no reply from hc ({proc.stderr.strip()})")
+
+
+def app(command: str, args: dict) -> dict:
+    proc = subprocess.run(
+        ["herdr-app", "do", command, json.dumps(args)],
+        capture_output=True, text=True, timeout=10,
+    )
+    try:
+        out = json.loads(proc.stdout or "{}")
+    except ValueError:
+        out = {}
+    if proc.returncode != 0 or "error" in out:
+        raise RuntimeError(f"{command}: {out.get('error') or proc.stderr.strip() or proc.stdout.strip()}")
+    return out
+
+
+def pane_of(terminal: str) -> str | None:
+    """The pane showing `terminal` in the open window, or None."""
+    proc = subprocess.run(["herdr-app", "ls"], capture_output=True, text=True, timeout=10)
+    for space in json.loads(proc.stdout).get("spaces", []):
+        for tab in space.get("tabs", []):
+            for t in tab.get("terminals", []):
+                if t.get("terminal") == terminal:
+                    return t.get("pane")
+    return None
+
+
+def wait_for(cond, what: str, timeout: float = 4.0) -> None:
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        if cond():
+            return
+        time.sleep(0.1)
+    raise RuntimeError(f"timed out waiting for {what}")
+
+
+def find_parent(node: dict, pane: str) -> tuple[dict, int] | None:
+    for i, child in enumerate(node.get("children") or []):
+        if child.get("id") == pane:
+            return node, i
+        found = find_parent(child, pane)
+        if found:
+            return found
+    return None
+
+
+def last_leaf(node: dict) -> dict:
+    while node.get("type") != "block":
+        kids = node.get("children") or []
+        if not kids:
+            raise RuntimeError("empty split node in layout doc")
+        node = kids[-1]
+    return node
+
+
+def locate(doc: dict, pane: str) -> tuple[str, dict, dict]:
+    """(split type, block to move, block to re-add it beside)."""
+    for space in doc.get("spaces") or []:
+        for tab in space.get("tabs") or []:
+            root = tab.get("root")
+            hit = find_parent(root, pane) if isinstance(root, dict) else None
+            if not hit:
+                continue
+            parent, idx = hit
+            kind = parent.get("type")
+            kids = parent.get("children") or []
+            if kind not in ("row", "column"):
+                raise RuntimeError(f"unexpected split node type {kind!r}")
+            if len(kids) < 2:
+                raise RuntimeError("pane is not split; nothing to flip")
+            me = kids[idx]
+            if not (me.get("content") or {}).get("terminal"):
+                raise RuntimeError("only terminal panes can be flipped")
+            if idx > 0:
+                # Re-add it after the pane just before it.
+                return kind, me, last_leaf(kids[idx - 1])
+            nxt = kids[1]
+            if nxt.get("type") == "block" and (nxt.get("content") or {}).get("terminal"):
+                # It's first: move its neighbour instead, so it stays in front.
+                return kind, nxt, me
+            raise RuntimeError("first pane beside a nested split; flip the other pane")
+    raise RuntimeError(f"pane {pane} not found in the layout doc")
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print(__doc__, file=sys.stderr)
+        return 2
+    full = sys.argv[1]
+    # Remote ids are machine-qualified ("vps/p123"); that machine's doc omits it.
+    machine, pane = full.split("/", 1) if "/" in full else (None, full)
+    q = (lambda x: f"{machine}/{x}") if machine else (lambda x: x)
+
+    got = rpc("doc.get", {"name": DOC} | ({"on": machine} if machine else {}))
+    if not isinstance(got.get("value"), dict):
+        raise RuntimeError("layout doc missing or unrecognised")
+    kind, moving, anchor = locate(got["value"], pane)
+    terminal = q(moving["content"]["terminal"])
+    mine = (anchor.get("content") or {}).get("terminal")
+    place = "down" if kind == "row" else "right"
+
+    app("terminal.park", {"terminal": terminal})
+    wait_for(lambda: pane_of(terminal) is None, "the pane to park")
+    app("pane.focus", {"pane": q(anchor["id"])})
+    app("terminal.keep", {"terminal": terminal, "place": place})
+    wait_for(lambda: pane_of(terminal) is not None, "the pane to come back")
+    # Focus ends on the pane the key was pressed in.
+    me = terminal if moving["id"] == pane else q(mine)
+    app("pane.focus", {"pane": pane_of(me)})
+    print(f"{kind} -> {'column' if kind == 'row' else 'row'}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:  # noqa: BLE001 - one line for the mod's toast
+        print(f"herdr-split-flip: {exc}", file=sys.stderr)
+        sys.exit(1)
