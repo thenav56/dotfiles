@@ -6,13 +6,19 @@
 // Mods can't import from outside their own folder, so the list code is shared
 // with space-switcher by copy; keep the two in step.
 
-import { View, div, svg } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, run, theme, props, closeOverlay, nextCommand } from "herdr";
 
 const URGENT = { blocked: 0, done: 1 };
 const ROW_H = 34;
 const MAX_ROWS = 10;
+
+// The agent's icon from the app's program table (as the stock agents mod draws it).
+function icon(p, size, color) {
+  if (!p?.icon) return null;
+  return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
+}
 
 const machineOf = (address) => (address.includes("/") ? address.split("/")[0] : null);
 
@@ -97,8 +103,9 @@ export default class AgentSwitcher extends View {
         .hover((s) => s.bg(t.hover))
         .on_click(() => this.pick(a))
         .child(this.glyph(t, a.status))
-        .child(div().flex_none().text_color(t.foreground).when(a.focused, (d) => d.font_semibold()).child(a.program?.name ?? "agent"))
-        .child(div().flex_1().truncate().text_size(12).text_color(t.muted).child(a.title ?? ""))
+        // Icon in place of the name ("Claude Code"); the name only when there's no icon.
+        .child(icon(a.program, 16, t.foreground) ?? div().flex_none().text_color(t.foreground).child(a.program?.name ?? "agent"))
+        .child(div().flex_1().truncate().text_size(12).text_color(a.focused ? t.foreground : t.muted).when(a.focused, (d) => d.font_semibold()).child(a.title ?? ""))
         .when(a.status === "blocked", (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child("needs you")))
         .when(a.status === "done", (el) => el.child(div().flex_none().text_size(11).text_color(t.done).child("finished")))
         .child(div().flex_none().max_w(200).truncate().text_size(11).text_color(t.dim).child(where));

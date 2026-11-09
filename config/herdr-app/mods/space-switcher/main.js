@@ -7,7 +7,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { spaces, run, theme, props, closeOverlay, nextCommand, shared } from "herdr";
+import { spaces, agents, run, theme, props, closeOverlay, nextCommand, shared } from "herdr";
 
 const ROW_H = 34;
 const MAX_ROWS = 10;
@@ -80,10 +80,13 @@ export default class SpaceSwitcher extends View {
     this.at = Math.max(0, Math.min(this.at, rows.length - 1));
     const start = Math.max(0, Math.min(this.at - MAX_ROWS + 1, rows.length - MAX_ROWS));
     const shown = rows.slice(start, start + MAX_ROWS);
+    const agentCount = new Map();
+    for (const a of agents()) agentCount.set(a.space, (agentCount.get(a.space) ?? 0) + 1);
 
     const row = (s, i) => {
       const on = i === this.at;
       const tabs = `${s.tabs.length} tab${s.tabs.length === 1 ? "" : "s"}`;
+      const n = agentCount.get(s.id) ?? 0;
       const where = [s.machine ?? "this computer", s.branch, tabs].filter(Boolean).join(" · ");
       return h_flex()
         .id(`ss-${s.id}`)
@@ -101,6 +104,8 @@ export default class SpaceSwitcher extends View {
         .when(s.status === "blocked", (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child("needs you")))
         .when(s.status === "done", (el) => el.child(div().flex_none().text_size(11).text_color(t.done).child("finished")))
         .child(div().flex_none().max_w(240).truncate().text_size(11).text_color(t.dim).child(where))
+        // Agents in the space (none: blank, so the column still lines up).
+        .child(div().w(64).flex_none().text_right().text_size(11).text_color(n ? t.muted : t.dim).child(n ? `${n} agent${n === 1 ? "" : "s"}` : ""))
         .child(this.glyph(t, s.status));
     };
 
