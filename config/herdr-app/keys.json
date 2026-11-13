@@ -50,31 +50,31 @@
     "ctrl-7": "space.select:7",
     "ctrl-8": "space.select:8",
     "ctrl-9": "space.select:9",
-    "secondary-enter": {
+    "cmd-enter": {
       "command": "terminal.open",
       "args": {
         "place": "down"
       }
     },
-    "secondary-shift-enter": {
+    "cmd-shift-enter": {
       "command": "terminal.open",
       "args": {
         "place": "right"
       }
     },
-    "secondary-h": "pane.go:left",
-    "secondary-j": "pane.go:down",
-    "secondary-k": "pane.go:up",
-    "secondary-l": "pane.go:right",
-    "secondary-shift-h": "pane.swap:left",
-    "secondary-shift-j": "pane.swap:down",
-    "secondary-shift-k": "pane.swap:up",
-    "secondary-shift-l": "pane.swap:right",
-    "secondary-w": "mod.open:pane-close",
-    "secondary-shift-w": "tab.close",
-    "secondary-e": "mod.open:split-flip",
-    "secondary-d": "mod.open:agent-switcher",
-    "secondary-shift-d": "mod.open:space-switcher"
+    "cmd-h": "pane.go:left",
+    "cmd-j": "pane.go:down",
+    "cmd-k": "pane.go:up",
+    "cmd-l": "pane.go:right",
+    "cmd-shift-h": "pane.swap:left",
+    "cmd-shift-j": "pane.swap:down",
+    "cmd-shift-k": "pane.swap:up",
+    "cmd-shift-l": "pane.swap:right",
+    "cmd-w": "mod.open:pane-close",
+    "cmd-shift-w": "tab.close",
+    "cmd-e": "mod.open:split-flip",
+    "cmd-d": "mod.open:agent-switcher",
+    "cmd-shift-d": "mod.open:space-switcher"
   },
   "terminal": {
     "cmd-f": "terminal.search",
@@ -89,11 +89,11 @@
     "cmd-backspace": "send:\u0015"
   },
   "mod:agent-switcher": {
-    "secondary-j": "agent-switcher.down",
-    "secondary-k": "agent-switcher.up"
+    "cmd-j": "agent-switcher.down",
+    "cmd-k": "agent-switcher.up"
   },
   "mod:space-switcher": {
-    "secondary-j": "space-switcher.down",
-    "secondary-k": "space-switcher.up"
+    "cmd-j": "space-switcher.down",
+    "cmd-k": "space-switcher.up"
   }
 }
