@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""herdr-ask - post a round of questions to the Herdr question panel.
+
+The panel is the herdr-app mod config/herdr-app/mods/questions, opened beside
+an agent with Cmd/Super+g. This stores the round as JSON in the calling terminal's
+`questions.round` label (hc label $HC_TERMINAL_ID ...); the panel watches
+terminal labels live, so it works for agents on remote machines too. The
+person answers there and pushes the answers back into this terminal as one
+message ("Answers from the question panel ...").
+
+Usage:
+  herdr-ask < round.json     post a round (replaces the previous one)
+  herdr-ask --clear          remove the round (the panel keeps it as history)
+
+Round JSON (stdin):
+  {
+    "topic": "Question panel design",          optional, shown as the round name
+    "questions": [
+      {
+        "id": "Q1",                             required, unique, no ":"
+        "title": "Placement",                   short title
+        "body": "Markdown: context, choices",   optional
+        "recommended": "Split pane on a key"    optional; the panel offers Accept
+      }
+    ]
+  }
+
+Exit codes: 0 posted, 1 bad input or hc failed, 2 not inside a herdr terminal.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+
+LABEL = "questions.round"
+# Labels live in herdr-core's terminal record; keep rounds modest.
+MAX_BYTES = 64 * 1024
+
+
+def die(msg: str, code: int = 1) -> None:
+    print(f"herdr-ask: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def validate(data) -> dict:
+    if not isinstance(data, dict):
+        die("round must be a JSON object")
+    qs = data.get("questions")
+    if not isinstance(qs, list) or not qs:
+        die("`questions` must be a non-empty list")
+    seen: set[str] = set()
+    out = []
+    for i, q in enumerate(qs, 1):
+        if not isinstance(q, dict):
+            die(f"question {i} must be an object")
+        qid = str(q.get("id") or f"Q{i}")
+        if ":" in qid:
+            die(f"question id {qid!r} must not contain ':'")
+        if qid in seen:
+            die(f"duplicate question id {qid!r}")
+        seen.add(qid)
+        item = {"id": qid, "title": str(q.get("title") or "")}
+        for key in ("body", "recommended"):
+            if q.get(key):
+                item[key] = str(q[key])
+        out.append(item)
+    return {
+        # A fresh id per post: the panel treats each id as a new round.
+        "id": f"r{int(time.time() * 1000)}",
+        "topic": str(data.get("topic") or ""),
+        "questions": out,
+    }
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if args and args[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+
+    terminal = os.environ.get("HC_TERMINAL_ID")
+    if not terminal:
+        die("HC_TERMINAL_ID is not set: not running inside a herdr terminal", 2)
+
+    if args == ["--clear"]:
+        value = ""
+    elif args:
+        die(f"unknown arguments: {' '.join(args)} (see --help)")
+    else:
+        try:
+            data = json.load(sys.stdin)
+        except json.JSONDecodeError as exc:
+            die(f"stdin is not valid JSON: {exc}")
+        value = json.dumps(validate(data), ensure_ascii=False, separators=(",", ":"))
+        if len(value.encode()) > MAX_BYTES:
+            die(f"round is {len(value.encode())} bytes; keep it under {MAX_BYTES}")
+
+    proc = subprocess.run(
+        ["hc", "label", terminal, f"{LABEL}={value}"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        die((proc.stderr or proc.stdout).strip() or f"hc label exited {proc.returncode}")
+
+    if value:
+        n = len(json.loads(value)["questions"])
+        print(f"posted {n} question(s) to the herdr question panel (Cmd/Super+g opens it)")
+    else:
+        print("cleared the herdr question panel round")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

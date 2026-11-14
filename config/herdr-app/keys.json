@@ -74,7 +74,8 @@
     "cmd-shift-w": "tab.close",
     "cmd-e": "mod.open:split-flip",
     "cmd-d": "mod.open:agent-switcher",
-    "cmd-shift-d": "mod.open:space-switcher"
+    "cmd-shift-d": "mod.open:space-switcher",
+    "cmd-g": "mod.open:questions-toggle"
   },
   "terminal": {
     "cmd-f": "terminal.search",
@@ -95,5 +96,8 @@
   "mod:space-switcher": {
     "cmd-j": "space-switcher.down",
     "cmd-k": "space-switcher.up"
+  },
+  "mod:questions": {
+    "cmd-enter": "questions.push"
   }
 }

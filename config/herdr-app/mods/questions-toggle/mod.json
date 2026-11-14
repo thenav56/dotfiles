@@ -1,0 +1,5 @@
+{
+  "place": "none",
+  "title": "Toggle questions",
+  "overlay": { "kind": "popup", "width": 1, "height": 1 }
+}
