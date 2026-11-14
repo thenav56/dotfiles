@@ -168,7 +168,7 @@ export default class Questions extends View {
     let rounds = this.history();
     if (live && !rounds.some((r) => r.id === live.id)) {
       this.flush();
-      rounds = [...this.history(), { id: live.id, topic: live.topic ?? "", at: Date.now(), questions: live.questions, session: live.session ?? null, cwd: live.cwd ?? null, answers: {} }];
+      rounds = [...this.history(), { id: live.id, topic: live.topic ?? "", at: Date.now(), questions: live.questions, session: live.session ?? null, cwd: live.cwd ?? null, configDir: live.configDir ?? null, answers: {} }];
       this.saveHistory(rounds);
     }
     const current = this.currentRound();
@@ -411,7 +411,7 @@ export default class Questions extends View {
     if (running) return this.showFork(running.address);
     // The agent's label is the source of truth; the stored copy may predate these fields.
     const live = roundOf(termByAddress(this.target.address));
-    if (live?.id === round.id) round = { ...round, session: live.session ?? round.session, cwd: live.cwd ?? round.cwd };
+    if (live?.id === round.id) round = { ...round, session: live.session ?? round.session, cwd: live.cwd ?? round.cwd, configDir: live.configDir ?? round.configDir };
     if (!round.session) {
       notify({ title: "Discuss", body: "This round has no Claude session id (posted by an older herdr-ask, or not from Claude Code).", level: "warning", timeout: 5000 });
       return;
@@ -423,7 +423,8 @@ export default class Questions extends View {
     // --rm: once killed it's gone, and its pane with it.
     const args = ["run", "--bg", "--json", "--no-parent", "--rm", ...(on ? ["--on", on] : []), ...(round.cwd ? ["--cwd", round.cwd] : []), "--label", `${DISCUSS_LABEL}=${tag}`, "--"];
     // The prompt goes first: --disallowedTools/--allowedTools take every value after them.
-    const argv = ["claude", forkFirstPrompt(q), "--resume", round.session, "--fork-session", "--append-system-prompt", forkSystemPrompt(q), "--disallowedTools", ...FORK_DENIED_TOOLS, "--allowedTools", "Bash(herdr-ask --discussion:*)", "Bash(~/.dotfiles/commands/herdr-ask --discussion:*)"];
+    // The fork runs on the agent's account: its CLAUDE_CONFIG_DIR, when the round has one.
+    const argv = [...(round.configDir ? ["env", `CLAUDE_CONFIG_DIR=${round.configDir}`] : []), "claude", forkFirstPrompt(q), "--resume", round.session, "--fork-session", "--append-system-prompt", forkSystemPrompt(q), "--disallowedTools", ...FORK_DENIED_TOOLS, "--allowedTools", "Bash(herdr-ask --discussion:*)", "Bash(~/.dotfiles/commands/herdr-ask --discussion:*)"];
     cx.spawn(async (cx) => {
       try {
         const r = await hc([...args, ...argv]);

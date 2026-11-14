@@ -29,9 +29,9 @@ Round JSON (stdin):
     ]
   }
 
-The round also records the agent's Claude session ($CLAUDE_CODE_SESSION_ID)
-and folder, so the panel's Discuss button can fork it (claude --resume
---fork-session) into a side window.
+The round also records the agent's Claude session ($CLAUDE_CODE_SESSION_ID),
+config dir ($CLAUDE_CONFIG_DIR) and folder, so the panel's Discuss button can
+fork it (claude --resume --fork-session) into a side window on the same account.
 
 Exit codes: 0 posted, 1 bad input or hc failed, 2 not inside a herdr terminal.
 """
@@ -87,6 +87,8 @@ def validate(data) -> dict:
     }
     if os.environ.get("CLAUDE_CODE_SESSION_ID"):
         round_["session"] = os.environ["CLAUDE_CODE_SESSION_ID"]
+    if os.environ.get("CLAUDE_CONFIG_DIR"):
+        round_["configDir"] = os.environ["CLAUDE_CONFIG_DIR"]
     return round_
 
 
