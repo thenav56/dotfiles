@@ -15,12 +15,40 @@
 
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, TextView, Textarea, TextareaState } from "gpui-base";
-import { terminals, panes, focused, theme, shared, setShared, hc, notify, nextCommand } from "herdr";
+import { terminals, panes, focused, theme, shared, setShared, hc, notify, nextCommand, run } from "herdr";
 
 const LABEL = "questions.round";
+const DISCUSS_LABEL = "questions.discuss"; // on a Discuss fork: {target, round, qid}
+const WRAP_UP = "Wrap up: post the discussion summary for the main session now (herdr-ask --discussion), as your instructions say.";
 const STORE = "questions";
 const KEEP_ROUNDS = 12;
 const NOTES = "#notes"; // input key for the round's free-form notes, beside the question ids
+
+// What a Discuss fork is told (it already has the main session's context).
+const forkSystemPrompt = (q) =>
+  `You are a side fork of the main Claude session, opened from the user's herdr question panel so they can dig into one question (${q.id}${q.title ? `: ${q.title}` : ""}) before answering it. ` +
+  `The main session is waiting and won't see this conversation; only your summary goes back. ` +
+  `This is a DISCUSSION-ONLY session: explain, compare options, answer follow-ups, and read files or run read-only commands if it helps. ` +
+  `Make no changes of any kind: don't edit or create files, don't commit, don't run commands that modify anything, and don't post question rounds (no herdr-ask except --discussion below). ` +
+  `If the user asks for a change, say it belongs in the main session and include it in the summary instead. ` +
+  `When the user asks you to wrap up, write a short summary for the main session (what was clarified, any decision or leaning the user stated, open concerns; a few bullet lines, no preamble) and post it with:\n` +
+  `herdr-ask --discussion ${q.id} <<'EOF'\n<summary>\nEOF\n` +
+  `(use ~/.dotfiles/commands/herdr-ask if herdr-ask isn't on PATH). Then stop: this session ends once the summary is posted.`;
+// The fork's first message, sent at launch.
+const forkFirstPrompt = (q) =>
+  `[Side discussion from the question panel: ${q.id}${q.title ? ` (${q.title})` : ""}. This is a discussion-only fork: don't change anything.] ` +
+  `I want to understand this question before answering it. Briefly lay out what it hinges on and the trade-offs, then wait for my questions.`;
+// Hard stop on file edits; the system prompt covers the rest.
+const FORK_DENIED_TOOLS = ["Edit", "Write", "NotebookEdit"];
+const machineOf = (address) => (address.includes("/") ? address.slice(0, address.indexOf("/")) : null);
+
+function discussOf(term) {
+  try {
+    return JSON.parse(term?.labels?.[DISCUSS_LABEL] ?? "null");
+  } catch {
+    return null;
+  }
+}
 
 function roundOf(term) {
   const raw = term?.labels?.[LABEL];
@@ -53,7 +81,12 @@ export default class Questions extends View {
     this.pushing = false;
     this.syncing = false;
     this.open = new Set(); // expanded earlier rounds
+    this.summarizing = new Set(); // fork addresses asked to wrap up
+    this.collected = new Set(); // fork addresses whose summary was taken
     cx.timer.every(2000, () => this.flush());
+    cx.timer.every(600, (cx) => this.collectDiscussions(cx));
+    this.pendingShow = null; // {address, until}: a fork to give a pane once the app sees it
+    cx.timer.every(150, (cx) => this.showPending(cx));
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -124,7 +157,8 @@ export default class Questions extends View {
     const live = roundOf(termByAddress(this.target.address));
     if (live && !this.history().some((r) => r.id === live.id)) return true;
     const current = this.currentRound();
-    return Boolean(current) && this.inputRound !== current.id;
+    if (!current) return false;
+    return this.inputRound !== current.id || Object.values(current.answers ?? {}).some((a) => a?.inbox?.length);
   }
 
   sync() {
@@ -134,11 +168,35 @@ export default class Questions extends View {
     let rounds = this.history();
     if (live && !rounds.some((r) => r.id === live.id)) {
       this.flush();
-      rounds = [...this.history(), { id: live.id, topic: live.topic ?? "", at: Date.now(), questions: live.questions, answers: {} }];
+      rounds = [...this.history(), { id: live.id, topic: live.topic ?? "", at: Date.now(), questions: live.questions, session: live.session ?? null, cwd: live.cwd ?? null, answers: {} }];
       this.saveHistory(rounds);
     }
     const current = this.currentRound();
     if (current && this.inputRound !== current.id) this.makeInputs(current);
+    if (current) this.takeInbox(current);
+  }
+
+  // Discussion summaries collectDiscussions() left on a question go to
+  // the end of its answer box, where they can be edited before Push.
+  takeInbox(round) {
+    const waiting = round.questions.filter((q) => round.answers?.[q.id]?.inbox?.length);
+    if (!waiting.length) return;
+    this.flush();
+    const rounds = this.history().map((r) => {
+      if (r.id !== round.id) return r;
+      const answers = { ...(r.answers ?? {}) };
+      for (const q of waiting) {
+        const { inbox = [], ...a } = answers[q.id] ?? {};
+        const s = this.inputs.get(`${r.id}:${q.id}`);
+        const before = (s ? s.value() : a.text ?? "").trimEnd();
+        const added = inbox.map((summary) => `Discussion summary:\n${summary.trim()}`).join("\n\n");
+        a.text = before ? `${before}\n\n${added}` : added;
+        s?.set_value(a.text);
+        answers[q.id] = a;
+      }
+      return { ...r, answers };
+    });
+    this.saveHistory(rounds);
   }
 
   makeInputs(round) {
@@ -257,6 +315,132 @@ export default class Questions extends View {
     });
   }
 
+  // The live Discuss fork for this question, if one is running.
+  forkFor(round, qid) {
+    return terminals().find((t) => {
+      const d = discussOf(t);
+      return d && d.target === this.target?.address && d.round === round.id && d.qid === qid;
+    }) ?? null;
+  }
+
+  // Shows a fork in a pane below this panel (in the agent's tab), or focuses
+  // the pane it already has.
+  showFork(address) {
+    if (panes().some((p) => p.terminal === address)) return run("pane.focus", { terminal: address });
+    const tab = panes().find((p) => p.terminal === this.target?.address)?.tab;
+    const panel = panes().find((p) => p.mod === "questions" && p.tab === tab);
+    if (panel) run("pane.focus", { pane: panel.pane });
+    run("terminal.keep", { terminal: address, place: "down" });
+  }
+
+  showPending(cx) {
+    const p = this.pendingShow;
+    if (!p) return;
+    if (terminals().some((t) => t.address === p.address)) {
+      this.pendingShow = null;
+      this.showFork(p.address);
+      cx.notify();
+    } else if (Date.now() > p.until) {
+      this.pendingShow = null;
+      notify({ title: "Discuss", body: `Started ${p.address}, but it never showed up here; use Show on the card to retry.`, level: "warning", timeout: 6000 });
+      cx.notify();
+    }
+  }
+
+  // Done: ask the fork to post its summary; collectDiscussions() takes it from there.
+  wrapUp(cx, address) {
+    if (this.summarizing.has(address)) return;
+    this.summarizing.add(address);
+    cx.spawn(async (cx) => {
+      const r = await hc(["send", address, WRAP_UP]).catch((e) => ({ code: 1, stderr: String(e) }));
+      if (r.code !== 0) {
+        this.summarizing.delete(address);
+        notify({ title: "Discussion", body: (r.stderr || r.stdout || "hc send failed").trim(), level: "error", timeout: 6000 });
+      }
+      cx.notify();
+    });
+  }
+
+  // Close: end the fork without a summary (--rm takes its pane with it).
+  endFork(cx, address) {
+    this.summarizing.delete(address);
+    cx.spawn(async () => {
+      await hc(["kill", address]).catch(() => null);
+    });
+  }
+
+  // A fork that posted its summary (herdr-ask --discussion): put it in that
+  // question's inbox (sync() appends it to the answer box) and end the fork.
+  // Runs on a timer, so a summary posted while the panel was closed is picked
+  // up when it opens.
+  collectDiscussions(cx) {
+    if (!this.target) return;
+    for (const t of terminals()) {
+      const d = discussOf(t);
+      const raw = t.labels?.["questions.discussion"];
+      if (!d || !raw || d.target !== this.target.address || this.collected.has(t.address)) continue;
+      let posted;
+      try {
+        posted = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+      if (!posted?.summary) continue;
+      const rounds = this.history();
+      if (!rounds.some((r) => r.id === d.round)) continue;
+      this.collected.add(t.address);
+      this.summarizing.delete(t.address);
+      this.saveHistory(
+        rounds.map((r) => {
+          if (r.id !== d.round) return r;
+          const a = { ...(r.answers?.[d.qid] ?? {}) };
+          a.inbox = [...(a.inbox ?? []), posted.summary];
+          return { ...r, answers: { ...(r.answers ?? {}), [d.qid]: a } };
+        }),
+      );
+      notify({ title: "Discussion", body: `Summary added to ${d.qid}'s answer box; edit it there, then Push`, level: "success", timeout: 3000 });
+      this.endFork(cx, t.address);
+      cx.notify();
+    }
+  }
+
+  // Forks the agent's Claude session on its machine, in its folder, and shows
+  // the fork in a pane below the panel. The main session is untouched.
+  discuss(cx, round, q) {
+    const running = this.forkFor(round, q.id);
+    if (running) return this.showFork(running.address);
+    // The agent's label is the source of truth; the stored copy may predate these fields.
+    const live = roundOf(termByAddress(this.target.address));
+    if (live?.id === round.id) round = { ...round, session: live.session ?? round.session, cwd: live.cwd ?? round.cwd };
+    if (!round.session) {
+      notify({ title: "Discuss", body: "This round has no Claude session id (posted by an older herdr-ask, or not from Claude Code).", level: "warning", timeout: 5000 });
+      return;
+    }
+    if (this.launching) return;
+    this.launching = true;
+    const on = machineOf(this.target.address);
+    const tag = JSON.stringify({ target: this.target.address, round: round.id, qid: q.id });
+    // --rm: once killed it's gone, and its pane with it.
+    const args = ["run", "--bg", "--json", "--no-parent", "--rm", ...(on ? ["--on", on] : []), ...(round.cwd ? ["--cwd", round.cwd] : []), "--label", `${DISCUSS_LABEL}=${tag}`, "--"];
+    // The prompt goes first: --disallowedTools/--allowedTools take every value after them.
+    const argv = ["claude", forkFirstPrompt(q), "--resume", round.session, "--fork-session", "--append-system-prompt", forkSystemPrompt(q), "--disallowedTools", ...FORK_DENIED_TOOLS, "--allowedTools", "Bash(herdr-ask --discussion:*)", "Bash(~/.dotfiles/commands/herdr-ask --discussion:*)"];
+    cx.spawn(async (cx) => {
+      try {
+        const r = await hc([...args, ...argv]);
+        const out = JSON.parse(r.stdout || "{}");
+        if (r.code !== 0 || !out.address) throw new Error(out.error?.message || r.stderr || r.stdout || `hc run exited ${r.code}`);
+        // Remote runs answer with machine/tN already; local ones with a bare id.
+        // The app hears of the new terminal a moment later; terminal.keep fails
+        // until then, so showPending() waits for it.
+        this.pendingShow = { address: out.address, until: Date.now() + 10000 };
+      } catch (e) {
+        notify({ title: "Discuss failed", body: String(e?.message ?? e).trim(), level: "error", timeout: 8000 });
+      }
+      this.launching = false;
+      cx.notify();
+    });
+  }
+
   // ---------------------------------------------------------------- render
 
   render(cx) {
@@ -367,6 +551,8 @@ export default class Questions extends View {
     const chip = { sent: [t.raised, t.dim, "✓ sent"], ready: [t.accent, t.accent_foreground, "ready"], open: [t.raised, t.muted, "open"] }[state];
     const input = this.inputs.get(`${round.id}:${q.id}`);
     const key = `${round.id}-${q.id}`;
+    const live = !a.sent && !readonly && this.currentRound()?.id === round.id;
+    const fork = live ? this.forkFor(round, q.id) : null;
 
     const card = v_flex()
       .id(`q-card-${key}`)
@@ -383,6 +569,15 @@ export default class Questions extends View {
           .gap(8)
           .child(div().flex_none().px(6).py(1).rounded(5).bg(t.raised).text_size(11.5).font_semibold().child(q.id))
           .child(div().flex_1().min_w(0).font_semibold().child(q.title ?? ""))
+          .when(live && !fork, (el) => el.child(this.smallButton(t, `q-discuss-${key}`, this.launching ? "Starting…" : "Discuss", (cx) => this.discuss(cx, round, q), "Talk it through in a fork of the agent's session, in a pane below")))
+          .when(Boolean(fork), (el) =>
+            this.summarizing.has(fork.address)
+              ? el.child(div().flex_none().text_size(11).text_color(t.dim).child("summarizing…"))
+              : el
+                  .child(this.smallButton(t, `q-show-${key}`, "Show", () => this.showFork(fork.address), "Focus the discussion pane"))
+                  .child(this.smallButton(t, `q-done-${key}`, "Done", (cx) => this.wrapUp(cx, fork.address), `Summarize the discussion into ${q.id}'s answer box (edit it there before Push), then end the fork`))
+                  .child(this.smallButton(t, `q-close-${key}`, "Close", (cx) => this.endFork(cx, fork.address), "End the discussion without a summary")),
+          )
           .child(div().flex_none().px(7).py(1).rounded(9).bg(chip[0]).text_color(chip[1]).text_size(10.5).child(chip[2])),
       );
 
@@ -425,6 +620,7 @@ export default class Questions extends View {
       else if (accepted) rec.child(div().flex_none().text_size(11.5).text_color(t.dim).child("✓ accepted"));
       card.child(rec);
     }
+
 
     if (input && !readonly) {
       card.child(Textarea.new(input).w_full().px(10).py(8).rounded(8).border_1().border_color(t.input).bg(t.surface).text_size(12.5).text_color(t.foreground));
@@ -492,9 +688,10 @@ export default class Questions extends View {
       );
   }
 
-  smallButton(t, id, label, action) {
+  smallButton(t, id, label, action, tip = null) {
     return h_flex()
       .id(id)
+      .when(Boolean(tip), (el) => el.tooltip(tip))
       .flex_none()
       .h(24)
       .px(8)
@@ -505,7 +702,7 @@ export default class Questions extends View {
       .cursor_pointer()
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => {
-        action();
+        action(cx);
         cx.notify();
       })
       .child(label);
