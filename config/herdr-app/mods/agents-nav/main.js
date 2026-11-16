@@ -52,6 +52,10 @@ const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status;
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
+// Space avatar colors, as the spaces mod draws them.
+const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
+// Space dots skip green (ansi2), teal (ansi6) and red (ansi1): they read as status.
+const DOTS = ["ansi4", "ansi5", "ansi3"];
 const SORTS = [
   { id: "priority", label: "Priority", icon: "clock" },
   { id: "grouped", label: "Grouped by space", icon: "layers" },
@@ -245,10 +249,35 @@ export default class Agents extends View {
     const spaceList = spaces();
     const machineOfSpace = new Map(spaceList.map((s) => [s.id, s.machine]));
     const machineOf = (a) => machineOfSpace.get(a.space) ?? (a.address.includes("/") ? a.address.split("/")[0] : null);
+    // Same-named spaces on one machine share a group.
+    const mk = (a) => (machineOf(a) === null ? "" : `~${machineOf(a)}`);
+    const nameKey = (a) => `${mk(a)}/${a.space_name || ""}`;
     if (navGroup) {
-      const mk = (a) => (machineOf(a) === null ? "" : `~${machineOf(a)}`);
-      rest.sort((x, y) => mk(x).localeCompare(mk(y)));
+      // Keep list order, but pull same-named spaces next to their first one.
+      const first = new Map();
+      rest.forEach((a, i) => { if (!first.has(nameKey(a))) first.set(nameKey(a), i); });
+      rest.sort((x, y) => mk(x).localeCompare(mk(y)) || first.get(nameKey(x)) - first.get(nameKey(y)));
     }
+    // A merged group holding several spaces marks each agent with a dot per space:
+    // its avatar color when that is free in the group, else the next free one.
+    // Never green or red, which read as status.
+    const idsOfName = new Map();
+    for (const a of rest) (idsOfName.get(nameKey(a)) ?? idsOfName.set(nameKey(a), new Set()).get(nameKey(a))).add(a.space);
+    const spaceColors = shared("space.colors") ?? {};
+    const dotColor = new Map();
+    if (navGroup) {
+      for (const ids of idsOfName.values()) {
+        if (ids.size < 2) continue;
+        const used = new Set();
+        [...ids].forEach((id, i) => {
+          const own = spaceColors[id] ?? "ansi6";
+          const c = DOTS.includes(own) && !used.has(own) ? own : (DOTS.find((d) => !used.has(d)) ?? DOTS[i % DOTS.length]);
+          used.add(c);
+          dotColor.set(id, MARK[c]);
+        });
+      }
+    }
+    const dotOf = (a) => (a.pinned ? null : (dotColor.get(a.space) ?? null));
     list = [...pinned, ...rest];
     setAgentOrder(list.map((a) => a.address));
 
@@ -340,9 +369,11 @@ export default class Agents extends View {
       // Without a space header above (priority, pinned) the row names its space.
       const full = byPriority || isPinned;
       const name = full ? a.space_name || label(a) : more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a));
+      const dot = dotOf(a);
       return h_flex()
         .id(`ag-${a.address}`)
         .pl(navGroup && !isPinned ? 18 : 8)
+        .when(Boolean(dot), el => el.child(div().size(6).rounded(3).flex_none().bg(dot)))
         .pr(8)
         .h(navGroup ? 26 : 30)
         .flex_none()
@@ -388,7 +419,7 @@ export default class Agents extends View {
         }
         machineGroup.members.push(a);
       }
-      const id = byPriority ? `sec-${r}` : `sp-${a.space}`;
+      const id = byPriority ? `sec-${r}` : navGroup ? `sn-${nameKey(a)}` : `sp-${a.space}`;
       if (groups.at(-1)?.id === id) groups.at(-1).members.push(a);
       else groups.push({ id, label: byPriority ? SECTION[r] : navGroup ? `📁 ${a.space_name || ""}` : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a], nested: navGroup });
     }
