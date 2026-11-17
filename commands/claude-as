@@ -1,0 +1,3610 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pyyaml", "rich"]
+# ///
+"""claude-as — launch an interactive `claude` as one of the tracked accounts.
+
+Each account in `config.yaml` has a dedicated `accounts/<email>/` dir (the same
+one the usage collector uses) that we point `CLAUDE_CONFIG_DIR` at. Before
+launching we set that dir up so the session behaves exactly like the normal
+aliased `claude`:
+
+  * symlink the shared config layers (settings sources, skills, agents,
+    commands, themes, plugins, global memory) into the account dir,
+  * symlink the work/history state (projects, sessions, history, …) to
+    ~/.claude so conversation history and `--resume` are unified across
+    accounts — backing up any pre-existing per-account copy first,
+  * mark onboarding complete so the TUI skips its first-run wizard,
+  * then `exec claude-custom` — which regenerates settings.json from the
+    symlinked base+local and execs the real claude binary.
+
+This tool does CONFIG SETUP ONLY, never auth. If an account isn't logged in it
+points you at `./cli.py check --fix`.
+
+Usage:
+  claude-as                       pick an account, launch
+  claude-as -- --resume           pick an account, pass `--resume` to claude
+  claude-as work@example.com      launch as that account
+  claude-as work@… -- --resume    launch as that account, pass `--resume`
+  claude-as default [-- args]     launch via the `default` symlink (see below)
+  claude-as set-default <sel>     point `default` at another account
+  claude-as get-default           print the current default account (or none)
+  claude-as accounts [--json]     list accounts (email, label, creds, in_pool,
+                                  default)
+  claude-as search [--as <sel>] [--grep <pat>]
+                   [--view all|active|protected|unprotected|reminders]
+                   [--list|--json] [--force-resume] [query...]
+                   [-- <claude args>]
+                                  find an old session (fzf, newest first) and
+                                  resume it in its original dir, as <sel> or
+                                  as `default`; --grep keeps sessions whose
+                                  transcript contains <pat> (rg, fixed string,
+                                  case-insensitive); --list/--json print the
+                                  index instead (query words filter rows);
+                                  a running session is not resumed again
+                                  unless --force-resume. fzf keys: ^j/^k
+                                  down/up, ^s cycle view all -> active ->
+                                  protected -> unprotected, ^p
+                                  protect/unprotect (undo on a `↩` row), ^n
+                                  protect with a note (typed on the tty;
+                                  enter = save, esc/^c = cancel), ^r
+                                  reminders view and back. --view reminders
+                                  lists missed reminders, then pending ones by
+                                  due (--list/--json too; no --grep); there
+                                  enter resumes the reminder's session (no
+                                  session: prints a `cd` hint, exit 1), ^a
+                                  acks, ^x cancels, ^z snoozes 1h
+  claude-as protect <id-prefix> [--note TEXT]
+  claude-as protect --project <path> [--note TEXT]
+                                  keep a session (or every session in <path>
+                                  and below) past claude's cleanup: copies are
+                                  archived in ~/.local/share/claude-as/protected
+                                  on every launch/search, and restored when
+                                  search resumes a session claude deleted
+  claude-as protect --list        protected sessions, project rules and
+                                  recently unprotected ones
+  claude-as protect --undo [<id-prefix>|<path>]
+                                  re-protect the most recently unprotected
+                                  session/project (or the named one) with its
+                                  original note and date
+  claude-as unprotect <id-prefix>|--project <path> [--purge]
+                                  drop the flag; --purge deletes the archive.
+                                  The flag is remembered for --undo (newest
+                                  50, at most 30 days)
+  claude-as resume <id-prefix> [--as <sel>] [--force-resume] [-- <claude args>]
+                                  resume one session without the picker (same
+                                  dir change, archive restore and running
+                                  check as search)
+  claude-as remind add (--in DUR | --at WHEN) [--session ID] [--no-protect]
+                   NOTE...        Telegram reminder (tg-notify) at a time. DUR
+                                  30m/3h/2d/2w/1d12h; WHEN `YYYY-MM-DD HH:MM`
+                                  or `HH:MM` (local). Session defaults to
+                                  $CLAUDE_CODE_SESSION_ID and is protected
+                                  unless --no-protect; the message carries
+                                  `claude-as resume <id>`
+  claude-as remind list [--missed|--all] [--json]
+                                  pending + missed (fired, not acked);
+                                  --missed only those, --all every record
+  claude-as remind ack <id>|--all acknowledge a missed reminder (--all: every
+                                  one); resuming its session does not ack
+  claude-as remind rm <id>        cancel (the session stays protected)
+  claude-as remind snooze <id> DUR
+                                  due again in DUR (clears the ack)
+  claude-as remind dispatch       send due reminders and the weekly digest
+                                  (run by the timer)
+  claude-as remind listen         apply Telegram button presses as they
+                                  arrive (long polling; run by the listener
+                                  service)
+  claude-as remind --install|--uninstall
+                                  systemd user timer running dispatch every
+                                  minute and the listen service (only when
+                                  tg-notify has --api; ~/.config/systemd/user)
+  claude-as --install             (re)create the ~/.local/bin/claude-as symlink
+                                  and the ~/.claude/skills/* links for skills/
+  claude-as --help
+
+The selector (left of `--`) matches an exact email, an exact label, or a unique
+case-insensitive substring of either. Everything right of `--` is passed
+verbatim to claude.
+
+`accounts --json` also reports the orchestration pool: config.yaml may declare
+`orchestrate_pool:` (list or comma-separated string of selectors) — the
+accounts an orchestrator is allowed to fail over to when one hits a rate
+limit. Order = preference order. Unresolvable selectors warn and are skipped.
+
+`default` is reserved: `accounts/default` is a symlink to one account dir.
+`claude-as default` exports the symlink path (unresolved) as
+CLAUDE_CONFIG_DIR, and claude re-reads credentials through it on every
+request, so `set-default` moves running default sessions to another account
+without a restart (background shells keep running). set-default links shared
+state into every account dir, holds the current target's OAuth refresh lock
+while flipping, and prints how many running sessions use `default`.
+"""
+from __future__ import annotations
+
+import contextlib
+import fcntl
+import glob
+import html
+import json
+import os
+import re
+import secrets
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import unicodedata
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import NamedTuple
+
+# Invoked via the ~/.local/bin symlink, so resolve our real location and put it
+# on sys.path before importing the sibling cli.py (config/account helpers).
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE))
+
+import cli  # noqa: E402
+
+from rich.console import Console  # noqa: E402
+
+console = Console()
+err_console = Console(stderr=True)
+
+CLAUDE_HOME = Path.home() / ".claude"
+
+# Shared config symlinked into each account dir. Source = realpath(~/.claude/X),
+# target = <acct>/X. settings.json is GENERATED (by claude-custom), never linked.
+# hooks/ is intentionally absent: settings reference it by absolute
+# $HOME/.claude/hooks/... so it fires without a per-account copy.
+ALLOW_LIST = [
+    "settings.base.json",   # generator source
+    "settings.local.json",  # generator source (skipped if missing/broken)
+    "settings.host.json",   # generator source (skipped if missing/broken)
+    "skills",               # skill discovery from the config dir
+    "plugins",              # pi?
+    "state",              # pi?
+    "agents",               # custom subagent definitions
+    "commands",             # custom slash commands
+    "output-styles",        # custom output styles
+    "themes",               # `theme: custom:auto-dual` lookup
+    "plugins",              # enabled plugins load from the config dir
+    "CLAUDE.md",            # global memory…
+    "CLAUDE.local.md",      # …and its @imports
+    "RTK.md",
+]
+
+# Work/history state we want UNIFIED across accounts: conversation history,
+# resume state, prompt history, todos, plans, tasks. Symlinked to ~/.claude
+# like ALLOW_LIST, but here claude may have already created a REAL per-account
+# dir/file — reconcile backs that up (`<name>.bak-per-account`) before linking
+# so no history is lost. Sharing means `--resume` works whatever account you
+# launch as.
+SHARE_LIST = [
+    "projects",             # per-project conversation history
+    "sessions",             # session state (--resume)
+    "history.jsonl",        # prompt history
+    "todos",                # per-session todo lists
+    "shell-snapshots",      # captured shell env for bash tool
+    "file-history",         # edit/undo history
+    "plans",                # saved plans
+    "tasks",                # background task state
+    "paste-cache",          # large-paste cache
+    "debug",                # --debug logs; a flipped `default` session keeps writing here
+]
+
+# Known per-account state / generated output / absolute-path-referenced things
+# that must NEVER be symlinked. Anything in ~/.claude in none of ALLOW_LIST,
+# SHARE_LIST, or this set triggers an "unclassified entry" warning so the lists
+# stay honest as Claude Code evolves.
+SKIP_LIST = {
+    ".credentials.json", ".gitignore", ".last-cleanup", "backups", "cache",
+    "CLAUDE.host.md",  # imported by absolute path @~/.claude/CLAUDE.host.md
+    "CLAUDE.md.d",  # referenced by absolute path ~/.claude/CLAUDE.md.d/
+    "daemon", "daemon.json", "daemon.lock", "daemon.log",
+    "daemon.status.json", "feedback", "hooks", "jobs",
+    "mcp-needs-auth-cache.json",
+    "policy-limits.json", "policy-limits.json.signature.json",
+    "policy-limits.json.stamp.json",
+    "remote-settings.json", "remote-settings.json.signature.json",
+    "session-env",
+    "settings.json", "settings.json.bak", "stats-cache.json", "telemetry",
+}
+
+# `accounts/default` is a symlink to one account dir (relative target = the
+# folder-email). Sessions launched via `claude-as default` get the symlink path
+# itself as CLAUDE_CONFIG_DIR; claude reads `<dir>/.credentials.json` and
+# `.claude.json` through that path on every request, so `set-default` moves
+# running sessions to another account without a restart.
+DEFAULT_NAME = "default"
+
+# Claude's OAuth refresh lock: a mkdir-style lock (proper-lockfile semantics)
+# in the config dir. The holder touches its mtime every 5s; older than 60s =
+# stale. set-default holds it on the CURRENT target while flipping, so a token
+# refresh in flight cannot save A's rotated refresh token into B's dir.
+OAUTH_LOCK_NAME = ".oauth_refresh.lock"
+OAUTH_LOCK_STALE_SECS = 60.0
+OAUTH_LOCK_POLL_SECS = 0.5
+OAUTH_LOCK_TIMEOUT_SECS = 70.0
+
+
+# --- account selection ------------------------------------------------------
+
+def creds_present(email: str) -> bool:
+    """Cheap, no-network check: does the account have stored credentials?"""
+    return (cli.ACCOUNTS_DIR / email / ".credentials.json").exists()
+
+
+def load_users():
+    """config.yaml users minus the reserved `default` name (it is the symlink,
+    never an account of its own)."""
+    users = []
+    for email, label in cli.load_users():
+        if email == DEFAULT_NAME:
+            print(f"warning: config.yaml user {email!r} is reserved — skipped",
+                  file=sys.stderr)
+            continue
+        users.append((email, label))
+    return users
+
+
+def match_selector(selector: str, users) -> str | list[str]:
+    """Match a selector against users. Returns the folder-email on a unique
+    match, else the (possibly empty) list of candidate emails."""
+    for email, _label in users:
+        if email == selector:
+            return email
+    for email, label in users:
+        if label and label == selector:
+            return email
+    needle = selector.lower()
+    matches = [
+        email for email, label in users
+        if needle in email.lower() or (label and needle in label.lower())
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return matches
+
+
+def resolve_selector(selector: str, users) -> str:
+    """Resolve a selector to a folder-email. Exits on no/ambiguous match."""
+    got = match_selector(selector, users)
+    if isinstance(got, str):
+        return got
+    if got:
+        console.print(f"[red]ambiguous selector[/red] {selector!r} matches:")
+        for email in got:
+            console.print(f"  {email}")
+        raise SystemExit(2)
+    console.print(f"[red]unknown account:[/red] {selector!r}")
+    console.print("Run [bold]claude-as[/bold] with no selector to pick from the list.")
+    raise SystemExit(2)
+
+
+def orchestrate_pool(users) -> list[str]:
+    """Resolve config.yaml `orchestrate_pool` to an ordered list of emails.
+
+    Accepts a YAML list or comma-separated string of selectors. Unresolvable
+    or ambiguous entries warn on stderr and are skipped — the pool must never
+    silently widen. Empty/absent -> [] (orchestrators must then ask the user).
+    """
+    spec = cli.load_config().get("orchestrate_pool")
+    if spec is None:
+        raw = []
+    elif isinstance(spec, str):
+        raw = spec.split(",")
+    elif isinstance(spec, (list, tuple)):
+        raw = list(spec)
+    else:
+        print(f"warning: orchestrate_pool has unexpected type {type(spec).__name__}",
+              file=sys.stderr)
+        raw = []
+    out: list[str] = []
+    for tok in raw:
+        tok = str(tok).strip()
+        if not tok:
+            continue
+        if tok == DEFAULT_NAME:
+            print(f"warning: orchestrate_pool selector {tok!r} is the default "
+                  f"symlink, not an account — skipped", file=sys.stderr)
+            continue
+        got = match_selector(tok, users)
+        if isinstance(got, str):
+            if got not in out:
+                out.append(got)
+        elif got:
+            print(f"warning: orchestrate_pool selector {tok!r} is ambiguous "
+                  f"({', '.join(got)}) — skipped", file=sys.stderr)
+        else:
+            print(f"warning: orchestrate_pool selector {tok!r} matches no account "
+                  f"— skipped", file=sys.stderr)
+    return out
+
+
+def _marker(email: str) -> str:
+    return "[green]✓ creds[/green]" if creds_present(email) else "[red]✗ creds[/red]"
+
+
+def pick_account(users) -> str:
+    """Interactive picker: fzf if available, numbered menu otherwise."""
+    if not users:
+        raise SystemExit("no accounts configured in config.yaml")
+
+    if shutil.which("fzf"):
+        # First tab-field is the email (the key, hidden via --with-nth=2..).
+        lines = []
+        for email, label in users:
+            cred = "✓ creds" if creds_present(email) else "✗ creds"
+            lines.append(f"{email}\t{label or email}\t[{cred}]")
+        proc = subprocess.run(
+            ["fzf", "--prompt=claude-as ❯ ", "--height=~40%", "--reverse",
+             "--delimiter=\t", "--with-nth=2.."],
+            input="\n".join(lines), capture_output=True, text=True,
+        )
+        if proc.returncode != 0 or not proc.stdout.strip():
+            raise SystemExit("no account selected")
+        return proc.stdout.strip().split("\t", 1)[0]
+
+    # Numbered-menu fallback (SSH/plain-TTY safe).
+    console.print("[bold]Select an account:[/bold]")
+    for i, (email, label) in enumerate(users, 1):
+        name = label or email
+        console.print(f"  [cyan]{i}[/cyan]) {name}  [dim]<{email}>[/dim]  {_marker(email)}")
+    raw = input(f"Number [1-{len(users)}]: ").strip()
+    try:
+        idx = int(raw)
+        if not 1 <= idx <= len(users):
+            raise ValueError
+    except ValueError:
+        raise SystemExit(f"invalid selection: {raw!r}")
+    return users[idx - 1][0]
+
+
+# --- setup steps ------------------------------------------------------------
+
+def _link(name: str, cfg: Path, *, backup: bool) -> None:
+    """Point cfg/name at realpath(~/.claude/name) via a symlink.
+
+    Skips a missing/broken source. Replaces a wrong symlink atomically. When
+    the target is already a REAL file/dir: if `backup`, rename it to
+    `<name>.bak-per-account` (never overwriting an earlier backup) then link;
+    otherwise leave it and warn (ALLOW_LIST config should never be per-account).
+    """
+    src = CLAUDE_HOME / name
+    if not src.exists():  # follows symlinks: broken/missing source -> skip
+        return
+    real = src.resolve()
+    target = cfg / name
+
+    if target.is_symlink():
+        if target.resolve() == real:
+            return  # already correct
+        # Wrong target: replace atomically.
+        tmp = cfg / f".{name}.lnk-tmp"
+        if tmp.is_symlink() or tmp.exists():
+            tmp.unlink()
+        os.symlink(real, tmp)
+        os.replace(tmp, target)
+        console.print(f"[yellow]relinked[/yellow] {name}")
+    elif target.exists():
+        if not backup:
+            console.print(
+                f"[yellow]warning:[/yellow] {target} is a real file/dir, not a "
+                f"symlink — leaving it untouched (expected → {real})")
+            return
+        bak = cfg / f"{name}.bak-per-account"
+        n = 1
+        while bak.is_symlink() or bak.exists():
+            bak = cfg / f"{name}.bak-per-account.{n}"
+            n += 1
+        os.rename(target, bak)
+        os.symlink(real, target)
+        console.print(f"[yellow]backed up[/yellow] {name} → {bak.name}, then linked")
+    else:
+        os.symlink(real, target)
+
+
+def reconcile_symlinks(cfg: Path) -> None:
+    """Symlink shared config + unified work/history state into the account dir.
+
+    ALLOW_LIST = shared config (never expected to exist per-account). SHARE_LIST
+    = work/history state claude may already have materialised per-account, so
+    those get backed up before the first link.
+    """
+    for name in ALLOW_LIST:
+        _link(name, cfg, backup=False)
+    for name in SHARE_LIST:
+        _link(name, cfg, backup=True)
+
+
+def warn_unclassified() -> None:
+    """Flag ~/.claude entries that are in neither ALLOW_LIST nor SKIP_LIST."""
+    known = set(ALLOW_LIST) | set(SHARE_LIST) | SKIP_LIST
+    try:
+        entries = sorted(os.listdir(CLAUDE_HOME))
+    except OSError:
+        return
+    for entry in entries:
+        if entry not in known:
+            console.print(
+                f"[yellow]warning:[/yellow] unclassified entry in ~/.claude: "
+                f"[bold]{entry}[/bold] — add it to ALLOW_LIST or SKIP_LIST in claude-as")
+
+
+def ensure_onboarding(cfg: Path) -> None:
+    """Set hasCompletedOnboarding=true in the account's .claude.json.
+
+    Without it an interactive launch starts at the first-run wizard even though
+    the stored token is valid. Atomic, 0600-preserving write (the file holds
+    the oauthAccount identity and must not become world-readable).
+    """
+    import json
+
+    path = cfg / ".claude.json"
+    if not path.exists():
+        console.print("[dim]note:[/dim] no .claude.json yet — claude will run its "
+                      "first-run wizard once, then this is set automatically next time")
+        return
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+    except Exception as exc:
+        console.print(f"[yellow]warning:[/yellow] cannot read .claude.json: {exc}")
+        return
+    if data.get("hasCompletedOnboarding") is True:
+        return
+    data["hasCompletedOnboarding"] = True
+    tmp = path.with_suffix(".json.tmp")
+    try:
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as fh:
+            json.dump(data, fh, indent=2)
+        os.replace(tmp, path)
+        os.chmod(path, 0o600)
+    except Exception as exc:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        console.print(f"[yellow]warning:[/yellow] could not set onboarding flag: {exc}")
+
+
+def auth_gate(cfg: Path, email: str) -> None:
+    """Abort (with a pointer) if the account has no stored credentials."""
+    if (cfg / ".credentials.json").exists():
+        return
+    cli_path = cli.REPO_DIR / "cli.py"
+    console.print(f"[red]not logged in:[/red] {email} has no .credentials.json")
+    console.print(f"Run [bold]{cli_path} check --fix[/bold] to log in first.")
+    raise SystemExit(1)
+
+
+def launch(email: str, passthrough: list[str], config_dir: Path | None = None) -> None:
+    """Set up the account's real dir, then exec claude.
+
+    `config_dir` is what CLAUDE_CONFIG_DIR gets (the unresolved `default`
+    symlink path for `claude-as default`); setup always runs on the real
+    account dir.
+    """
+    cfg = cli.account_dir(email)          # ensures the dir exists
+    auth_gate(cfg, email)
+    reconcile_symlinks(cfg)
+    warn_unclassified()
+    ensure_onboarding(cfg)
+
+    _sync_quietly()
+
+    wrapper = shutil.which("claude-custom")
+    if not wrapper:
+        raise SystemExit("claude-custom not found on PATH (needed to regenerate "
+                         "settings.json and launch the real claude)")
+    env = dict(os.environ)
+    env["CLAUDE_CONFIG_DIR"] = str(config_dir if config_dir is not None else cfg)
+    if config_dir is not None:
+        console.print(f"[green]launching[/green] claude as [bold]{DEFAULT_NAME}[/bold] "
+                      f"→ [bold]{email}[/bold]")
+    else:
+        console.print(f"[green]launching[/green] claude as [bold]{email}[/bold]")
+    os.execve(wrapper, [wrapper, *passthrough], env)
+
+
+# --- default account --------------------------------------------------------
+
+class DefaultError(Exception):
+    """`accounts/default` is in a state set-default must not touch."""
+
+
+class LockTimeout(Exception):
+    """Claude's OAuth refresh lock stayed held past the timeout."""
+
+
+def default_link(accounts_dir: Path | None = None) -> Path:
+    """Path of the `default` symlink (never resolved)."""
+    return (accounts_dir or cli.ACCOUNTS_DIR) / DEFAULT_NAME
+
+
+def current_default(accounts_dir: Path | None = None) -> str | None:
+    """Folder-email `default` points at, or None when there is no symlink.
+
+    Raises DefaultError when `default` exists but is not a symlink.
+    """
+    link = default_link(accounts_dir)
+    if link.is_symlink():
+        return Path(os.readlink(link)).name
+    if link.exists():
+        raise DefaultError(f"{link} is a real file/dir, not a symlink — "
+                           f"move it aside by hand")
+    return None
+
+
+def flip_default(email: str, accounts_dir: Path | None = None) -> None:
+    """Atomically point `default` at `email` (relative target).
+
+    Builds `default.tmp-<pid>` then renames it over `default` (`ln -sfn` +
+    `mv -T`), so readers see either the old or the new target, never a gap.
+    Refuses to replace a real file/dir.
+    """
+    accounts_dir = accounts_dir or cli.ACCOUNTS_DIR
+    link = default_link(accounts_dir)
+    if link.exists() and not link.is_symlink():
+        raise DefaultError(f"{link} is a real file/dir, not a symlink — "
+                           f"move it aside by hand")
+    if not (accounts_dir / email).is_dir():
+        raise DefaultError(f"account dir missing: {accounts_dir / email}")
+    tmp = accounts_dir / f"{DEFAULT_NAME}.tmp-{os.getpid()}"
+    if tmp.is_symlink():
+        tmp.unlink()
+    os.symlink(email, tmp)
+    try:
+        os.replace(tmp, link)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+
+
+@contextlib.contextmanager
+def oauth_refresh_lock(cfg: Path, *, timeout: float = OAUTH_LOCK_TIMEOUT_SECS,
+                       poll: float = OAUTH_LOCK_POLL_SECS,
+                       stale: float = OAUTH_LOCK_STALE_SECS):
+    """Hold claude's `<cfg>/.oauth_refresh.lock` (mkdir lock) for the block.
+
+    A held lock is waited on (every `poll`s, up to `timeout`s, then
+    LockTimeout); one whose mtime is older than `stale`s is taken over.
+    """
+    lock = cfg / OAUTH_LOCK_NAME
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            os.mkdir(lock)
+            break
+        except FileExistsError:
+            pass
+        try:
+            age = time.time() - lock.stat().st_mtime
+        except FileNotFoundError:
+            continue  # released between mkdir and stat
+        if age > stale:
+            with contextlib.suppress(FileNotFoundError):
+                os.rmdir(lock)
+            console.print(f"[yellow]took over stale lock[/yellow] {lock} "
+                          f"({age:.0f}s old)")
+            continue
+        if time.monotonic() >= deadline:
+            raise LockTimeout(f"{lock} still held after {timeout:.0f}s — a token "
+                              f"refresh may be stuck; retry later")
+        time.sleep(poll)
+    try:
+        yield lock
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.rmdir(lock)
+
+
+def count_default_sessions(default_path: Path, proc_root: Path = Path("/proc")) -> int:
+    """Count running sessions whose CLAUDE_CONFIG_DIR is `default_path`.
+
+    Compares the normalised, unresolved string (a trailing slash matches).
+    Child processes (tool shells, MCP servers) inherit the env, so only
+    matching processes whose parent does not match are counted.
+    """
+    want = os.path.normpath(str(default_path))
+    matched: dict[str, str | None] = {}  # pid -> ppid
+    try:
+        entries = list(os.scandir(proc_root))
+    except OSError:
+        return 0
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            raw = Path(entry.path, "environ").read_bytes()
+        except OSError:
+            continue
+        for var in raw.split(b"\0"):
+            if var.startswith(b"CLAUDE_CONFIG_DIR="):
+                val = var.split(b"=", 1)[1].decode(errors="replace")
+                if val and os.path.normpath(val) == want:
+                    matched[entry.name] = _ppid(Path(entry.path))
+                break
+    return sum(1 for ppid in matched.values() if ppid not in matched)
+
+
+def _ppid(proc_dir: Path) -> str | None:
+    """Parent pid from /proc/<pid>/stat (field after the `(comm)`)."""
+    try:
+        stat = (proc_dir / "stat").read_text()
+        return stat.rsplit(")", 1)[1].split()[1]
+    except (OSError, IndexError):
+        return None
+
+
+def _who(email: str | None, labels: dict[str, str | None]) -> str:
+    if email is None:
+        return "[dim]none[/dim]"
+    label = labels.get(email)
+    return f"[bold]{label}[/bold] [dim]<{email}>[/dim]" if label else f"[bold]{email}[/bold]"
+
+
+def cmd_get_default() -> int:
+    cli.load_env()
+    labels = dict(load_users())
+    try:
+        email = current_default()
+    except DefaultError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    if email is None:
+        print("none")
+        return 0
+    console.print(_who(email, labels))
+    if not (cli.ACCOUNTS_DIR / email).is_dir():
+        console.print(f"[yellow]warning:[/yellow] target dir missing: "
+                      f"{cli.ACCOUNTS_DIR / email}")
+    return 0
+
+
+def cmd_set_default(selector: str) -> int:
+    """Point `default` at another account; running default sessions follow."""
+    if selector == DEFAULT_NAME:
+        console.print(f"[red]{DEFAULT_NAME!r} is not an account[/red] — pass an "
+                      f"email, label, or substring")
+        return 2
+    cli.load_env()
+    users = load_users()
+    labels = dict(users)
+    email = resolve_selector(selector, users)
+    if not creds_present(email):
+        console.print(f"[red]not logged in:[/red] {email} has no .credentials.json")
+        console.print(f"Run [bold]{cli.REPO_DIR / 'cli.py'} check --fix[/bold] first.")
+        return 1
+    try:
+        old = current_default()
+    except DefaultError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    if old == email:
+        console.print(f"already default: {_who(email, labels)}")
+        return 0
+
+    # Shared state must be linked in every dir before a flip: a running
+    # default session writes transcripts/history into whichever dir it lands on.
+    dirs = [cli.account_dir(e) for e, _ in users]
+    if old is not None and (cli.ACCOUNTS_DIR / old).is_dir():
+        old_dir = cli.ACCOUNTS_DIR / old
+        if old_dir not in dirs:
+            dirs.append(old_dir)
+    for cfg in dirs:
+        reconcile_symlinks(cfg)
+
+    try:
+        if old is not None and (cli.ACCOUNTS_DIR / old).is_dir():
+            with oauth_refresh_lock(cli.ACCOUNTS_DIR / old):
+                flip_default(email)
+        else:
+            flip_default(email)
+    except (DefaultError, LockTimeout) as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+
+    console.print(f"[green]default:[/green] {_who(old, labels)} → {_who(email, labels)}")
+    n = count_default_sessions(default_link())
+    console.print(f"{n} running session(s) use {DEFAULT_NAME} — they switch on "
+                  f"their next API request")
+    return 0
+
+
+def cmd_accounts(as_json: bool) -> int:
+    """List accounts with creds + orchestration-pool membership + default."""
+    import json
+
+    cli.load_env()
+    users = load_users()
+    pool = orchestrate_pool(users)
+    try:
+        default = current_default()
+    except DefaultError as exc:
+        print(f"warning: {exc}", file=sys.stderr)
+        default = None
+    rows = [
+        {
+            "email": email,
+            "label": label,
+            "creds": creds_present(email),
+            "in_pool": email in pool,
+            "default": email == default,
+        }
+        for email, label in users
+    ]
+    if as_json:
+        print(json.dumps({"accounts": rows, "orchestrate_pool": pool}, indent=2))
+        return 0
+    if not rows:
+        console.print("no accounts configured in config.yaml")
+        return 0
+    for row in rows:
+        pool_mark = "[cyan]pool[/cyan]" if row["in_pool"] else "[dim]—[/dim]"
+        default_mark = f"  [magenta]{DEFAULT_NAME}[/magenta]" if row["default"] else ""
+        name = row["label"] or row["email"]
+        console.print(f"  {name}  [dim]<{row['email']}>[/dim]  "
+                      f"{_marker(row['email'])}  {pool_mark}{default_mark}")
+    if not pool:
+        console.print("[dim]orchestrate_pool is empty — set it in config.yaml to "
+                      "allow rate-limit failover[/dim]")
+    return 0
+
+
+# --- session search ---------------------------------------------------------
+
+# Index of top-level transcripts (`projects/<encoded-cwd>/<id>.jsonl`), keyed by
+# path and reused while (mtime_ns, size) is unchanged. Bump SEARCH_CACHE_VERSION
+# whenever the cached row shape or parsing changes so stale caches are rebuilt.
+# Lines are prefiltered by byte markers such as `"type":"user"`, which relies on
+# claude writing compact JSON (no space after `:`).
+SEARCH_CACHE = Path.home() / ".cache" / "claude-as" / "sessions.json"
+SEARCH_CACHE_VERSION = 1
+FIRST_PROMPT_MAX = 200
+PREVIEW_MESSAGES = 8
+PREVIEW_MESSAGE_MAX = 400
+_CWD_TYPES = {"user", "assistant", "system", "attachment"}
+
+# Protected sessions survive claude's `cleanupPeriodDays` purge: PROTECTED_FILE
+# flags sessions (by id) and projects (a cwd and everything under it), and
+# PROTECTED_ARCHIVE mirrors their files:
+#   projects/<encoded-cwd>/<id>.jsonl, projects/<encoded-cwd>/<id>/...,
+#   file-history/<account>/<id>/...
+PROTECT_HOME = Path.home() / ".local" / "share" / "claude-as"
+PROTECTED_FILE = PROTECT_HOME / "protected.json"
+PROTECTED_ARCHIVE = PROTECT_HOME / "protected"
+# PROTECTED_FILE["unprotected"] lists dropped flags, newest first, for undo:
+#   {"kind": "session", "id": ..., "note", "added", "removed"} or
+#   {"kind": "project", "path": ..., "note", "added", "removed"}
+# capped at UNPROTECTED_MAX entries, each kept at most UNPROTECTED_DAYS.
+UNPROTECTED_MAX = 50
+UNPROTECTED_DAYS = 30
+
+# Running sessions: claude writes `CLAUDE_HOME/sessions/<pid>.json` with
+# `procStart` = field 22 (starttime, clock ticks since boot) of
+# /proc/<pid>/stat, so a recycled pid does not count as running.
+PROC_ROOT = Path("/proc")
+VIEWS = ("all", "active", "protected", "unprotected", "reminders")
+STATUS_WIDTH = 7
+GREP_ENV = "CLAUDE_AS_SEARCH_GREP"
+# Headers sit above the prompt (--header-first) in the list column, which the
+# right-side preview narrows to half the terminal; each line stays under ~46
+# cells so it fits at 100 columns, and both headers have 3 lines so ^r does
+# not shift the list.
+FZF_HEADER = ("enter resume · ^j/^k down/up · ^r reminders\n"
+              "^s view (all/active/protected/unprotected)\n"
+              "^p protect/unprotect/undo ↩ · ^n protect+note")
+# The reminders view: rows carry `rem:<id>` as the hidden first field, the
+# prompt is `reminders (from <view>)> ` so ^r can return to <view>, and the
+# session keys are unbound while the reminder keys are bound (and vice versa).
+REMIND_HEADER = ("enter resume session · ^j/^k down/up\n"
+                 "^a ack · ^x cancel · ^z snooze 1h\n"
+                 "^r back · ^s sessions")
+REMINDER_PREFIX = "rem:"
+REMIND_SNOOZE = "1h"
+SESSION_KEYS = "ctrl-p,ctrl-n"
+REMIND_KEYS = "ctrl-a,ctrl-x,ctrl-z"
+
+# Set once this process has synced the archive, so a search that resumes a
+# session does not sync again inside `launch`.
+_SYNCED = False
+
+
+def _projects_dir() -> Path:
+    return CLAUDE_HOME / "projects"
+
+
+def _archive_projects() -> Path:
+    return PROTECTED_ARCHIVE / "projects"
+
+
+def _archive_file_history() -> Path:
+    return PROTECTED_ARCHIVE / "file-history"
+
+
+def _loads(line: bytes):
+    """Parse one JSONL line; None for malformed or non-dict lines."""
+    try:
+        rec = json.loads(line)
+    except ValueError:  # JSONDecodeError and UnicodeDecodeError
+        return None
+    return rec if isinstance(rec, dict) else None
+
+
+def _last_of_type(data: bytes, rtype: str):
+    """Last record of `rtype`, found by scanning backwards for its marker."""
+    marker = f'"type":"{rtype}"'.encode()
+    pos = len(data)
+    while True:
+        i = data.rfind(marker, 0, pos)
+        if i < 0:
+            return None
+        start = data.rfind(b"\n", 0, i) + 1
+        end = data.find(b"\n", i)
+        rec = _loads(data[start:end if end >= 0 else len(data)])
+        if rec is not None and rec.get("type") == rtype:
+            return rec
+        pos = start
+
+
+def _text_of(content) -> str | None:
+    """A message's text: the string itself, or the first text block of a list."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                return text if isinstance(text, str) else None
+    return None
+
+
+def _oneline(text: str, limit: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
+def _is_real_user(rec: dict) -> bool:
+    return (rec.get("type") == "user" and not rec.get("isMeta")
+            and not rec.get("isSidechain") and not rec.get("isCompactSummary"))
+
+
+def parse_session(path: Path) -> dict:
+    """Index row for one transcript (query-time fields are added by
+    session_index)."""
+    data = path.read_bytes()
+    lines = data.split(b"\n")
+
+    first_prompt = ""
+    for line in lines:
+        if b'"type":"user"' not in line:
+            continue
+        rec = _loads(line)
+        if rec is None or not _is_real_user(rec):
+            continue
+        msg = rec.get("message")
+        text = _text_of(msg.get("content")) if isinstance(msg, dict) else None
+        if text and text.strip() and not text.lstrip().startswith("<"):
+            first_prompt = _oneline(text, FIRST_PROMPT_MAX)
+            break
+
+    cwd, branch = "", ""
+    for line in reversed(lines):
+        if b'"cwd":"' not in line:
+            continue
+        rec = _loads(line)
+        if rec is not None and rec.get("type") in _CWD_TYPES and rec.get("cwd"):
+            cwd, branch = str(rec["cwd"]), str(rec.get("gitBranch") or "")
+            break
+
+    def field(rtype: str, key: str) -> str:
+        rec = _last_of_type(data, rtype)
+        val = rec.get(key) if rec else None
+        return val if isinstance(val, str) else ""
+
+    custom = field("custom-title", "customTitle")
+    ai = field("ai-title", "aiTitle")
+    last_prompt = _oneline(field("last-prompt", "lastPrompt"), FIRST_PROMPT_MAX)
+    st = path.stat()
+    return {
+        "id": path.stem,
+        "title": _oneline(custom or ai or first_prompt or last_prompt, FIRST_PROMPT_MAX),
+        "custom_title": custom,
+        "ai_title": ai,
+        "cwd": cwd,
+        "branch": branch,
+        "mtime": st.st_mtime,
+        "first_prompt": first_prompt,
+        "last_prompt": last_prompt,
+        "path": str(path),
+    }
+
+
+def _load_cache(cache_path: Path) -> dict:
+    try:
+        with open(cache_path) as fh:
+            cache = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(cache, dict) or cache.get("version") != SEARCH_CACHE_VERSION:
+        return {}
+    files = cache.get("files")
+    return files if isinstance(files, dict) else {}
+
+
+def _save_cache(cache_path: Path, files: dict) -> None:
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache_path.with_name(f"{cache_path.name}.tmp-{os.getpid()}")
+        with open(tmp, "w") as fh:
+            json.dump({"version": SEARCH_CACHE_VERSION, "files": files}, fh)
+        os.replace(tmp, cache_path)
+    except OSError as exc:
+        print(f"warning: cannot write session cache {cache_path}: {exc}",
+              file=sys.stderr)
+
+
+# --- protected store ---------------------------------------------------------
+
+def _now_iso() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def load_protected(*, strict: bool = False) -> dict:
+    """PROTECTED_FILE as {"sessions": {...}, "projects": {...},
+    "unprotected": [...]} (unprotected pruned, newest first).
+
+    A missing file is empty. An unreadable one warns and reads as empty, or
+    exits when `strict` (callers that write it back must not wipe it).
+    """
+    try:
+        with open(PROTECTED_FILE) as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        data = {}
+    except (OSError, ValueError) as exc:
+        if strict:
+            console.print(f"[red]cannot read {PROTECTED_FILE}:[/red] {exc}")
+            raise SystemExit(1)
+        print(f"warning: cannot read {PROTECTED_FILE}: {exc}", file=sys.stderr)
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    store = {}
+    for key in ("sessions", "projects"):
+        section = data.get(key)
+        store[key] = {k: (v if isinstance(v, dict) else {})
+                      for k, v in section.items()} if isinstance(section, dict) else {}
+    entries = data.get("unprotected")
+    store["unprotected"] = _prune_unprotected(
+        [e for e in entries if _entry_key(e) is not None]
+        if isinstance(entries, list) else [])
+    return store
+
+
+def _iso_ts(value) -> float | None:
+    """Epoch seconds of an ISO timestamp (naive = local time); None if invalid."""
+    if not isinstance(value, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return (dt if dt.tzinfo else dt.astimezone()).timestamp()
+
+
+def _entry_key(entry) -> tuple[str, str] | None:
+    """("session", id) or ("project", path) of an unprotected entry."""
+    if not isinstance(entry, dict):
+        return None
+    kind = entry.get("kind")
+    key = entry.get({"session": "id", "project": "path"}.get(kind, ""))
+    return (kind, key) if isinstance(key, str) and key else None
+
+
+def _prune_unprotected(entries: list[dict], now: float | None = None) -> list[dict]:
+    """Newest first, at most UNPROTECTED_MAX, none older than UNPROTECTED_DAYS."""
+    cutoff = (now if now is not None else time.time()) - UNPROTECTED_DAYS * 86400
+    dated = [(ts, e) for e in entries
+             if (ts := _iso_ts(e.get("removed"))) is not None and ts >= cutoff]
+    dated.sort(key=lambda pair: pair[0], reverse=True)
+    return [e for _, e in dated[:UNPROTECTED_MAX]]
+
+
+def _pop_unprotected(store: dict, kind: str, key: str) -> dict | None:
+    """Remove every unprotected entry for (kind, key); return the newest."""
+    hits = [e for e in store["unprotected"] if _entry_key(e) == (kind, key)]
+    store["unprotected"] = [e for e in store["unprotected"]
+                            if _entry_key(e) != (kind, key)]
+    return hits[0] if hits else None
+
+
+def _record_unprotect(store: dict, kind: str, key: str, flag: dict) -> None:
+    """Remember a dropped session/project flag (its note and added date)."""
+    _pop_unprotected(store, kind, key)
+    entry = {"kind": kind, "id" if kind == "session" else "path": key,
+             "note": flag.get("note"), "added": flag.get("added"),
+             "removed": _now_iso()}
+    store["unprotected"] = _prune_unprotected([entry, *store["unprotected"]])
+
+
+def _set_flag(store: dict, kind: str, key: str, note: str | None) -> dict:
+    """Flag a session/project. A newly flagged one with a remembered
+    unprotected entry gets that entry's note and added date back unless
+    `note` is given; its entries leave the unprotected list either way."""
+    section = store["sessions" if kind == "session" else "projects"]
+    prev = _pop_unprotected(store, kind, key)
+    flag = section.get(key)
+    if flag is None:
+        if prev is not None and note is None:
+            flag = {"note": prev.get("note"), "added": prev.get("added") or _now_iso()}
+        else:
+            flag = {"note": None, "added": _now_iso()}
+        section[key] = flag
+    if note is not None:
+        flag["note"] = note
+    return flag
+
+
+def undo_entry(session_id: str, cwd: str, store: dict) -> dict | None:
+    """The unprotected entry that undo would restore for a session: its own
+    session entry, else the newest project entry covering cwd."""
+    project = None
+    for entry in store["unprotected"]:  # newest first
+        kind, key = _entry_key(entry)
+        if kind == "session" and key == session_id:
+            return entry
+        if kind == "project" and project is None and _under(cwd, key):
+            project = entry
+    return project
+
+
+def _write_json_atomic(path: Path, data) -> None:
+    """Write JSON to a tmp file next to `path`, then rename it over `path`."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+    try:
+        with open(tmp, "w") as fh:
+            json.dump(data, fh, indent=2, sort_keys=True)
+            fh.write("\n")
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+
+
+def save_protected(store: dict) -> None:
+    _write_json_atomic(PROTECTED_FILE, store)
+
+
+def _under(cwd: str, root: str) -> bool:
+    """cwd is root or inside it (`/a/b` covers `/a/b/c`, not `/a/bc`)."""
+    if not cwd:
+        return False
+    root = root.rstrip("/")
+    return cwd == (root or "/") or cwd.startswith(root + "/")
+
+
+def _project_rule(cwd: str, store: dict) -> str | None:
+    """Most specific protected project path covering cwd."""
+    hits = [p for p in store["projects"] if _under(cwd, p)]
+    return max(hits, key=len) if hits else None
+
+
+def protection(session_id: str, cwd: str, store: dict) -> tuple[bool, str | None]:
+    """(protected, note) from a session flag or a covering project rule."""
+    entry = store["sessions"].get(session_id)
+    rule = _project_rule(cwd, store)
+    if entry is None and rule is None:
+        return False, None
+    note = (entry or {}).get("note") or (
+        store["projects"][rule].get("note") if rule else None)
+    return True, note
+
+
+# --- active sessions ---------------------------------------------------------
+
+def _proc_start(proc_dir: Path) -> str | None:
+    """starttime (field 22) from /proc/<pid>/stat."""
+    try:
+        return (proc_dir / "stat").read_text().rsplit(")", 1)[1].split()[19]
+    except (OSError, IndexError):
+        return None
+
+
+def _pid_alive(pid: int, proc_start, proc_root: Path) -> bool:
+    """pid runs and is the process the session file was written by: starttime
+    equals procStart, or (no procStart) its cmdline mentions claude."""
+    proc_dir = proc_root / str(pid)
+    if proc_start not in (None, ""):
+        return _proc_start(proc_dir) == str(proc_start)
+    try:
+        return b"claude" in (proc_dir / "cmdline").read_bytes()
+    except OSError:
+        return False
+
+
+def active_sessions(sessions_dir: Path | None = None,
+                    proc_root: Path | None = None) -> dict[str, dict]:
+    """sessionId -> {pid, status, cwd, name} for running claude processes."""
+    sessions_dir = sessions_dir or CLAUDE_HOME / "sessions"
+    proc_root = proc_root or PROC_ROOT
+    try:
+        entries = list(os.scandir(sessions_dir))
+    except OSError:
+        return {}
+    out: dict[str, dict] = {}
+    for entry in entries:
+        stem, ext = os.path.splitext(entry.name)
+        if ext != ".json" or not stem.isdigit():
+            continue
+        try:
+            with open(entry.path) as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        sid = data.get("sessionId")
+        pid = data.get("pid")
+        if not isinstance(sid, str) or not sid:
+            continue
+        if not isinstance(pid, int):
+            pid = int(stem)
+        if not _pid_alive(pid, data.get("procStart"), proc_root):
+            continue
+        out[sid] = {"pid": pid, "status": str(data.get("status") or ""),
+                    "cwd": str(data.get("cwd") or ""),
+                    "name": str(data.get("name") or "")}
+    return out
+
+
+# --- index -------------------------------------------------------------------
+
+def session_index(projects_dir: Path | None = None,
+                  cache_path: Path | None = None,
+                  store: dict | None = None) -> list[dict]:
+    """All top-level sessions, newest first, reparsing only changed files.
+
+    Archived transcripts whose live copy is gone are included with
+    `live: False`; a session in both places is listed once, as live.
+    """
+    projects_dir = projects_dir or _projects_dir()
+    cache_path = cache_path or SEARCH_CACHE
+    old = _load_cache(cache_path)
+    files: dict = {}
+    live: dict[str, bool] = {}
+    changed = False
+    for base, is_live in ((projects_dir, True), (_archive_projects(), False)):
+        for path in base.glob("*/*.jsonl"):
+            key = str(path)
+            try:
+                st = path.stat()
+            except OSError:
+                continue
+            live[key] = is_live
+            sig = [st.st_mtime_ns, st.st_size]
+            entry = old.get(key)
+            if entry and entry.get("sig") == sig and isinstance(entry.get("row"), dict):
+                files[key] = entry
+                continue
+            try:
+                row = parse_session(path)
+            except OSError:
+                continue
+            files[key] = {"sig": sig, "row": row}
+            changed = True
+    if changed or set(files) != set(old):
+        _save_cache(cache_path, files)
+
+    by_id: dict[str, dict] = {}
+    for key, entry in files.items():
+        row = dict(entry["row"])
+        row["live"] = live[key]
+        prev = by_id.get(row["id"])
+        if prev is not None and (prev["live"] or not row["live"]):
+            continue
+        by_id[row["id"]] = row
+
+    store = store if store is not None else load_protected()
+    active = active_sessions()
+    rows = list(by_id.values())
+    for row in rows:
+        row["cwd_exists"] = bool(row["cwd"]) and os.path.isdir(row["cwd"])
+        row["protected"], row["note"] = protection(row["id"], row["cwd"], store)
+        undo = None if row["protected"] else undo_entry(row["id"], row["cwd"], store)
+        row["unprotected_at"] = undo["removed"] if undo else None
+        act = active.get(row["id"])
+        row["active"] = act is not None
+        row["active_status"] = act["status"] if act else None
+        row["active_pid"] = act["pid"] if act else None
+    rows.sort(key=lambda r: r["mtime"], reverse=True)
+    return rows
+
+
+def filter_view(rows: list[dict], view: str) -> list[dict]:
+    if view == "active":
+        return [r for r in rows if r["active"]]
+    if view == "protected":
+        return [r for r in rows if r["protected"]]
+    if view == "unprotected":
+        return sorted((r for r in rows if r["unprotected_at"]),
+                      key=lambda r: _iso_ts(r["unprotected_at"]) or 0, reverse=True)
+    return rows
+
+
+def grep_sessions(pattern: str, projects_dir: Path | None = None) -> set[str] | None:
+    """Paths of top-level transcripts (live and archived) containing `pattern`
+    (case-insensitive, fixed string) via ripgrep. None when rg is missing."""
+    roots = [p for p in (projects_dir or _projects_dir(), _archive_projects())
+             if p.is_dir()]
+    rg = shutil.which("rg")
+    if not rg:
+        return None
+    if not roots:
+        return set()
+    proc = subprocess.run(
+        [rg, "-l", "-i", "-F", "--no-ignore", "--hidden", "--max-depth", "2",
+         "--glob", "*.jsonl", "-e", pattern, *map(str, roots)],
+        capture_output=True, text=True,
+    )
+    return {line for line in proc.stdout.splitlines() if line}
+
+
+# --- archive sync / restore --------------------------------------------------
+
+def _copy_if_changed(src: Path, dst: Path) -> bool:
+    """copy2 src -> dst (atomically) unless dst has the same size and mtime."""
+    st = src.stat()
+    try:
+        dt = dst.stat()
+        if dt.st_size == st.st_size and dt.st_mtime_ns == st.st_mtime_ns:
+            return False
+    except FileNotFoundError:
+        pass
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_name(f".{dst.name}.tmp-{os.getpid()}")
+    try:
+        shutil.copy2(src, tmp)
+        os.replace(tmp, dst)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
+    return True
+
+
+def _sync_tree(src: Path, dst: Path) -> int:
+    """Copy new/changed regular files under src into dst; never deletes.
+    Per-file failures warn on stderr. Returns the number of files copied."""
+    n = 0
+    for root, _dirs, names in os.walk(src):
+        rel = Path(root).relative_to(src)
+        for name in names:
+            path = Path(root, name)
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                n += _copy_if_changed(path, dst / rel / name)
+            except OSError as exc:
+                print(f"warning: cannot copy {path}: {exc}", file=sys.stderr)
+    return n
+
+
+def _file_history_dirs() -> list[tuple[str, Path]]:
+    """(account, file-history dir) for every real account dir, one per distinct
+    resolved file-history dir."""
+    try:
+        accts = sorted(cli.ACCOUNTS_DIR.iterdir())
+    except OSError:
+        return []
+    out, seen = [], set()
+    for acct in accts:
+        fh = acct / "file-history"
+        if acct.is_symlink() or not fh.is_dir():
+            continue
+        real = fh.resolve()
+        if real not in seen:
+            seen.add(real)
+            out.append((acct.name, fh))
+    return out
+
+
+def archive_session(transcript: Path, fh_dirs: list[tuple[str, Path]]) -> int:
+    """Mirror one live session into PROTECTED_ARCHIVE; returns files copied."""
+    sid = transcript.stem
+    dst = _archive_projects() / transcript.parent.name
+    n = 0
+    try:
+        n += _copy_if_changed(transcript, dst / transcript.name)
+    except OSError as exc:
+        print(f"warning: cannot archive {transcript}: {exc}", file=sys.stderr)
+    session_dir = transcript.parent / sid
+    if session_dir.is_dir():
+        n += _sync_tree(session_dir, dst / sid)
+    for acct, fh in fh_dirs:
+        if (fh / sid).is_dir():
+            n += _sync_tree(fh / sid, _archive_file_history() / acct / sid)
+    return n
+
+
+def sync_protected(rows: list[dict] | None = None,
+                   store: dict | None = None) -> dict[str, int]:
+    """Archive every protected session that still has a live transcript.
+
+    Returns {id: files copied}. Unchanged files cost one stat each; with no
+    protected sessions or projects nothing is scanned.
+    """
+    store = store if store is not None else load_protected()
+    if not store["sessions"] and not store["projects"]:
+        return {}
+    if rows is None:
+        rows = session_index(store=store)
+    fh_dirs = _file_history_dirs()
+    return {row["id"]: archive_session(Path(row["path"]), fh_dirs)
+            for row in rows if row["live"] and row["protected"]}
+
+
+def _sync_quietly(rows: list[dict] | None = None) -> None:
+    """sync_protected once per process; failures only warn."""
+    global _SYNCED
+    if _SYNCED:
+        return
+    _SYNCED = True
+    try:
+        sync_protected(rows)
+    except Exception as exc:  # never block a launch
+        print(f"warning: protected-session sync failed: {exc}", file=sys.stderr)
+
+
+def restore_session(row: dict, email: str | None) -> int:
+    """Copy an archived session back into CLAUDE_HOME/projects, and its
+    file-history into `email`'s account dir. Returns files copied."""
+    src = Path(row["path"])
+    sid = row["id"]
+    dst = _projects_dir() / src.parent.name
+    n = int(_copy_if_changed(src, dst / src.name))
+    if (src.parent / sid).is_dir():
+        n += _sync_tree(src.parent / sid, dst / sid)
+    sources = [p for p in _archive_file_history().glob(f"*/{glob.escape(sid)}")
+               if p.is_dir()]
+    if sources and email is None:
+        print("warning: no account to restore file-history into", file=sys.stderr)
+    elif sources:
+        target = cli.ACCOUNTS_DIR / email / "file-history" / sid
+        # The launching account's own copy is applied last so its files win.
+        for path in sorted(sources, key=lambda p: p.parent.name == email):
+            n += _sync_tree(path, target)
+    return n
+
+
+def _archived_paths(sid: str) -> list[Path]:
+    pat = glob.escape(sid)
+    return [*_archive_projects().glob(f"*/{pat}.jsonl"),
+            *(p for p in _archive_projects().glob(f"*/{pat}") if p.is_dir()),
+            *(p for p in _archive_file_history().glob(f"*/{pat}") if p.is_dir())]
+
+
+def purge_archive(sid: str) -> int:
+    """Delete a session's archived files; returns the number of paths removed."""
+    paths = _archived_paths(sid)
+    for path in paths:
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        with contextlib.suppress(OSError):
+            path.parent.rmdir()  # only when now empty
+    return len(paths)
+
+
+# --- rendering ---------------------------------------------------------------
+
+def _age(mtime: float, now: float | None = None) -> str:
+    secs = max(0, (now if now is not None else time.time()) - mtime)
+    for unit, size in (("y", 365 * 86400), ("mo", 30 * 86400), ("d", 86400),
+                       ("h", 3600), ("m", 60)):
+        if secs >= size:
+            return f"{int(secs // size)}{unit}"
+    return f"{int(secs)}s"
+
+
+def _tilde(path: str) -> str:
+    home = str(Path.home())
+    if path == home or path.startswith(home + os.sep):
+        return "~" + path[len(home):]
+    return path
+
+
+def _fit(text: str, width: int) -> str:
+    text = text.replace("\t", " ")
+    return text.ljust(width) if len(text) <= width else text[:width - 1] + "…"
+
+
+def _cells(text: str) -> int:
+    """Terminal cell width (East Asian Wide/Fullwidth = 2)."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
+
+
+def _pad(text: str, width: int) -> str:
+    return text + " " * max(0, width - _cells(text))
+
+
+def _markers(row: dict) -> tuple[str, str, str, str]:
+    """(active, protected, archived-only, missing-cwd) cells, each padded to a
+    fixed width: `🟢status`, `📌` (or `↩` recently unprotected), `🗄`, `⚠`."""
+    active = (_pad("🟢" + _fit(row["active_status"] or "?", STATUS_WIDTH).rstrip(),
+                   2 + STATUS_WIDTH) if row["active"] else " " * (2 + STATUS_WIDTH))
+    return (active,
+            _pad("📌" if row["protected"] else "↩" if row["unprotected_at"] else "", 2),
+            _pad("🗄" if not row["live"] else "", 1),
+            _pad("⚠" if not row["cwd_exists"] else "", 1))
+
+
+def _fzf_line(row: dict) -> str:
+    """`id \\t age \\t markers \\t title \\t project \\t branch \\t search-text`.
+
+    fzf never searches fields hidden by --with-nth, so the note, prompts and
+    id are the last displayed field, dimmed; it usually falls past the right
+    edge.
+    """
+    project = _tilde(row["cwd"]) or "?"
+    if not row["cwd_exists"]:
+        project = f"\x1b[31m{project}\x1b[0m"
+    active, pin, archived, warn = _markers(row)
+    markers = f"\x1b[32m{active}\x1b[0m{pin}{archived}\x1b[31m{warn}\x1b[0m"
+    extra = _oneline(" | ".join(x for x in (row["note"] or "", row["first_prompt"],
+                                            row["last_prompt"], row["id"]) if x), 600)
+    return "\t".join([
+        row["id"],
+        _fit(_age(row["mtime"]), 4),
+        markers,
+        _fit(row["title"] or "(untitled)", 60),
+        project,
+        f"\x1b[36m{row['branch']}\x1b[0m" if row["branch"] else "",
+        f"\x1b[2m{extra.replace(chr(9), ' ')}\x1b[0m",
+    ])
+
+
+def _self_cmd(*args: str) -> str:
+    """Shell command running this script (absolute path, independent of PATH)."""
+    return " ".join(shlex.quote(a) for a in
+                    (sys.executable, str(Path(__file__).resolve()), *args))
+
+
+def _reminders_prompt(back: str) -> str:
+    return f"reminders (from {back})> "
+
+
+def _fzf_command(query: str, pattern: str | None = None,
+                 view: str = "all") -> list[str]:
+    """fzf argv. Reloads call `search --rows`; the --grep pattern reaches them
+    through $CLAUDE_AS_SEARCH_GREP so fzf never parses it. The current view is
+    the prompt text before `>`; ctrl-s (next session view) and ctrl-r (into or
+    out of the reminders view) print prompt, header, key and reload actions
+    from `transform` shell snippets. The reminders view never applies --grep."""
+    grep = f' --grep "${GREP_ENV}"' if pattern is not None else ""
+    base = _self_cmd("search", "--rows")
+    current = base + ' --view "${FZF_PROMPT%%>*}"' + grep
+    reminders = base + " --view reminders"
+    leave = (f"+change-header[{FZF_HEADER}]+rebind({SESSION_KEYS})"
+             f"+unbind({REMIND_KEYS})")
+    enter = (f"+change-header[{REMIND_HEADER}]+unbind({SESSION_KEYS})"
+             f"+rebind({REMIND_KEYS})")
+    to_view = (f'printf "change-prompt(%s> )%s+reload:%s --view %s%s" '
+               f'"$v" {shlex.quote(leave)} {shlex.quote(base)} "$v" '
+               f'{shlex.quote(grep)}')
+    cycle = ('case "$FZF_PROMPT" in all*) v=active ;; active*) v=protected ;; '
+             f'protected*) v=unprotected ;; *) v=all ;; esac; {to_view}')
+    flip = ('case "$FZF_PROMPT" in '
+            f'reminders*) v=${{FZF_PROMPT#*from }}; v=${{v%%)*}}; {to_view} ;; '
+            f'*) printf "change-prompt[%s]%s+reload:%s" '
+            f'"{_reminders_prompt("${FZF_PROMPT%%>*}")}" {shlex.quote(enter)} '
+            f'{shlex.quote(reminders)} ;; esac')
+    toggle = _self_cmd("protect", "--toggle") + " {1}"
+    ask = _self_cmd("protect", "--ask-note") + " {1}"
+    # {1} is `rem:<id>`; strip the prefix in the shell.
+    rid = f'"${{r#{REMINDER_PREFIX}}}"'
+    cancel = "r={1}; " + _self_cmd("remind", "rm") + f" {rid}"
+    snooze = "r={1}; " + _self_cmd("remind", "snooze") + f" {rid} {REMIND_SNOOZE}"
+    ack = "r={1}; " + _self_cmd("remind", "ack") + f" {rid}"
+    in_reminders = view == "reminders"
+    binds = [
+        "ctrl-j:down",
+        "ctrl-k:up",
+        f"ctrl-s:transform:{cycle}",
+        f"ctrl-p:track-current+execute-silent({toggle})+reload:{current}",
+        f"ctrl-n:track-current+execute({ask})+reload:{current}",
+        f"ctrl-r:transform:{flip}",
+        f"ctrl-a:track-current+execute-silent({ack})+reload:{reminders}",
+        f"ctrl-x:track-current+execute-silent({cancel})+reload:{reminders}",
+        f"ctrl-z:track-current+execute-silent({snooze})+reload:{reminders}",
+        f"start:unbind({SESSION_KEYS if in_reminders else REMIND_KEYS})",
+    ]
+    prompt = _reminders_prompt("all") if in_reminders else f"{view}> "
+    header = REMIND_HEADER if in_reminders else FZF_HEADER
+    preview = _self_cmd("search", "--preview") + " {1}"
+    cmd = ["fzf", "--ansi", f"--prompt={prompt}", "--reverse", "--height=90%",
+           "--delimiter=\t", "--with-nth=2..", "--accept-nth=1", "--id-nth=1",
+           "--tabstop=1", "--no-sort", "--with-shell=sh -c",
+           f"--header={header}", "--header-first", "--preview", preview,
+           "--preview-window=right,50%,wrap"]
+    for bind in binds:
+        cmd += ["--bind", bind]
+    if query:
+        cmd.append(f"--query={query}")
+    return cmd
+
+
+def _print_list(rows: list[dict]) -> None:
+    from rich.markup import escape
+
+    for row in rows:
+        project = escape(_tilde(row["cwd"]) or "?")
+        if not row["cwd_exists"]:
+            project = f"[red]{project}[/red]"
+        active, pin, archived, warn = _markers(row)
+        branch = f"  [cyan]{escape(row['branch'])}[/cyan]" if row["branch"] else ""
+        console.print(
+            f"{_age(row['mtime']):>4}  [dim]{row['id'][:8]}[/dim]  "
+            f"[green]{escape(active)}[/green]{pin}{archived}[red]{warn}[/red] "
+            f"{escape(_fit(row['title'] or '(untitled)', 60))}  {project}{branch}",
+            highlight=False, soft_wrap=True)
+
+
+def _due_cell(rem: dict, now: float | None = None) -> tuple[str, bool]:
+    """(`MM-DD HH:MM in 3h`, red) for the reminders view: red when overdue;
+    a missed reminder reads `MM-DD HH:MM MISSED`."""
+    ts = _iso_ts(rem.get("due"))
+    missed = _reminder_state(rem) == "missed"
+    if ts is None:
+        return _fit("MISSED" if missed else "?", 22), missed
+    stamp = datetime.fromtimestamp(ts).strftime("%m-%d %H:%M")
+    if missed:
+        return f"{stamp} {_fit('MISSED', 10)}", True
+    now = now if now is not None else time.time()
+    return f"{stamp} {_fit(_relative(ts, now), 10)}", ts <= now
+
+
+def _reminder_cells(rem: dict) -> tuple[str, str, str]:
+    """(note, session prefix or `-`, repo label) for the reminders view."""
+    return (" ".join(str(rem.get("note") or "").split()),
+            (rem.get("session_id") or "-")[:8],
+            str(rem.get("repo_label") or rem.get("cwd") or "?"))
+
+
+def _reminder_line(rem: dict, now: float | None = None) -> str:
+    """`rem:<id> \t due \t id \t note \t session \t repo \t cwd` (the
+    last field dimmed, for search)."""
+    due, late = _due_cell(rem, now)
+    note, session, repo = _reminder_cells(rem)
+    return "\t".join([
+        REMINDER_PREFIX + rem["id"],
+        f"\x1b[31m{due}\x1b[0m" if late else due,
+        f"\x1b[2m{_fit(rem['id'], 6)}\x1b[0m",
+        _fit(note, 60),
+        _fit(session, 8),
+        f"\x1b[36m{repo}\x1b[0m",
+        f"\x1b[2m{_tilde(str(rem.get('cwd') or ''))}\x1b[0m",
+    ])
+
+
+def _print_reminders(rems: list[dict]) -> None:
+    from rich.markup import escape
+
+    if not rems:
+        console.print("no pending or missed reminders")
+    now = time.time()
+    for rem in rems:
+        due, late = _due_cell(rem, now)
+        note, session, repo = _reminder_cells(rem)
+        console.print(
+            f"{f'[red]{due}[/red]' if late else due}  [dim]{rem['id']}[/dim]  "
+            f"{escape(_fit(note, 60))}  {session:<8}  [cyan]{escape(repo)}[/cyan]",
+            highlight=False, soft_wrap=True)
+
+
+def _find_session(session_id: str, projects_dir: Path | None = None) -> Path | None:
+    """Live transcript, else the archived copy."""
+    pat = f"*/{glob.escape(session_id)}.jsonl"
+    for base in (projects_dir or _projects_dir(), _archive_projects()):
+        path = next(iter(base.glob(pat)), None)
+        if path is not None:
+            return path
+    return None
+
+
+def cmd_search_preview(session_id: str, projects_dir: Path | None = None) -> int:
+    """fzf preview: header fields, then the last few user/assistant texts."""
+    path = _find_session(session_id, projects_dir)
+    if path is None:
+        print(f"session not found: {session_id}")
+        return 1
+    row = parse_session(path)
+    exists = os.path.isdir(row["cwd"]) if row["cwd"] else False
+    store = load_protected()
+    protected, note = protection(row["id"], row["cwd"], store)
+    act = active_sessions().get(row["id"])
+    flags = []
+    if act:
+        flags.append(f"running pid {act['pid']} ({act['status'] or '?'})")
+    if protected:
+        flags.append("protected" + (f": {note}" if note else ""))
+    else:
+        undo = undo_entry(row["id"], row["cwd"], store)
+        ts = _iso_ts(undo["removed"]) if undo else None
+        if ts is not None:
+            flags.append(f"unprotected {_age(ts)} ago (^p undo)")
+    if not path.is_relative_to(projects_dir or _projects_dir()):
+        flags.append("archived only")
+    print(f"title:   {row['title'] or '(untitled)'}")
+    print(f"id:      {row['id']}")
+    print(f"cwd:     {_tilde(row['cwd'])}" + ("" if exists else "  (missing)"))
+    print(f"branch:  {row['branch']}")
+    print(f"active:  {time.strftime('%Y-%m-%d %H:%M', time.localtime(row['mtime']))}"
+          f" ({_age(row['mtime'])} ago)")
+    if flags:
+        print(f"flags:   {' · '.join(flags)}")
+    print(f"first:   {row['first_prompt']}")
+    print()
+
+    messages: list[str] = []
+    for line in reversed(path.read_bytes().split(b"\n")):
+        if b'"type":"user"' not in line and b'"type":"assistant"' not in line:
+            continue
+        rec = _loads(line)
+        if rec is None or rec.get("isSidechain") or rec.get("isMeta"):
+            continue
+        rtype = rec.get("type")
+        msg = rec.get("message")
+        if rtype not in ("user", "assistant") or not isinstance(msg, dict):
+            continue
+        text = _text_of(msg.get("content"))
+        if not text or not text.strip() or text.lstrip().startswith("<"):
+            continue
+        who = "you" if rtype == "user" else "claude"
+        messages.append(f"[{who}] {_oneline(text, PREVIEW_MESSAGE_MAX)}")
+        if len(messages) >= PREVIEW_MESSAGES:
+            break
+    for m in reversed(messages):
+        print(m)
+        print()
+    return 0
+
+
+def cmd_reminder_preview(rid: str) -> int:
+    """fzf preview in the reminders view: the reminder, then its session."""
+    rem = next((r for r in load_reminders() if r["id"] == rid), None)
+    if rem is None:
+        print(f"reminder not found: {rid}")
+        return 1
+
+    def when(key: str) -> str:
+        ts = _iso_ts(rem.get(key))
+        return f"{_local(ts)} ({_relative(ts)})" if ts is not None else "?"
+
+    status = _reminder_state(rem)
+    if rem.get("attempts"):
+        status += f" ({rem['attempts']} failed send(s): {rem.get('last_error') or '?'})"
+    sid = rem.get("session_id")
+    print(f"note:    {rem.get('note') or ''}")
+    print(f"due:     {when('due')}")
+    print(f"created: {when('created')}")
+    print(f"status:  {status}")
+    if rem.get("fired_at"):
+        print(f"fired:   {when('fired_at')}")
+    if rem.get("acked_at"):
+        print(f"acked:   {when('acked_at')} via {rem.get('acked_via') or '?'}")
+    print(f"cwd:     {_tilde(str(rem.get('cwd') or '?'))}")
+    print(f"repo:    {rem.get('repo_label') or '?'}")
+    print(f"session: {sid or '-'}")
+    if sid:
+        print()
+        print("─" * 40)
+        cmd_search_preview(sid)
+    return 0
+
+
+def _reminder_haystack(rem: dict) -> str:
+    return " ".join(str(rem.get(k) or "") for k in
+                    ("id", "note", "session_id", "repo_label", "cwd")).lower()
+
+
+_STATE_RANK = {"missed": 0, "pending": 1}
+
+
+def reminders_by_due(show: str = "open") -> list[dict]:
+    """Reminders for `show` ("open" = missed + pending, "missed", "all"):
+    missed first, then pending, then the rest; soonest due first in each."""
+    rems = load_reminders()
+    if show == "open":
+        rems = [r for r in rems if _reminder_state(r) in ("missed", "pending")]
+    elif show == "missed":
+        rems = [r for r in rems if _reminder_state(r) == "missed"]
+    rems.sort(key=lambda r: (_STATE_RANK.get(_reminder_state(r), 2),
+                             _iso_ts(r.get("due")) or 0.0))
+    return rems
+
+
+def reminder_json(rem: dict) -> dict:
+    """The record with every ack field (None when unset) and its `state`."""
+    return {**dict.fromkeys(ACK_FIELDS), **rem, "state": _reminder_state(rem)}
+
+
+def _haystack(row: dict) -> str:
+    return " ".join((row["title"], row["cwd"], row["branch"], row["first_prompt"],
+                     row["last_prompt"], row["id"], row["note"] or "")).lower()
+
+
+JSON_KEYS = ("id", "title", "custom_title", "ai_title", "cwd", "cwd_exists",
+             "branch", "mtime", "first_prompt", "last_prompt", "path", "live",
+             "protected", "note", "unprotected_at", "active", "active_status",
+             "active_pid")
+
+
+def cmd_search(*, selector: str | None, pattern: str | None, mode: str,
+               query: str, passthrough: list[str], view: str = "all",
+               force_resume: bool = False) -> int:
+    """Find a session (fzf / --list / --json / --rows) and resume it in its
+    cwd. The reminders view lists missed and pending reminders instead and
+    resumes the picked reminder's session (which does not ack it)."""
+    if view == "reminders":
+        rems = reminders_by_due()
+        if mode in ("list", "json") and query:
+            words = query.lower().split()
+            rems = [r for r in rems if all(w in _reminder_haystack(r) for w in words)]
+        if mode == "json":
+            print(json.dumps([reminder_json(r) for r in rems], indent=2))
+            return 0
+        if mode == "list":
+            _print_reminders(rems)
+            return 0
+        now = time.time()
+        lines = [_reminder_line(r, now) for r in rems]
+        if mode == "rows":
+            for line in lines:
+                print(line)
+            return 0
+        _sync_quietly()
+    else:
+        rows = session_index()
+        if mode != "rows":
+            _sync_quietly(rows)
+        if pattern is not None:
+            hits = grep_sessions(pattern)
+            if hits is None:
+                console.print("[red]rg not found on PATH[/red] (needed for --grep)")
+                return 1
+            rows = [r for r in rows if r["path"] in hits]
+        rows = filter_view(rows, view)
+
+        if mode in ("list", "json") and query:
+            words = query.lower().split()
+            rows = [r for r in rows if all(w in _haystack(r) for w in words)]
+
+        if mode == "json":
+            print(json.dumps([{k: r[k] for k in JSON_KEYS} for r in rows], indent=2))
+            return 0
+        if mode == "list":
+            _print_list(rows)
+            return 0
+        lines = [_fzf_line(r) for r in rows]
+        if mode == "rows":
+            for line in lines:
+                print(line)
+            return 0
+
+    if not shutil.which("fzf"):
+        console.print("[red]fzf not found on PATH[/red] — use "
+                      "[bold]claude-as search --list[/bold] (or --json)")
+        return 1
+    if not lines:
+        console.print("no pending or missed reminders" if view == "reminders"
+                      else "no sessions found")
+        return 0
+    env = dict(os.environ)
+    if pattern is not None:
+        env[GREP_ENV] = pattern
+    proc = subprocess.run(_fzf_command(query, pattern, view),
+                          input="\n".join(lines),
+                          stdout=subprocess.PIPE, text=True, env=env)
+    chosen = proc.stdout.strip()
+    if proc.returncode != 0 or not chosen:
+        return 0
+    if chosen.startswith(REMINDER_PREFIX):
+        return resume_reminder(chosen[len(REMINDER_PREFIX):], selector=selector,
+                               passthrough=passthrough, force_resume=force_resume)
+    # Rows may have changed in fzf (protect toggles), so look the pick up fresh.
+    row = next((r for r in session_index() if r["id"] == chosen), None)
+    if row is None:
+        return 0
+    return resume_row(row, selector=selector, passthrough=passthrough,
+                      force_resume=force_resume)
+
+
+def resume_reminder(rid: str, *, selector: str | None, passthrough: list[str],
+                    force_resume: bool = False) -> int:
+    """Resume a reminder's session through resume_row. Without a session, or
+    with one missing from the index, print its cwd and a `cd` hint; exit 1."""
+    rem = next((r for r in load_reminders() if r["id"] == rid), None)
+    if rem is None:
+        console.print(f"[red]unknown reminder:[/red] {rid}")
+        return 1
+    sid = rem.get("session_id")
+    row = next((r for r in session_index() if r["id"] == sid), None) if sid else None
+    if row is not None:
+        return resume_row(row, selector=selector, passthrough=passthrough,
+                          force_resume=force_resume)
+    why = f"session {sid} not in the session index" if sid else "no session"
+    console.print(f"[yellow]reminder {rid}: {why}[/yellow]", highlight=False)
+    cwd = rem.get("cwd")
+    if cwd:
+        console.print(f"cwd: {cwd}" + ("" if os.path.isdir(cwd) else "  (missing)"),
+                      highlight=False)
+        console.print(f"cd {shlex.quote(cwd)}", highlight=False)
+    else:
+        console.print("no cwd recorded", highlight=False)
+    return 1
+
+
+def resume_row(row: dict, *, selector: str | None, passthrough: list[str],
+               force_resume: bool = False) -> int:
+    """Resume one index row: refuse a running session, restore an archived-only
+    one, cd into its dir, launch as `selector` or `default`."""
+    if row["active"] and not force_resume:
+        console.print(f"[yellow]already running:[/yellow] pid {row['active_pid']}, "
+                      f"status {row['active_status'] or '?'}, cwd {row['cwd'] or '?'}"
+                      f" — pass --force-resume to open it anyway")
+        return 1
+    cli.load_env()
+    email = resolve_selector(selector, load_users()) if selector is not None else None
+    if not row["live"]:
+        target = email
+        if target is None:
+            with contextlib.suppress(DefaultError):
+                target = current_default()
+        try:
+            n = restore_session(row, target)
+        except OSError as exc:
+            console.print(f"[red]cannot restore {row['id']} from archive:[/red] {exc}")
+            return 1
+        console.print(f"[green]restored from archive[/green] {row['id']} "
+                      f"({n} file(s))")
+
+    if row["cwd_exists"]:
+        os.chdir(row["cwd"])
+    else:
+        console.print(f"[yellow]warning:[/yellow] session dir "
+                      f"{row['cwd'] or '(unknown)'} no longer exists — resuming "
+                      f"from {os.getcwd()}")
+    args = ["--resume", row["id"], *passthrough]
+    if email is not None:
+        launch(email, args)  # execs
+        return 0
+    return launch_default(args)
+
+
+def _search_main(args: list[str], passthrough: list[str]) -> int:
+    usage = ("[red]usage:[/red] claude-as search \\[--as <sel>] \\[--grep <pat>] "
+             "\\[--view all|active|protected|unprotected|reminders] "
+             "\\[--list|--json] "
+             "\\[--force-resume] "
+             "\\[query...] \\[-- <claude args>]")
+    selector = pattern = preview = None
+    view = "all"
+    mode = "fzf"
+    force_resume = False
+    query: list[str] = []
+    it = iter(args)
+    for arg in it:
+        if arg in ("--as", "--grep", "--preview", "--view"):
+            val = next(it, None)
+            if val is None:
+                console.print(f"[red]{arg} needs a value[/red]")
+                console.print(usage)
+                return 2
+            if arg == "--as":
+                selector = val
+            elif arg == "--grep":
+                pattern = val
+            elif arg == "--view":
+                if val not in VIEWS:
+                    console.print(f"[red]--view must be one of:[/red] {', '.join(VIEWS)}")
+                    return 2
+                view = val
+            else:
+                preview = val
+        elif arg in ("--list", "--json", "--rows"):
+            new = arg[2:]
+            if mode not in ("fzf", new):
+                console.print("[red]--list, --json and --rows are exclusive[/red]")
+                return 2
+            mode = new
+        elif arg == "--force-resume":
+            force_resume = True
+        elif arg.startswith("-"):
+            console.print(f"[red]unknown search option:[/red] {arg}")
+            console.print(usage)
+            return 2
+        else:
+            query.append(arg)
+    if preview is not None:
+        if preview.startswith(REMINDER_PREFIX):
+            return cmd_reminder_preview(preview[len(REMINDER_PREFIX):])
+        return cmd_search_preview(preview)
+    if view == "reminders" and pattern is not None:
+        console.print("[red]--grep does not apply to --view reminders[/red]")
+        return 2
+    if mode != "fzf" and (selector is not None or passthrough or force_resume):
+        console.print(f"[red]--as / --force-resume / claude args only apply to the "
+                      f"picker, not --{mode}[/red]")
+        return 2
+    return cmd_search(selector=selector, pattern=pattern, mode=mode,
+                      query=" ".join(query), passthrough=passthrough, view=view,
+                      force_resume=force_resume)
+
+
+# --- protect / unprotect -----------------------------------------------------
+
+def _resolve_session(prefix: str, ids) -> str:
+    """Exact id, else the unique id starting with prefix. Exits 2 otherwise."""
+    ids = set(ids)
+    if prefix in ids:
+        return prefix
+    cands = sorted(i for i in ids if prefix and i.startswith(prefix))
+    if len(cands) == 1:
+        return cands[0]
+    if cands:
+        console.print(f"[red]ambiguous session prefix[/red] {prefix!r} matches:")
+        for sid in cands:
+            console.print(f"  {sid}")
+    else:
+        console.print(f"[red]unknown session:[/red] {prefix!r}")
+    raise SystemExit(2)
+
+
+def _abs_project(path: str) -> str:
+    return os.path.realpath(os.path.expanduser(path))
+
+
+def _report_sync(copied: dict[str, int], rows: list[dict]) -> None:
+    titles = {r["id"]: r["title"] for r in rows}
+    done = {sid: n for sid, n in copied.items() if n}
+    for sid, n in done.items():
+        console.print(f"[green]archived[/green] {sid[:8]}  {n} file(s)  "
+                      f"{titles.get(sid) or '(untitled)'}", highlight=False)
+    if not done:
+        console.print("[dim]archive up to date[/dim]")
+    console.print(f"[dim]archive: {PROTECTED_ARCHIVE}[/dim]")
+
+
+def cmd_protect(target: str | None, *, project: str | None, note: str | None) -> int:
+    """Flag a session (id or unique prefix) or a project, then sync the archive."""
+    store = load_protected(strict=True)
+    if project is not None:
+        path = _abs_project(project)
+        _set_flag(store, "project", path, note)
+        save_protected(store)
+        console.print(f"[green]protected project[/green] {path} (and everything under it)")
+    else:
+        sid = _resolve_session(target, (r["id"] for r in session_index(store=store)))
+        _set_flag(store, "session", sid, note)
+        save_protected(store)
+        console.print(f"[green]protected[/green] {sid}")
+    rows = session_index(store=store)
+    _report_sync(sync_protected(rows, store), rows)
+    return 0
+
+
+def _restore_entry(store: dict, entry: dict) -> int:
+    """Re-flag an unprotected entry with its original note and added date,
+    save, then sync the archive."""
+    kind, key = _entry_key(entry)
+    flag = _set_flag(store, kind, key, None)
+    save_protected(store)
+    what = f"project {key}" if kind == "project" else key
+    note = f'  note "{flag["note"]}"' if flag.get("note") else ""
+    console.print(f"[green]restored protection[/green] {what}{note}  "
+                  f"(protected since {flag.get('added') or '?'})", highlight=False)
+    rows = session_index(store=store)
+    if kind == "session" and key not in {r["id"] for r in rows}:
+        console.print(f"[yellow]warning:[/yellow] no live or archived transcript "
+                      f"of {key[:8]} is left; only the flag was restored")
+    _report_sync(sync_protected(rows, store), rows)
+    return 0
+
+
+def cmd_protect_undo(target: str | None) -> int:
+    """Re-protect the newest unprotected entry, or the one matching `target`
+    (session id / unique prefix, or project path)."""
+    store = load_protected(strict=True)
+    entries = store["unprotected"]
+    if not entries:
+        console.print("[yellow]nothing to undo[/yellow] (no recently unprotected "
+                      "sessions or projects)")
+        return 1
+    if target is None:
+        return _restore_entry(store, entries[0])
+    sessions = [e for e in entries if _entry_key(e)[0] == "session"
+                and _entry_key(e)[1].startswith(target)]
+    exact = [e for e in sessions if e["id"] == target]
+    hits = exact or sessions
+    if len(hits) > 1:
+        console.print(f"[red]ambiguous session prefix[/red] {target!r} matches:")
+        for e in hits:
+            console.print(f"  {e['id']}")
+        return 2
+    if not hits:
+        path = _abs_project(target)
+        hits = [e for e in entries if _entry_key(e) == ("project", path)]
+    if not hits:
+        console.print(f"[yellow]nothing to undo for[/yellow] {target!r}")
+        return 1
+    return _restore_entry(store, hits[0])
+
+
+def _kept_or_purged(sids: list[str], rows: dict[str, dict], purge: bool) -> None:
+    for sid in sids:
+        if purge:
+            n = purge_archive(sid)
+            gone = sid in rows and not rows[sid]["live"]
+            if n:
+                console.print(f"[yellow]purged[/yellow] archived copy of {sid[:8]}"
+                              + (" — it was the only copy" if gone else ""))
+        elif any(_archive_projects().glob(f"*/{glob.escape(sid)}.jsonl")):
+            console.print(f"[dim]archived copy of {sid[:8]} kept in "
+                          f"{PROTECTED_ARCHIVE} (unprotect --purge deletes it)[/dim]")
+
+
+def cmd_unprotect(target: str | None, *, project: str | None, purge: bool) -> int:
+    """Drop a session or project flag; the archive is kept unless `purge`."""
+    store = load_protected(strict=True)
+    rows = {r["id"]: r for r in session_index(store=store)}
+    if project is not None:
+        path = _abs_project(project)
+        if path not in store["projects"]:
+            console.print(f"[red]not a protected project:[/red] {path}")
+            return 1
+        _record_unprotect(store, "project", path, store["projects"].pop(path))
+        save_protected(store)
+        console.print(f"[green]unprotected project[/green] {path}")
+        affected = [sid for sid, r in rows.items() if _under(r["cwd"], path)
+                    and not protection(sid, r["cwd"], store)[0]]
+        _kept_or_purged(affected, rows, purge)
+        return 0
+
+    sid = _resolve_session(target, set(rows) | set(store["sessions"]))
+    if sid not in store["sessions"]:
+        rule = _project_rule(rows[sid]["cwd"], store) if sid in rows else None
+        if rule is not None:
+            console.print(f"[yellow]{sid[:8]} is covered by project rule[/yellow] "
+                          f"{rule} — use [bold]unprotect --project {rule}[/bold]")
+            return 1
+        if not purge:
+            console.print(f"[yellow]not protected:[/yellow] {sid}")
+            return 1
+    else:
+        _record_unprotect(store, "session", sid, store["sessions"].pop(sid))
+        save_protected(store)
+        console.print(f"[green]unprotected[/green] {sid}")
+        if sid in rows and protection(sid, rows[sid]["cwd"], store)[0]:
+            console.print(f"[yellow]still covered by project rule[/yellow] "
+                          f"{_project_rule(rows[sid]['cwd'], store)}")
+            return 0
+    _kept_or_purged([sid], rows, purge)
+    return 0
+
+
+def cmd_protect_toggle(target: str) -> int:
+    """fzf ctrl-p: unprotect a session flagged by id; undo a recently
+    unprotected one (`↩`: its session entry, else the covering project
+    entry); else protect it."""
+    store = load_protected(strict=True)
+    rows = {r["id"]: r for r in session_index(store=store)}
+    sid = _resolve_session(target, set(store["sessions"]) | set(rows))
+    if sid in store["sessions"]:
+        return cmd_unprotect(sid, project=None, purge=False)
+    row = rows.get(sid)
+    if row is not None and row["unprotected_at"]:
+        return _restore_entry(store, undo_entry(sid, row["cwd"], store))
+    return cmd_protect(sid, project=None, note=None)
+
+
+def _read_tty(prompt: str) -> str | None:
+    """One line typed on the terminal (fzf `execute` hands it over).
+
+    Enter returns the line (possibly empty). Esc, ctrl-c, ctrl-d, EOF and a
+    missing tty return None. The tty runs without canonical mode, echo and
+    signals so Esc and ctrl-c arrive as bytes and never reach fzf as SIGINT;
+    backspace and ctrl-u edit the line."""
+    import select
+    import termios
+
+    try:
+        fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY)
+    except OSError:
+        return None
+    try:
+        old = termios.tcgetattr(fd)
+    except termios.error:
+        os.close(fd)
+        return None
+    raw = termios.tcgetattr(fd)
+    raw[3] &= ~(termios.ICANON | termios.ECHO | termios.ISIG)
+    raw[6][termios.VMIN], raw[6][termios.VTIME] = 1, 0
+    text = ""
+    pending = b""  # partial UTF-8 sequence
+
+    def erase(s: str) -> None:
+        n = _cells(s)
+        os.write(fd, b"\b" * n + b" " * n + b"\b" * n)
+
+    try:
+        termios.tcsetattr(fd, termios.TCSANOW, raw)
+        os.write(fd, prompt.encode())
+        while True:
+            ch = os.read(fd, 1)
+            if ch in (b"", b"\x03", b"\x04"):
+                return None
+            if ch == b"\x1b":
+                if not select.select([fd], [], [], 0.05)[0]:
+                    return None  # lone Esc
+                # Arrow keys (ESC [ … final) and alt-chords (ESC x) are ignored.
+                if os.read(fd, 1) in (b"[", b"O"):
+                    while not 0x40 <= (os.read(fd, 1) or b"~")[0] <= 0x7e:
+                        pass
+                continue
+            if ch in (b"\r", b"\n"):
+                return text
+            if ch in (b"\x7f", b"\x08"):
+                if text:
+                    erase(text[-1])
+                    text = text[:-1]
+                continue
+            if ch == b"\x15":
+                erase(text)
+                text = ""
+                continue
+            if ch[0] < 0x20:
+                continue
+            pending += ch
+            try:
+                piece = pending.decode()
+            except UnicodeDecodeError:
+                if len(pending) >= 4:
+                    pending = b""
+                continue
+            pending = b""
+            text += piece
+            os.write(fd, piece.encode())
+    except OSError:
+        return None
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        os.write(fd, b"\r\n")
+        os.close(fd)
+
+
+def cmd_protect_ask_note(target: str) -> int:
+    """Prompt for a note on the terminal, then protect (fzf ^n).
+
+    Enter protects with the typed note (empty: no note); Esc / ctrl-c cancel."""
+    line = _read_tty("enter = protect (empty = no note) · esc / ctrl-c = cancel\n"
+                     f"note for {target[:8]}: ")
+    if line is None:
+        return 1
+    return cmd_protect(target, project=None, note=line.strip() or None)
+
+
+def cmd_protect_list() -> int:
+    from rich.table import Table
+
+    store = load_protected()
+    rows = session_index(store=store)
+    by_id = {r["id"]: r for r in rows}
+    archived = {p.stem for p in _archive_projects().glob("*/*.jsonl")}
+    listed = [r for r in rows if r["protected"]]
+    missing = sorted(sid for sid in store["sessions"] if sid not in by_id)
+    yes, no = "[green]yes[/green]", "[red]no[/red]"
+    if not listed and not missing and not store["projects"]:
+        console.print("no protected sessions or projects")
+    else:
+        _protected_tables(store, rows, listed, missing, archived, yes, no)
+
+    if store["unprotected"]:
+        utable = Table(title="recently unprotected (protect --undo \\[id|path])",
+                       title_justify="left")
+        for col in ("id/path", "title", "note", "removed", "archived"):
+            utable.add_column(col, overflow="fold" if col == "title" else None)
+        for entry in store["unprotected"]:
+            kind, key = _entry_key(entry)
+            ts = _iso_ts(entry["removed"])
+            removed = f"{_age(ts)} ago" if ts is not None else "?"
+            if kind == "session":
+                row = by_id.get(key)
+                title = (_fit(row["title"] or "(untitled)", 50).rstrip() if row
+                         else "[dim](no transcript)[/dim]")
+                utable.add_row(key[:8], title, entry.get("note") or "", removed,
+                               yes if key in archived else no)
+            else:
+                under = [r["id"] for r in rows if _under(r["cwd"], key)]
+                utable.add_row(key, f"[dim]project, {len(under)} session(s)[/dim]",
+                               entry.get("note") or "", removed,
+                               yes if archived & set(under) else no)
+        console.print(utable)
+    return 0
+
+
+def _protected_tables(store: dict, rows: list[dict], listed: list[dict],
+                      missing: list[str], archived: set[str], yes: str,
+                      no: str) -> None:
+    from rich.table import Table
+
+    table = Table(title="protected sessions", title_justify="left")
+    for col in ("id", "title", "note", "archived", "live"):
+        table.add_column(col, overflow="fold" if col == "title" else None)
+    for r in listed:
+        table.add_row(r["id"][:8], _fit(r["title"] or "(untitled)", 50).rstrip(),
+                      r["note"] or "", yes if r["id"] in archived else no,
+                      yes if r["live"] else no)
+    for sid in missing:
+        table.add_row(sid[:8], "[dim](no transcript)[/dim]",
+                      store["sessions"][sid].get("note") or "", no, no)
+    console.print(table)
+
+    if store["projects"]:
+        ptable = Table(title="protected projects", title_justify="left")
+        for col in ("path", "note", "sessions", "added"):
+            ptable.add_column(col)
+        for path, entry in sorted(store["projects"].items()):
+            count = sum(1 for r in rows if _under(r["cwd"], path))
+            ptable.add_row(path, entry.get("note") or "", str(count),
+                           entry.get("added") or "")
+        console.print(ptable)
+
+
+def _protect_main(args: list[str], passthrough: list[str], *, unprotect: bool) -> int:
+    name = "unprotect" if unprotect else "protect"
+    usage = ("[red]usage:[/red] claude-as unprotect <id-prefix>|--project <path> "
+             "\\[--purge]" if unprotect else
+             "[red]usage:[/red] claude-as protect <id-prefix>|--project <path> "
+             "\\[--note TEXT] | --list | --undo \\[<id-prefix>|<path>]")
+    valued = ("--project",) if unprotect else ("--project", "--note", "--toggle",
+                                               "--ask-note")
+    flags = ("--purge",) if unprotect else ("--list", "--undo")
+    opts: dict[str, str | bool] = {}
+    targets: list[str] = []
+    it = iter(args)
+    for arg in it:
+        if arg in valued:
+            val = next(it, None)
+            if val is None:
+                console.print(f"[red]{arg} needs a value[/red]")
+                console.print(usage)
+                return 2
+            opts[arg] = val
+        elif arg in flags:
+            opts[arg] = True
+        elif arg.startswith("-"):
+            console.print(f"[red]unknown {name} option:[/red] {arg}")
+            console.print(usage)
+            return 2
+        else:
+            targets.append(arg)
+    if "--undo" in opts:
+        if passthrough or len(targets) > 1 or len(opts) != 1:
+            console.print(usage)
+            return 2
+        return cmd_protect_undo(targets[0] if targets else None)
+    picks = [k for k in ("--project", "--list", "--toggle", "--ask-note") if k in opts]
+    if passthrough or len(targets) + len(picks) != 1 or (
+            "--note" in opts and picks not in ([], ["--project"])):
+        console.print(usage)
+        return 2
+    target = targets[0] if targets else None
+    if unprotect:
+        return cmd_unprotect(target, project=opts.get("--project"),
+                             purge=bool(opts.get("--purge")))
+    if "--list" in opts:
+        return cmd_protect_list()
+    if "--toggle" in opts:
+        return cmd_protect_toggle(opts["--toggle"])
+    if "--ask-note" in opts:
+        return cmd_protect_ask_note(opts["--ask-note"])
+    return cmd_protect(target, project=opts.get("--project"), note=opts.get("--note"))
+
+
+# --- resume ------------------------------------------------------------------
+
+def cmd_resume(target: str, *, selector: str | None, passthrough: list[str],
+               force_resume: bool) -> int:
+    """Resume a session by id or unique prefix (no picker)."""
+    rows = session_index()
+    sid = _resolve_session(target, (r["id"] for r in rows))
+    _sync_quietly(rows)
+    row = next(r for r in rows if r["id"] == sid)
+    return resume_row(row, selector=selector, passthrough=passthrough,
+                      force_resume=force_resume)
+
+
+def _resume_main(args: list[str], passthrough: list[str]) -> int:
+    usage = ("[red]usage:[/red] claude-as resume <id-prefix> \\[--as <sel>] "
+             "\\[--force-resume] \\[-- <claude args>]")
+    selector = None
+    force_resume = False
+    targets: list[str] = []
+    it = iter(args)
+    for arg in it:
+        if arg == "--as":
+            selector = next(it, None)
+            if selector is None:
+                console.print("[red]--as needs a value[/red]")
+                console.print(usage)
+                return 2
+        elif arg == "--force-resume":
+            force_resume = True
+        elif arg.startswith("-"):
+            console.print(f"[red]unknown resume option:[/red] {arg}")
+            console.print(usage)
+            return 2
+        else:
+            targets.append(arg)
+    if len(targets) != 1:
+        console.print(usage)
+        return 2
+    return cmd_resume(targets[0], selector=selector, passthrough=passthrough,
+                      force_resume=force_resume)
+
+
+# --- remind ------------------------------------------------------------------
+
+# REMINDERS_FILE = {"reminders": [record, ...]}; a record is
+#   {"id", "note", "due", "created", "session_id", "cwd", "repo_label",
+#    "status": "pending"|"fired"|"cancelled", "fired_at", "cancelled_at",
+#    "attempts", "last_error", "acked_at", "acked_via", "tg_message_id",
+#    "snoozed_from"}
+# with ISO 8601 times (local offset); the ack fields and snoozed_from are None
+# (or absent in older records) until set. snoozed_from is {"due", "fired_at"}
+# of a missed reminder that snooze_reminder made pending; unsnooze_reminder
+# restores them, and firing, acking or cancelling clears it.
+# Read-modify-write runs under an flock on REMINDERS_FILE + ".lock". The
+# systemd user timer runs `remind dispatch` every minute. A fired reminder is missed until acked (ack_reminder);
+# unack_reminder makes an acked one missed again. Missed ones are never
+# pruned, acked ones are pruned REMIND_KEEP_DAYS after acked_at, cancelled
+# ones REMIND_KEEP_DAYS after cancelled_at.
+#
+# Each sent reminder message carries inline buttons (TG_ACTIONS, callback_data
+# `rem:<id>:<action>`) and its message_id is kept in tg_message_id.
+# `remind listen` long-polls getUpdates for button presses (tg_poll); every
+# dispatch run sends due reminders, then the weekly digest of missed
+# reminders (tg_digest) once DIGEST_WEEKDAY DIGEST_HOUR:00 local has passed
+# since the last one.
+# TG_STATE_FILE holds {"offset": next getUpdates offset, "chat_id": the
+# configured chat, learned once, "digest_last": when the digest window was
+# last checked, "digest_message_id": the latest digest, "digest_ids": the
+# reminder ids it lists, "digest_acked_ids": the ones its Ack all acked, for
+# its undo button}; it is read-modify-written under the same lock as
+# REMINDERS_FILE.
+REMINDERS_FILE = PROTECT_HOME / "reminders.json"
+TG_STATE_FILE = PROTECT_HOME / "tg-state.json"
+TG_API_TIMEOUT_SECS = 30
+TG_POLL_TIMEOUT_SECS = 50  # under tg-notify --api's curl --max-time 70
+TG_POLL_GRACE_SECS = 20
+LISTEN_BACKOFF_SECS = (5, 60)  # first and max sleep after a failed poll
+TG_ACTIONS = (("ack", "✅ Ack", None), ("1h", "⏰ +1h", 3600), ("1d", "⏰ +1d", 86400))
+DIGEST_WEEKDAY = 0  # Monday
+DIGEST_HOUR = 9
+DIGEST_MARKUP = {"inline_keyboard": [[{"text": "✅ Ack all", "callback_data": "dig:ackall"}]]}
+REMIND_KEEP_DAYS = 30
+ACK_FIELDS = ("acked_at", "acked_via", "tg_message_id")
+ACK_VIA = ("manual", "telegram", "digest")
+REMIND_LATE_SECS = 5 * 60
+REMIND_UNIT = "claude-as-remind"
+LISTEN_UNIT = "claude-as-remind-listen"
+SYSTEMD_USER_DIR = Path.home() / ".config" / "systemd" / "user"
+TG_NOTIFY_FALLBACK = Path.home() / ".local" / "bin" / "tg-notify"
+NOTIFY_TIMEOUT_SECS = 60
+TG_MISSING = "tg-notify not found"
+LAST_ERROR_MAX = 300
+_DUR_UNITS = {"m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
+
+
+def parse_duration(text: str) -> int:
+    """Seconds in `30m`, `3h`, `2d`, `2w` or a combination such as `1d12h`."""
+    if not re.fullmatch(r"(?:\d+[mhdw])+", text):
+        raise ValueError(f"bad duration {text!r} (e.g. 30m, 3h, 2d, 2w, 1d12h)")
+    secs = sum(int(n) * _DUR_UNITS[u] for n, u in re.findall(r"(\d+)([mhdw])", text))
+    if secs <= 0:
+        raise ValueError(f"duration {text!r} is zero")
+    return secs
+
+
+def parse_when(text: str, now: float | None = None) -> float:
+    """Epoch seconds of a local `YYYY-MM-DD HH:MM`, `YYYY-MM-DDTHH:MM`, or
+    `HH:MM` (today, or tomorrow once that time has passed). Past times are
+    rejected."""
+    now = now if now is not None else time.time()
+    text = text.strip()
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M"):
+        try:
+            ts = datetime.strptime(text, fmt).timestamp()
+        except ValueError:
+            continue
+        if ts <= now:
+            raise ValueError(f"{text} is in the past")
+        return ts
+    try:
+        hm = datetime.strptime(text, "%H:%M")
+    except ValueError:
+        raise ValueError(f"bad time {text!r} (want YYYY-MM-DD HH:MM, "
+                         f"YYYY-MM-DDTHH:MM or HH:MM)") from None
+    day = datetime.fromtimestamp(now)
+    dt = day.replace(hour=hm.hour, minute=hm.minute, second=0, microsecond=0)
+    if dt.timestamp() <= now:
+        dt += timedelta(days=1)
+    return dt.timestamp()
+
+
+def _span(secs: float) -> str:
+    """Up to two units: `45s`, `30m`, `1h30m`, `1d2h`."""
+    secs = int(abs(secs))
+    if secs < 60:
+        return f"{secs}s"
+    d, rem = divmod(secs, 86400)
+    h, rem = divmod(rem, 3600)
+    parts = [(d, "d"), (h, "h"), (rem // 60, "m")]
+    first = next(i for i, (n, _) in enumerate(parts) if n)
+    return "".join(f"{n}{u}" for n, u in parts[first:first + 2] if n)
+
+
+def _relative(ts: float, now: float | None = None) -> str:
+    now = now if now is not None else time.time()
+    return f"in {_span(ts - now)}" if ts > now else f"{_span(now - ts)} ago"
+
+
+def _iso_at(ts: float) -> str:
+    return datetime.fromtimestamp(ts).astimezone().isoformat(timespec="seconds")
+
+
+def _local(ts: float) -> str:
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
+
+
+def _repo_label(cwd: str) -> str:
+    """`<repo>@<branch>` when cwd is in a git work tree, else cwd."""
+    def git(*args: str) -> str | None:
+        try:
+            proc = subprocess.run(["git", "-C", cwd, *args], capture_output=True,
+                                  text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        return proc.stdout.strip() if proc.returncode == 0 else None
+
+    top = git("rev-parse", "--show-toplevel")
+    if not top:
+        return cwd
+    return f"{os.path.basename(top)}@{git('branch', '--show-current') or 'detached'}"
+
+
+@contextlib.contextmanager
+def _reminders_locked():
+    """Exclusive flock on REMINDERS_FILE.lock for a read-modify-write."""
+    lock = REMINDERS_FILE.with_name(f"{REMINDERS_FILE.name}.lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock, "a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def load_reminders() -> list[dict]:
+    """Records in REMINDERS_FILE; missing = empty, unreadable = exit 1."""
+    try:
+        with open(REMINDERS_FILE) as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        return []
+    except (OSError, ValueError) as exc:
+        console.print(f"[red]cannot read {REMINDERS_FILE}:[/red] {exc}")
+        raise SystemExit(1)
+    rems = data.get("reminders") if isinstance(data, dict) else None
+    if not isinstance(rems, list):
+        return []
+    return [r for r in rems if isinstance(r, dict) and isinstance(r.get("id"), str)]
+
+
+def save_reminders(rems: list[dict]) -> None:
+    _write_json_atomic(REMINDERS_FILE, {"reminders": rems})
+
+
+def _find_reminder(rems: list[dict], ident: str) -> dict | None:
+    """Record with id `ident`, else the unique one starting with it."""
+    exact = [r for r in rems if r["id"] == ident]
+    hits = exact or [r for r in rems if ident and r["id"].startswith(ident)]
+    if len(hits) == 1:
+        return hits[0]
+    if hits:
+        console.print(f"[red]ambiguous reminder id[/red] {ident!r}: "
+                      f"{', '.join(r['id'] for r in hits)}")
+    else:
+        console.print(f"[red]unknown reminder:[/red] {ident!r}")
+    return None
+
+
+def _reminder_state(rem: dict) -> str:
+    """"pending", "missed" (fired, not acked), "acked" or "cancelled"."""
+    status = rem.get("status")
+    if status == "fired":
+        return "acked" if rem.get("acked_at") else "missed"
+    return "cancelled" if status == "cancelled" else "pending"
+
+
+def ack_reminder(rem: dict, via: str, now: float) -> bool:
+    """Mark a missed reminder acked at `now` via `via` (one of ACK_VIA); False
+    (record unchanged) unless it was missed. The caller holds the lock and
+    saves."""
+    if via not in ACK_VIA:
+        raise ValueError(f"bad ack source {via!r}")
+    if _reminder_state(rem) != "missed":
+        return False
+    rem.update(acked_at=_iso_at(now), acked_via=via, snoozed_from=None)
+    return True
+
+
+def unack_reminder(rem: dict) -> bool:
+    """Clear an acked reminder's ack so it is missed again; False (record
+    unchanged) unless it was acked. The caller holds the lock and saves."""
+    if _reminder_state(rem) != "acked":
+        return False
+    rem.update(acked_at=None, acked_via=None)
+    return True
+
+
+def reminder_message(rem: dict, now: float | None = None) -> str:
+    """tg-notify --html text. The first line is the title, which tg-notify
+    escapes itself; the body lines are escaped here."""
+    def esc(text: str) -> str:
+        return html.escape(text, quote=False)
+
+    now = now if now is not None else time.time()
+    lines = [f"⏰ {' '.join(str(rem.get('note') or '').split())}"]
+    due = _iso_ts(rem.get("due"))
+    if due is not None and now - due > REMIND_LATE_SECS:
+        stamp = datetime.fromtimestamp(due).strftime("%H:%M %d %b")
+        lines.append(f"<i>late: due {esc(stamp)}</i>")
+    created = _iso_ts(rem.get("created"))
+    set_at = f"set {_relative(created, now)}" if created is not None else "set ?"
+    lines.append(f"{set_at} · {esc(str(rem.get('repo_label') or rem.get('cwd') or '?'))}")
+    if rem.get("session_id"):
+        lines.append(f"<code>claude-as resume {esc(rem['session_id'])}</code>")
+    else:
+        lines.append(f"<code>cd {esc(shlex.quote(str(rem.get('cwd') or '~')))}</code>")
+    return "\n".join(lines)
+
+
+def _tg_notify() -> str:
+    return shutil.which("tg-notify") or str(TG_NOTIFY_FALLBACK)
+
+
+# What this process learned about tg-notify: _TG_MODE is None (untested),
+# "missing" (not found) or "legacy" (rejects --reply-markup/--print-id);
+# _TG_API is None (unprobed) or whether `tg-notify --api` works.
+_TG_MODE: str | None = None
+_TG_API: bool | None = None
+
+
+class SendResult(NamedTuple):
+    """send_notification outcome: message_id is None when tg-notify printed
+    none; error is None on success; missing is True when tg-notify was not
+    found (error TG_MISSING)."""
+    message_id: int | None
+    error: str | None
+    missing: bool = False
+
+
+def _proc_error(proc: subprocess.CompletedProcess) -> str:
+    tail = (proc.stderr or proc.stdout or "").strip().splitlines()
+    return (f"exit {proc.returncode}" + (f": {tail[-1]}" if tail else ""))[:LAST_ERROR_MAX]
+
+
+def _unknown_flag(proc: subprocess.CompletedProcess) -> bool:
+    """True for the usage error an older tg-notify gives for a flag it lacks."""
+    return proc.returncode == 2 and "unknown flag" in (proc.stderr or "")
+
+
+def send_notification(message: str, *, level: str = "info",
+                      markup: dict | None = None) -> SendResult:
+    """Send via tg-notify --print-id (with `markup` as --reply-markup). An
+    older tg-notify that rejects those flags gets one plain resend (no
+    buttons, message_id None) and every later send is plain. A missing
+    tg-notify gives SendResult(None, TG_MISSING, missing=True)."""
+    global _TG_MODE
+    if _TG_MODE == "missing":
+        return SendResult(None, TG_MISSING, True)
+    plain = [_tg_notify(), "--html", "--no-context", "--level", level]
+    cmd = plain
+    if _TG_MODE != "legacy":
+        if markup is not None:
+            cmd = [*plain, "--reply-markup", json.dumps(markup, ensure_ascii=False)]
+        cmd = [*cmd, "--print-id"]
+    while True:
+        try:
+            proc = subprocess.run([*cmd, message], capture_output=True,
+                                  text=True, timeout=NOTIFY_TIMEOUT_SECS)
+        except FileNotFoundError:
+            _TG_MODE = "missing"
+            return SendResult(None, TG_MISSING, True)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return SendResult(None, (str(exc) or type(exc).__name__)[:LAST_ERROR_MAX])
+        if cmd is not plain and _unknown_flag(proc):
+            _TG_MODE = "legacy"
+            cmd = plain
+            continue
+        break
+    if proc.returncode != 0:
+        return SendResult(None, _proc_error(proc))
+    out = proc.stdout.strip()
+    return SendResult(int(out) if out.isdigit() and cmd is not plain else None, None)
+
+
+def tg_api_supported() -> bool:
+    """Whether tg-notify has --api, probed once per process: a new tg-notify
+    rejects the method `probe!` as invalid (exit 2) before reading secrets or
+    calling Telegram; an older one reports an unknown flag."""
+    global _TG_API, _TG_MODE
+    if _TG_API is None:
+        if _TG_MODE == "missing":
+            _TG_API = False
+            return False
+        try:
+            proc = subprocess.run([_tg_notify(), "--api", "probe!"], input="",
+                                  capture_output=True, text=True,
+                                  timeout=TG_API_TIMEOUT_SECS)
+        except FileNotFoundError:
+            _TG_MODE = "missing"
+            _TG_API = False
+        except (OSError, subprocess.TimeoutExpired):
+            _TG_API = False
+        else:
+            _TG_API = proc.returncode == 2 and "invalid API method" in (proc.stderr or "")
+    return _TG_API
+
+
+def tg_api(method: str, body: dict, *, with_chat: bool = False,
+           quiet: bool = False, timeout: float = TG_API_TIMEOUT_SECS) -> dict | None:
+    """Bot API `method` through `tg-notify --api`, killed after `timeout`
+    seconds: the response object when it is ok, else None with a warning on
+    stderr (none when `quiet`). None without a warning when tg-notify is
+    missing or has no --api."""
+    global _TG_API, _TG_MODE
+    if _TG_API is False or _TG_MODE == "missing":
+        return None
+    cmd = [_tg_notify(), "--api", method, *(["--with-chat"] if with_chat else [])]
+    try:
+        proc = subprocess.run(cmd, input=json.dumps(body, ensure_ascii=False),
+                              capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError:
+        _TG_MODE = "missing"
+        _TG_API = False
+        return None
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        err = (str(exc) or type(exc).__name__)[:LAST_ERROR_MAX]
+    else:
+        if _unknown_flag(proc):
+            _TG_API = False
+            return None
+        if proc.returncode != 0:
+            err = _proc_error(proc)
+        else:
+            try:
+                resp = json.loads(proc.stdout)
+            except ValueError:
+                resp = None
+            if isinstance(resp, dict) and resp.get("ok"):
+                return resp
+            err = "response not ok"
+    if not quiet:
+        print(f"warning: telegram {method} failed: {err}", file=sys.stderr)
+    return None
+
+
+def load_tg_state() -> dict:
+    """TG_STATE_FILE contents; missing or unreadable = {}."""
+    try:
+        data = json.loads(TG_STATE_FILE.read_text())
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        print(f"warning: cannot read {TG_STATE_FILE}: {exc}", file=sys.stderr)
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_tg_state(state: dict) -> None:
+    _write_json_atomic(TG_STATE_FILE, state)
+
+
+def _tg_chat_id(state: dict) -> int | None:
+    """Cached chat id in `state`, else learned through getChat and saved to
+    TG_STATE_FILE under the lock, which the caller does not hold."""
+    if isinstance(state.get("chat_id"), int):
+        return state["chat_id"]
+    resp = tg_api("getChat", {}, with_chat=True)
+    result = resp.get("result") if resp else None
+    cid = result.get("id") if isinstance(result, dict) else None
+    if not isinstance(cid, int):
+        return None
+    with _reminders_locked():
+        fresh = load_tg_state()
+        fresh["chat_id"] = cid
+        save_tg_state(fresh)
+    return cid
+
+
+def _clock(ts: float | None, now: float) -> str:
+    """`HH:MM` on the day of `now`, else `DD Mon HH:MM`; `?` for None."""
+    if ts is None:
+        return "?"
+    dt = datetime.fromtimestamp(ts)
+    same_day = dt.date() == datetime.fromtimestamp(now).date()
+    return dt.strftime("%H:%M" if same_day else "%d %b %H:%M")
+
+
+def _tg_status(rem: dict, now: float) -> str:
+    state = _reminder_state(rem)
+    if state == "acked":
+        return f"✅ acked {_clock(_iso_ts(rem.get('acked_at')), now)}"
+    if state == "pending":
+        return f"⏰ snoozed → {_clock(_iso_ts(rem.get('due')), now)}"
+    return state
+
+
+def tg_actions(rid: str) -> dict:
+    """Inline keyboard with the TG_ACTIONS buttons for reminder `rid`."""
+    return {"inline_keyboard": [[{"text": text, "callback_data": f"rem:{rid}:{action}"}
+                                 for action, text, _ in TG_ACTIONS]]}
+
+
+def tg_markup(rem: dict, now: float | None = None) -> dict:
+    """Inline keyboard for a reminder's message: tg_actions while it is
+    missed, one `unack` button showing its state once acked, one `unsnooze`
+    button while pending with snoozed_from, else one `noop` button showing its
+    state."""
+    state = _reminder_state(rem)
+    if state == "missed":
+        return tg_actions(rem["id"])
+    now = now if now is not None else time.time()
+    if state == "acked":
+        return {"inline_keyboard": [[{"text": f"{_tg_status(rem, now)} · ↩ undo",
+                                      "callback_data": f"rem:{rem['id']}:unack"}]]}
+    if state == "pending" and rem.get("snoozed_from"):
+        return {"inline_keyboard": [[{"text": f"{_tg_status(rem, now)} · ↩ undo",
+                                      "callback_data": f"rem:{rem['id']}:unsnooze"}]]}
+    return {"inline_keyboard": [[{"text": _tg_status(rem, now),
+                                  "callback_data": f"rem:{rem['id']}:noop"}]]}
+
+
+def tg_update_buttons(rems: list[dict]) -> None:
+    """Set each reminder's message buttons to tg_markup; ones without a
+    tg_message_id are skipped, failures warn on stderr. Nothing happens when
+    tg-notify is missing or has no --api."""
+    now = time.time()
+    rems = [r for r in rems if isinstance(r.get("tg_message_id"), int)]
+    if not rems or not tg_api_supported():
+        return
+    for rem in rems:
+        tg_api("editMessageReplyMarkup", {"message_id": rem["tg_message_id"],
+                                          "reply_markup": tg_markup(rem, now)}, with_chat=True)
+
+
+def _tg_callback(query: dict, rems: list[dict], now: float) -> tuple[str, dict | None]:
+    """Apply a `rem:<id>:<action>` button press: (answer text, reminder whose
+    buttons need an update or None). The caller holds the lock and saves."""
+    parts = str(query.get("data") or "").split(":")
+    mid = (query.get("message") or {}).get("message_id")
+    rem = None
+    if len(parts) == 3 and parts[0] == "rem" and isinstance(mid, int):
+        rem = next((r for r in rems if r["id"] == parts[1]
+                    and r.get("tg_message_id") == mid), None)
+    if rem is None:
+        return "unknown reminder", None
+    action = parts[2]
+    snooze = {a: secs for a, _, secs in TG_ACTIONS if secs}
+    if action == "ack":
+        if ack_reminder(rem, "telegram", now):
+            print(f"acked {rem['id']} via telegram")
+            return "acked", rem
+        state = _reminder_state(rem)
+        return ("already acked" if state == "acked" else state), rem
+    if action == "unack":
+        if unack_reminder(rem):
+            print(f"unacked {rem['id']} via telegram")
+            return "ack undone", rem
+        return _reminder_state(rem), rem
+    if action == "unsnooze":
+        if unsnooze_reminder(rem):
+            print(f"unsnoozed {rem['id']} via telegram")
+            return "snooze undone", rem
+        return _reminder_state(rem), rem
+    if action in snooze:
+        snooze_reminder(rem, now + snooze[action])
+        print(f"snoozed {rem['id']} via telegram")
+        return f"snoozed → {_clock(now + snooze[action], now)}", rem
+    if action == "noop":
+        return _tg_status(rem, now), None
+    return "unknown reminder", None
+
+
+def _tg_digest_callback(query: dict, rems: list[dict], state: dict,
+                        now: float) -> tuple[str, list[dict], dict | None]:
+    """Apply a press on the latest digest: (answer text, changed reminders,
+    new digest buttons or None). `dig:ackall` acks the reminders it lists, in
+    digest_ids, that are still missed, via "digest", and adds them to
+    digest_acked_ids. `dig:undo` unacks the digest_acked_ids ones still acked
+    via "digest", empties digest_acked_ids and restores DIGEST_MARKUP. The
+    caller holds the lock and saves both files."""
+    data = query.get("data")
+    mid = (query.get("message") or {}).get("message_id")
+    if data not in ("dig:ackall", "dig:undo") or not isinstance(mid, int):
+        return "nothing to do", [], None
+    if mid != state.get("digest_message_id"):
+        return "old digest", [], None
+    prior = list(state.get("digest_acked_ids") or [])
+    if data == "dig:undo":
+        listed = set(prior)
+        undone = [r for r in rems if r["id"] in listed
+                  and r.get("acked_via") == "digest" and unack_reminder(r)]
+        if undone:
+            print(f"unacked {', '.join(r['id'] for r in undone)} via digest")
+        state["digest_acked_ids"] = []
+        return f"undid {len(undone)}", undone, DIGEST_MARKUP
+    listed = set(state.get("digest_ids") or [])
+    acked = [r for r in rems if r["id"] in listed and ack_reminder(r, "digest", now)]
+    if acked:
+        print(f"acked {', '.join(r['id'] for r in acked)} via digest")
+    ids = prior + [r["id"] for r in acked if r["id"] not in prior]
+    state["digest_acked_ids"] = ids
+    if ids:
+        button = {"text": f"✅ acked {len(ids)} · ↩ undo", "callback_data": "dig:undo"}
+    else:
+        button = {"text": "✅ acked 0", "callback_data": "dig:noop"}
+    return f"acked {len(acked)}", acked, {"inline_keyboard": [[button]]}
+
+
+def tg_poll(timeout: int = 0) -> bool:
+    """One round of button presses from the configured chat: getUpdates
+    waits up to `timeout` seconds without holding the lock, then the presses
+    are applied to the reminders under the lock (tg-state reloaded there, so
+    digest fields written meanwhile survive), then answered and the touched
+    messages' buttons updated. Returns False when the chat id or getUpdates
+    failed. Errors go to stderr; offset advances past every fetched update."""
+    chat_id = _tg_chat_id(load_tg_state())
+    if chat_id is None:
+        return False
+    resp = tg_api("getUpdates", {
+        "offset": int(load_tg_state().get("offset") or 0), "timeout": timeout,
+        "allowed_updates": ["callback_query"]}, timeout=timeout + TG_POLL_GRACE_SECS)
+    if resp is None:
+        return False
+    result = resp.get("result")
+    updates = [u for u in result if isinstance(u, dict)
+               and isinstance(u.get("update_id"), int)] if isinstance(result, list) else []
+    if not updates:
+        return True
+    now = time.time()
+    answers: list[tuple[str, str]] = []
+    touched: list[dict] = []
+    digest_edit = None
+    with _reminders_locked():
+        state = load_tg_state()
+        offset = int(state.get("offset") or 0)
+        rems = load_reminders()
+        changed = False
+        for upd in updates:
+            if upd["update_id"] < offset:  # applied by an earlier poll
+                continue
+            try:
+                if isinstance(query := upd.get("callback_query"), dict):
+                    chat = ((query.get("message") or {}).get("chat") or {}).get("id")
+                    if chat != chat_id:
+                        continue
+                    if str(query.get("data") or "").startswith("dig:"):
+                        text, hits, markup = _tg_digest_callback(query, rems, state, now)
+                        digest_edit = markup or digest_edit
+                    else:
+                        text, rem = _tg_callback(query, rems, now)
+                        hits = [rem] if rem else []
+                    answers.append((query.get("id"), text))
+                else:
+                    continue
+            except Exception as exc:  # one bad update must not stall the offset
+                print(f"warning: telegram update {upd['update_id']}: {exc!r}",
+                      file=sys.stderr)
+                continue
+            changed = changed or bool(hits)
+            touched = [r for r in touched if all(r is not h for h in hits)] + hits
+        if changed:
+            save_reminders(rems)
+        state["chat_id"] = chat_id
+        state["offset"] = max(offset, max(u["update_id"] for u in updates) + 1)
+        save_tg_state(state)
+    for qid, text in answers:
+        tg_api("answerCallbackQuery", {"callback_query_id": qid, "text": text}, quiet=True)
+    tg_update_buttons(touched)
+    if digest_edit is not None:
+        tg_api("editMessageReplyMarkup", {"message_id": state["digest_message_id"],
+                                          "reply_markup": digest_edit}, with_chat=True)
+    return True
+
+
+def digest_window(now: float) -> float:
+    """Start of the latest digest window at or before `now`: the last
+    DIGEST_WEEKDAY at DIGEST_HOUR:00 local."""
+    dt = datetime.fromtimestamp(now)
+    start = (dt - timedelta(days=(dt.weekday() - DIGEST_WEEKDAY) % 7)).replace(
+        hour=DIGEST_HOUR, minute=0, second=0, microsecond=0)
+    if start > dt:
+        start -= timedelta(days=7)
+    return start.timestamp()
+
+
+def digest_message(missed: list[dict]) -> str:
+    """tg-notify --html text listing `missed`; body lines are escaped here,
+    as in reminder_message."""
+    def esc(text: str) -> str:
+        return html.escape(text, quote=False)
+
+    lines = [f"⏰ {len(missed)} missed reminder(s)"]
+    for r in missed:
+        due = _iso_ts(r.get("due"))
+        stamp = datetime.fromtimestamp(due).strftime("%H:%M %d %b") if due else "?"
+        note = " ".join(str(r.get("note") or "").split())
+        repo = str(r.get("repo_label") or r.get("cwd") or "?")
+        lines.append(f"• {esc(note)} · due {esc(stamp)} · {esc(repo)} · "
+                     f"<code>{esc(r['id'])}</code>")
+    return "\n".join(lines)
+
+
+def tg_digest(now: float, *, force: bool = False) -> str:
+    """Send the digest of missed reminders, oldest due first, when the
+    digest window opened after digest_last (any time when `force`), and
+    record digest_last, digest_message_id and digest_ids (digest_acked_ids
+    emptied). Returns "sent",
+    "none" (nothing missed), "waiting" (window not open yet), "failed"
+    (retried next run; digest_last unchanged) or "missing" (tg-notify not
+    found; nothing printed, digest_last unchanged). An older tg-notify gets
+    the plain text without the Ack all button (digest_message_id None)."""
+    with _reminders_locked():
+        state = load_tg_state()
+        last = _iso_ts(state.get("digest_last"))
+        if not force and last is not None and last >= digest_window(now):
+            return "waiting"
+        missed = sorted((r for r in load_reminders() if _reminder_state(r) == "missed"),
+                        key=lambda r: _iso_ts(r.get("due")) or 0.0)
+        result = "none"
+        if missed:
+            sent = send_notification(digest_message(missed), level="warn",
+                                     markup=DIGEST_MARKUP)
+            if sent.missing:
+                return "missing"
+            if sent.error is not None:
+                print(f"digest failed: {sent.error}", file=sys.stderr)
+                return "failed"
+            state["digest_message_id"] = sent.message_id
+            state["digest_ids"] = [r["id"] for r in missed]
+            state["digest_acked_ids"] = []
+            result = "sent"
+            print(f"sent digest ({len(missed)} missed)")
+        state["digest_last"] = _iso_at(now)
+        save_tg_state(state)
+    return result
+
+
+def _protect_for_reminder(sid: str, rid: str, note: str) -> None:
+    """Flag the session with a `reminder <id>: <note>` note; a session that
+    already has a flag keeps it and its note."""
+    if sid in load_protected()["sessions"]:
+        console.print(f"[dim]session {sid[:8]} already protected; note kept[/dim]")
+        return
+    try:
+        cmd_protect(sid, project=None, note=f"reminder {rid}: {note}")
+    except SystemExit:
+        console.print(f"[yellow]warning:[/yellow] could not protect session "
+                      f"{sid[:8]}; the reminder is saved")
+
+
+def cmd_remind_add(note: str, due: float, *, session: str | None,
+                   protect: bool, now: float) -> int:
+    sid = os.environ.get("CLAUDE_CODE_SESSION_ID") or None
+    if session is not None:
+        sid = _resolve_session(session, (r["id"] for r in session_index()))
+    cwd = os.getcwd()
+    rec = {"note": note, "due": _iso_at(due), "created": _iso_at(now),
+           "session_id": sid, "cwd": cwd, "repo_label": _repo_label(cwd),
+           "status": "pending", "fired_at": None, "cancelled_at": None,
+           "attempts": 0, "last_error": None, "snoozed_from": None,
+           **dict.fromkeys(ACK_FIELDS)}
+    with _reminders_locked():
+        rems = load_reminders()
+        taken = {r["id"] for r in rems}
+        rid = secrets.token_hex(3)
+        while rid in taken:
+            rid = secrets.token_hex(3)
+        rems.append({"id": rid, **rec})
+        save_reminders(rems)
+    where = f"session {sid[:8]}" if sid else "no session"
+    console.print(f"[green]reminder[/green] {rid}  due {_local(due)} "
+                  f"({_relative(due, now)})  [dim]{where}[/dim]", highlight=False)
+    if sid and protect:
+        _protect_for_reminder(sid, rid, note)
+    return 0
+
+
+def cmd_remind_list(*, show: str, as_json: bool) -> int:
+    """Reminders for `show` (see reminders_by_due) as a table or JSON."""
+    from rich.markup import escape
+    from rich.table import Table
+
+    rems = reminders_by_due(show)
+    if as_json:
+        print(json.dumps([reminder_json(r) for r in rems], indent=2))
+        return 0
+    if not rems:
+        console.print({"open": "no pending or missed reminders",
+                       "missed": "no missed reminders", "all": "no reminders"}[show])
+        return 0
+    now = time.time()
+    table = Table(title="reminders", title_justify="left")
+    for col in ("id", "state", "due", "note", "session", "repo"):
+        table.add_column(col, overflow="fold" if col == "note" else None,
+                         no_wrap=col in ("id", "state", "due", "session"))
+    for r in rems:
+        ts = _iso_ts(r.get("due"))
+        due = f"{_local(ts)} ({_relative(ts, now)})" if ts is not None else "?"
+        state = _reminder_state(r)
+        table.add_row(r["id"], "[red]MISSED[/red]" if state == "missed" else state,
+                      due, escape(str(r.get("note") or "")),
+                      (r.get("session_id") or "")[:8],
+                      escape(str(r.get("repo_label") or r.get("cwd") or "")))
+    console.print(table)
+    return 0
+
+
+def cmd_remind_ack(ident: str | None) -> int:
+    """Ack one missed reminder (`ident` = id or prefix), or every missed one
+    when `ident` is None, through ack_reminder; then tg_update_buttons."""
+    now = time.time()
+    with _reminders_locked():
+        rems = load_reminders()
+        if ident is None:
+            acked = [r for r in rems if ack_reminder(r, "manual", now)]
+            if not acked:
+                console.print("no missed reminders")
+                return 0
+        else:
+            rem = _find_reminder(rems, ident)
+            if rem is None:
+                return 1
+            state = _reminder_state(rem)
+            if state == "acked":
+                console.print(f"{rem['id']} already acked {rem.get('acked_at')} "
+                              f"via {rem.get('acked_via') or '?'}", highlight=False)
+                return 0
+            if not ack_reminder(rem, "manual", now):
+                err_console.print(f"[red]{rem['id']} is {state}, not missed[/red]")
+                return 1
+            acked = [rem]
+        save_reminders(rems)
+    if ident is None:
+        console.print(f"[green]acked[/green] {len(acked)} reminder(s): "
+                      f"{', '.join(r['id'] for r in acked)}", highlight=False)
+    else:
+        console.print(f"[green]acked[/green] {acked[0]['id']}")
+    tg_update_buttons(acked)
+    return 0
+
+
+def cmd_remind_rm(ident: str) -> int:
+    """Cancel a pending reminder; its session stays protected."""
+    with _reminders_locked():
+        rems = load_reminders()
+        rem = _find_reminder(rems, ident)
+        if rem is None:
+            return 1
+        if rem.get("status") != "pending":
+            console.print(f"[yellow]{rem['id']} is {rem.get('status')}, not pending[/yellow]")
+            return 1
+        rem.update(status="cancelled", cancelled_at=_now_iso(), snoozed_from=None)
+        save_reminders(rems)
+    console.print(f"[green]cancelled[/green] {rem['id']}")
+    tg_update_buttons([rem])
+    return 0
+
+
+def snooze_reminder(rem: dict, due: float) -> None:
+    """Due = `due`, back to pending, ack cleared; tg_message_id stays until it
+    fires again. snoozed_from keeps the old due and fired_at when it was
+    missed, else is None. The caller holds the lock and saves."""
+    was = ({"due": rem.get("due"), "fired_at": rem.get("fired_at")}
+           if _reminder_state(rem) == "missed" else None)
+    rem.update(due=_iso_at(due), status="pending", fired_at=None,
+               cancelled_at=None, attempts=0, last_error=None,
+               acked_at=None, acked_via=None, snoozed_from=was)
+
+
+def unsnooze_reminder(rem: dict) -> bool:
+    """Put a pending reminder with snoozed_from back to missed with its old
+    due and fired_at; False (record unchanged) unless it is pending with
+    snoozed_from. The caller holds the lock and saves."""
+    was = rem.get("snoozed_from")
+    if _reminder_state(rem) != "pending" or not isinstance(was, dict):
+        return False
+    rem.update(due=was.get("due"), fired_at=was.get("fired_at"), status="fired",
+               snoozed_from=None)
+    return True
+
+
+def cmd_remind_snooze(ident: str, secs: int) -> int:
+    """Due = now + secs through snooze_reminder."""
+    now = time.time()
+    due = now + secs
+    with _reminders_locked():
+        rems = load_reminders()
+        rem = _find_reminder(rems, ident)
+        if rem is None:
+            return 1
+        snooze_reminder(rem, due)
+        save_reminders(rems)
+    console.print(f"[green]snoozed[/green] {rem['id']}  due {_local(due)} "
+                  f"({_relative(due, now)})", highlight=False)
+    tg_update_buttons([rem])
+    return 0
+
+
+def _prune_reminders(rems: list[dict], now: float) -> list[dict]:
+    """Drop acked records REMIND_KEEP_DAYS after acked_at and cancelled ones
+    REMIND_KEEP_DAYS after cancelled_at (else due); missed and pending ones
+    stay."""
+    cutoff = now - REMIND_KEEP_DAYS * 86400
+
+    def keep(r: dict) -> bool:
+        state = _reminder_state(r)
+        if state == "acked":
+            ts = _iso_ts(r.get("acked_at"))
+        elif state == "cancelled":
+            ts = _iso_ts(r.get("cancelled_at")) or _iso_ts(r.get("due"))
+        else:
+            return True
+        return ts is None or ts >= cutoff
+
+    return [r for r in rems if keep(r)]
+
+
+def cmd_remind_dispatch() -> int:
+    """Notify every due pending reminder: fired with its tg_message_id on
+    success, else attempts+1 and last_error (retried on the next run). When
+    tg-notify is missing, a due reminder is fired without a message
+    (last_error TG_MISSING, so it shows as missed) and the exit code stays 0.
+    Then tg_digest, whose errors do not change the exit code. Button presses
+    are handled by `remind listen`. Silent when nothing is due and no digest
+    went out."""
+    if not REMINDERS_FILE.exists():
+        return 0
+    now = time.time()
+    failed = False
+    with _reminders_locked():
+        rems = load_reminders()
+        changed = False
+        for rem in rems:
+            due = _iso_ts(rem.get("due"))
+            if rem.get("status") != "pending" or due is None or due > now:
+                continue
+            changed = True
+            sent = send_notification(reminder_message(rem, now),
+                                     markup=tg_actions(rem["id"]))
+            if sent.missing:
+                rem.update(status="fired", fired_at=_iso_at(time.time()),
+                           last_error=sent.error, tg_message_id=None, snoozed_from=None)
+                print(f"not sent {rem['id']}: {sent.error}; marked missed", file=sys.stderr)
+            elif sent.error is None:
+                rem.update(status="fired", fired_at=_iso_at(time.time()), last_error=None,
+                           tg_message_id=sent.message_id, snoozed_from=None)
+                print(f"sent {rem['id']}")
+            else:
+                failed = True
+                rem["attempts"] = int(rem.get("attempts") or 0) + 1
+                rem["last_error"] = sent.error
+                print(f"failed {rem['id']} (attempt {rem['attempts']}): {sent.error}",
+                      file=sys.stderr)
+        kept = _prune_reminders(rems, now)
+        if changed or len(kept) != len(rems):
+            save_reminders(kept)
+    tg_digest(now)
+    return 1 if failed else 0
+
+
+def cmd_remind_listen() -> int:
+    """tg_poll with TG_POLL_TIMEOUT_SECS in a loop until SIGTERM or ctrl-c
+    (exit 0). After a failed poll it sleeps LISTEN_BACKOFF_SECS[0], doubling
+    up to LISTEN_BACKOFF_SECS[1]; a successful poll resets the delay. Exits
+    0 at once when tg-notify is missing or has no --api."""
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+
+    if not tg_api_supported():
+        print("tg-notify missing or without --api; button presses disabled",
+              file=sys.stderr)
+        return 0
+    prev = signal.signal(signal.SIGTERM, stop)
+    first, cap = LISTEN_BACKOFF_SECS
+    delay = first
+    try:
+        while True:
+            if tg_poll(TG_POLL_TIMEOUT_SECS):
+                delay = first
+                continue
+            print(f"poll failed; retrying in {delay}s", file=sys.stderr)
+            time.sleep(delay)
+            delay = min(delay * 2, cap)
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        signal.signal(signal.SIGTERM, prev)
+
+
+def cmd_remind_digest(*, force: bool) -> int:
+    """tg_digest now; `force` ignores the weekly window."""
+    result = tg_digest(time.time(), force=force)
+    if result == "none":
+        console.print("no missed reminders")
+    elif result == "waiting":
+        console.print("digest already sent this week (--force to send anyway)")
+    elif result == "missing":
+        err_console.print(f"[red]{TG_MISSING}; no digest sent[/red]")
+    return 1 if result in ("failed", "missing") else 0
+
+
+def _remind_exe() -> str:
+    """claude-as as found on PATH, else this file's real path."""
+    found = shutil.which("claude-as")
+    return os.path.abspath(found) if found else os.path.realpath(__file__)
+
+
+def _remind_path() -> str:
+    """PATH for the dispatcher: ~/.local/bin (tg-notify), the dirs of sops,
+    uv and curl, then the system dirs."""
+    dirs = [str(Path.home() / ".local" / "bin")]
+    for tool in ("sops", "uv", "curl"):
+        found = shutil.which(tool)
+        if found:
+            dirs.append(os.path.dirname(os.path.abspath(found)))
+    dirs += ["/usr/local/bin", "/usr/bin", "/bin"]
+    return ":".join(dict.fromkeys(dirs))
+
+
+def remind_units(exe: str, path: str) -> dict[str, str]:
+    """{unit file name: contents} for the dispatcher service, its timer and
+    the listener service."""
+    return {
+        f"{REMIND_UNIT}.service": (
+            "[Unit]\n"
+            "Description=claude-as reminder dispatcher\n"
+            "\n"
+            "[Service]\n"
+            "Type=oneshot\n"
+            f"Environment=PATH={path}\n"
+            f"ExecStart={exe} remind dispatch\n"),
+        f"{REMIND_UNIT}.timer": (
+            "[Unit]\n"
+            "Description=Run the claude-as reminder dispatcher every minute\n"
+            "\n"
+            "[Timer]\n"
+            "OnCalendar=*:*:00\n"
+            "Persistent=true\n"
+            "AccuracySec=10s\n"
+            "\n"
+            "[Install]\n"
+            "WantedBy=timers.target\n"),
+        f"{LISTEN_UNIT}.service": (
+            "[Unit]\n"
+            "Description=claude-as reminder button listener (Telegram long polling)\n"
+            "\n"
+            "[Service]\n"
+            "Type=simple\n"
+            f"Environment=PATH={path}\n"
+            "Environment=PYTHONUNBUFFERED=1\n"
+            f"ExecStart={exe} remind listen\n"
+            "Restart=on-failure\n"
+            "RestartSec=10\n"
+            "\n"
+            "[Install]\n"
+            "WantedBy=default.target\n"),
+    }
+
+
+def _systemctl(*args: str) -> int:
+    cmd = ["systemctl", "--user", *args]
+    try:
+        rc = subprocess.run(cmd).returncode
+    except OSError as exc:
+        console.print(f"[red]{' '.join(cmd)} failed:[/red] {exc}")
+        return 1
+    if rc != 0:
+        console.print(f"[red]{' '.join(cmd)} exited {rc}[/red]")
+    return rc
+
+
+def cmd_remind_install(*, uninstall: bool) -> int:
+    timer = f"{REMIND_UNIT}.timer"
+    listener = f"{LISTEN_UNIT}.service"
+    if uninstall:
+        _systemctl("disable", "--now", timer)  # fails harmlessly when not installed
+        _systemctl("disable", "--now", listener)
+        for name in remind_units("", ""):
+            path = SYSTEMD_USER_DIR / name
+            with contextlib.suppress(FileNotFoundError):
+                path.unlink()
+                console.print(f"[green]removed[/green] {path}")
+        return _systemctl("daemon-reload")
+    SYSTEMD_USER_DIR.mkdir(parents=True, exist_ok=True)
+    units = remind_units(_remind_exe(), _remind_path())
+    api = tg_api_supported()
+    if not api:
+        del units[listener]
+        console.print(f"[yellow]note:[/yellow] tg-notify missing or without --api; "
+                      f"{listener} not installed (no button presses)")
+        stale = SYSTEMD_USER_DIR / listener
+        if stale.exists():
+            _systemctl("disable", "--now", listener)
+            stale.unlink()
+            console.print(f"[green]removed[/green] {stale}")
+    for name, text in units.items():
+        path = SYSTEMD_USER_DIR / name
+        path.write_text(text)
+        console.print(f"[green]wrote[/green] {path}")
+    rc = _systemctl("daemon-reload") or _systemctl("enable", "--now", timer)
+    if rc == 0:
+        console.print(f"[green]enabled[/green] {timer} (dispatch every minute)")
+        if api:
+            rc = _systemctl("enable", "--now", listener) or _systemctl("restart", listener)
+            if rc == 0:
+                console.print(f"[green]enabled[/green] {listener} (button presses)")
+    return rc
+
+
+def _remind_add_main(args: list[str]) -> int:
+    usage = ("[red]usage:[/red] claude-as remind add (--in DUR | --at WHEN) "
+             "\\[--session ID] \\[--no-protect] NOTE...")
+    opts: dict[str, str] = {}
+    protect = True
+    words: list[str] = []
+    it = iter(args)
+    for arg in it:
+        if arg in ("--in", "--at", "--session"):
+            val = next(it, None)
+            if val is None:
+                console.print(f"[red]{arg} needs a value[/red]")
+                console.print(usage)
+                return 2
+            opts[arg] = val
+        elif arg == "--no-protect":
+            protect = False
+        elif arg.startswith("-"):
+            console.print(f"[red]unknown remind add option:[/red] {arg}")
+            console.print(usage)
+            return 2
+        else:
+            words.append(arg)
+    note = " ".join(words).strip()
+    if not note or ("--in" in opts) == ("--at" in opts):
+        console.print(usage)
+        return 2
+    now = time.time()
+    try:
+        due = (now + parse_duration(opts["--in"]) if "--in" in opts
+               else parse_when(opts["--at"], now))
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return 2
+    return cmd_remind_add(note, due, session=opts.get("--session"),
+                          protect=protect, now=now)
+
+
+def _remind_main(args: list[str], passthrough: list[str]) -> int:
+    usage = ("[red]usage:[/red] claude-as remind "
+             "add|list|ack|rm|snooze|digest|dispatch|listen ... "
+             "| --install | --uninstall")
+    if passthrough or not args:
+        console.print(usage)
+        return 2
+    sub, rest = args[0], args[1:]
+    if sub in ("--install", "--uninstall"):
+        if rest:
+            console.print(usage)
+            return 2
+        return cmd_remind_install(uninstall=sub == "--uninstall")
+    if sub == "add":
+        return _remind_add_main(rest)
+    if sub == "list":
+        if (any(a not in ("--all", "--missed", "--json") for a in rest)
+                or {"--all", "--missed"} <= set(rest)):
+            console.print("[red]usage:[/red] claude-as remind list "
+                          "\\[--missed|--all] \\[--json]")
+            return 2
+        show = "all" if "--all" in rest else "missed" if "--missed" in rest else "open"
+        return cmd_remind_list(show=show, as_json="--json" in rest)
+    if sub == "ack":
+        if len(rest) != 1 or (rest[0].startswith("-") and rest[0] != "--all"):
+            console.print("[red]usage:[/red] claude-as remind ack <id>|--all")
+            return 2
+        return cmd_remind_ack(None if rest[0] == "--all" else rest[0])
+    if sub == "rm":
+        if len(rest) != 1:
+            console.print("[red]usage:[/red] claude-as remind rm <id>")
+            return 2
+        return cmd_remind_rm(rest[0])
+    if sub == "snooze":
+        if len(rest) != 2:
+            console.print("[red]usage:[/red] claude-as remind snooze <id> DUR")
+            return 2
+        try:
+            secs = parse_duration(rest[1])
+        except ValueError as exc:
+            console.print(f"[red]{exc}[/red]")
+            return 2
+        return cmd_remind_snooze(rest[0], secs)
+    if sub == "digest":
+        if rest not in ([], ["--force"]):
+            console.print("[red]usage:[/red] claude-as remind digest \\[--force]")
+            return 2
+        return cmd_remind_digest(force=bool(rest))
+    if sub == "dispatch":
+        if rest:
+            console.print(usage)
+            return 2
+        return cmd_remind_dispatch()
+    if sub == "listen":
+        if rest:
+            console.print(usage)
+            return 2
+        return cmd_remind_listen()
+    console.print(usage)
+    return 2
+
+
+# --- install / cli ----------------------------------------------------------
+
+def _install_link(link: Path, target: Path) -> int:
+    """Idempotently point `link` at `target`; refuse to clobber real files."""
+    if link.is_symlink():
+        if link.resolve() == target:
+            console.print(f"[dim]already installed:[/dim] {link} → {target}")
+            return 0
+        link.unlink()
+    elif link.exists():
+        console.print(f"[red]refusing to overwrite real file/dir:[/red] {link}")
+        return 1
+    os.symlink(target, link)
+    console.print(f"[green]installed:[/green] {link} → {target}")
+    return 0
+
+
+def install() -> int:
+    self = Path(__file__).resolve()
+    bindir = Path.home() / ".local" / "bin"
+    bindir.mkdir(parents=True, exist_ok=True)
+    rc = _install_link(bindir / "claude-as", self)
+    if str(bindir) not in os.environ.get("PATH", "").split(os.pathsep):
+        console.print(f"[yellow]note:[/yellow] {bindir} is not on your PATH")
+
+    # Skills authored in this repo (skills/<name>/SKILL.md) are installed as
+    # symlinks into ~/.claude/skills so edits here go live instantly. These
+    # links are hand-authored as far as skills-cli is concerned (no sentinel),
+    # so its --prune never touches them.
+    skills_src = self.parent / "skills"
+    skills_dst = CLAUDE_HOME / "skills"
+    if skills_src.is_dir():
+        skills_dst.mkdir(parents=True, exist_ok=True)
+        for skill_dir in sorted(skills_src.iterdir()):
+            if (skill_dir / "SKILL.md").is_file():
+                rc = max(rc, _install_link(skills_dst / skill_dir.name, skill_dir))
+    return rc
+
+
+HELP = __doc__
+
+
+def main(argv: list[str]) -> int:
+    if "--" in argv:
+        idx = argv.index("--")
+        left, passthrough = argv[:idx], argv[idx + 1:]
+    else:
+        left, passthrough = argv, []
+
+    if "--help" in left or "-h" in left:
+        print(HELP)
+        return 0
+    if left and left[0] == "remind":
+        return _remind_main(left[1:], passthrough)
+    if left and left[0] == "resume":
+        return _resume_main(left[1:], passthrough)
+    if "--install" in left:
+        return install()
+    if left and left[0] == "accounts":
+        extra = [a for a in left[1:] if a != "--json"]
+        if extra or passthrough:
+            console.print(f"[red]accounts takes only --json, got:[/red] "
+                          f"{' '.join(extra + passthrough)}")
+            return 2
+        return cmd_accounts("--json" in left[1:])
+    if left and left[0] == "get-default":
+        if left[1:] or passthrough:
+            console.print("[red]get-default takes no arguments[/red]")
+            return 2
+        return cmd_get_default()
+    if left and left[0] == "search":
+        return _search_main(left[1:], passthrough)
+    if left and left[0] in ("protect", "unprotect"):
+        return _protect_main(left[1:], passthrough, unprotect=left[0] == "unprotect")
+    if left and left[0] == "set-default":
+        if len(left) != 2 or passthrough:
+            console.print("[red]usage:[/red] claude-as set-default <selector>")
+            return 2
+        return cmd_set_default(left[1])
+
+    flags = [a for a in left if a.startswith("-")]
+    if flags:
+        console.print(f"[red]unknown option(s):[/red] {' '.join(flags)}")
+        console.print("Put claude arguments after [bold]--[/bold] "
+                      "(e.g. [bold]claude-as -- --resume[/bold]).")
+        return 2
+    positionals = [a for a in left if not a.startswith("-")]
+    if len(positionals) > 1:
+        console.print(f"[red]expected at most one account selector, got:[/red] "
+                      f"{' '.join(positionals)}")
+        return 2
+
+    cli.load_env()
+    if positionals and positionals[0] == DEFAULT_NAME:
+        return launch_default(passthrough)
+    users = load_users()
+    if positionals:
+        email = resolve_selector(positionals[0], users)
+    else:
+        email = pick_account(users)
+
+    launch(email, passthrough)  # execs; does not return
+    return 0
+
+
+def launch_default(passthrough: list[str]) -> int:
+    """Launch with CLAUDE_CONFIG_DIR = the unresolved `default` symlink path."""
+    try:
+        email = current_default()
+    except DefaultError as exc:
+        console.print(f"[red]error:[/red] {exc}")
+        return 1
+    if email is None:
+        console.print(f"[red]no default account set[/red] — run "
+                      f"[bold]claude-as set-default <selector>[/bold] first")
+        return 1
+    if not (cli.ACCOUNTS_DIR / email).is_dir():
+        console.print(f"[red]default points at a missing dir:[/red] "
+                      f"{cli.ACCOUNTS_DIR / email} — run [bold]claude-as set-default[/bold]")
+        return 1
+    launch(email, passthrough, config_dir=default_link())  # execs; does not return
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
