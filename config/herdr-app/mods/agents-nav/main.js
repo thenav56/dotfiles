@@ -233,6 +233,7 @@ export default class Agents extends View {
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals();
+    const termByAddr = new Map(all.map((x) => [x.address, x]));
     this.migratePins(all);
     const shown = focused()?.agent;
     const now = Date.now();
@@ -365,6 +366,38 @@ export default class Agents extends View {
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/${isPinned ? "pin-off" : "pin"}.svg`).size(13));
+      // Archive to the backlog (mods/backlog-archive): Claude Code sessions only,
+      // not a question panel's Discuss fork (throwaway).
+      const archivable = a.app === "claude-code" && !termByAddr.get(a.address)?.labels?.["questions.discuss"];
+      const archive = div()
+        .id(`archive-${a.address}`)
+        .flex_none()
+        .p(2)
+        .rounded(4)
+        .text_color(t.dim)
+        .cursor_pointer()
+        .hover((s) => s.bg(t.hover).text_color(t.foreground))
+        .tooltip("Archive to backlog")
+        .on_click((_e, cx) => {
+          cx.stop_propagation();
+          const m = machineOf(a);
+          openOverlay({
+            mod: "backlog-archive",
+            kind: "dialog",
+            width: 480,
+            height: 330,
+            props: {
+              address: a.address,
+              pane: a.pane,
+              machine: m,
+              title: clean(a.title) || label(a),
+              meta: { machine: m, space: a.space, space_name: a.space_name, tab: a.tab, tab_name: label(a), terminal: a.address },
+            },
+          });
+          this.hovered = null;
+          cx.notify();
+        })
+        .child(svg("mods/workspace-chrome/archive.svg").size(13));
       // Under a space header the space goes without saying; an automatic tab number says nothing.
       // Without a space header above (priority, pinned) the row names its space.
       const full = byPriority || isPinned;
@@ -399,6 +432,7 @@ export default class Agents extends View {
           .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
           .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
+        .when(this.hovered === a.address && archivable, el => el.child(archive))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));

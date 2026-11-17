@@ -1,0 +1,5 @@
+{
+  "place": "none",
+  "title": "Archive to backlog",
+  "overlay": { "kind": "dialog", "width": 480, "height": 330 }
+}

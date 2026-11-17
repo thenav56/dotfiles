@@ -1,6 +1,7 @@
 // Clone of the shipped tabs mod, plus a Questions button beside Files/Changes:
 // it toggles the question panel (mods/questions-toggle) in the active tab, is
 // lit while one is open, and shows a dot while an agent in the tab has a round.
+// And a Backlog button: shows the Backlog tab (mods/backlog-open), lit while shown.
 
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
@@ -61,6 +62,16 @@ export default class Tabs extends View {
       .on_click(() => run("mod.open", { name: "questions-toggle" }))
       .child(svg("mods/tabs-nav/questions.svg").size(14)).child("Questions")
       .when(pending && !on, el => el.child(div().size(6).rounded(3).bg(t.accent)));
+  }
+
+  // Jumps to the Backlog tab (mods/backlog-open makes it when missing); lit while it's shown.
+  backlogButton(t, tab, stop) {
+    const on = panes().some(p => p.tab === tab && p.mod === "backlog");
+    return h_flex().id("panel-backlog").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
+      .text_size(12).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
+      .hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
+      .on_click(() => run("mod.open", { name: "backlog-open" }))
+      .child(svg("mods/workspace-chrome/archive.svg").size(14)).child("Backlog");
   }
 
   render() {
@@ -126,6 +137,7 @@ export default class Tabs extends View {
       .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/files/file.svg")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
       .child(this.questionsButton(t, selected, stop))
+      .child(this.backlogButton(t, selected, stop))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs-nav/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs-nav/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
         .child(button("close-window", w.platform === "windows" ? svg("mods/tabs-nav/win-close.svg").size(16) : svg("mods/pane/close.svg").size(13), () => run("window.close"))));
