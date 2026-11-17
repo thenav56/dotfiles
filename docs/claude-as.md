@@ -66,6 +66,25 @@ Account dirs are created on first launch. To log an account in:
 CLAUDE_CONFIG_DIR=<data dir>/accounts/work@example.com claude auth login --claudeai --email work@example.com
 ```
 
+### macOS
+
+Linux keeps an account's tokens in `<dir>/.credentials.json`. On macOS claude
+keeps them in the login Keychain instead: a generic password with account
+`$USER` and service `Claude Code-credentials-<h>`, where `<h>` is the first 8
+hex chars of `sha256(CLAUDE_CONFIG_DIR)`. The hash is over the path string as
+given, without resolving symlinks. claude only reads `.credentials.json` when
+there is no Keychain item, and deletes the file on its next write. So on
+macOS an account counts as logged in when either one exists.
+
+```bash
+# which Keychain item an account dir uses
+python3 -c 'import hashlib,sys;print("Claude Code-credentials-"+hashlib.sha256(sys.argv[1].encode()).hexdigest()[:8])' "<data dir>/accounts/work@example.com"
+```
+
+Other macOS differences: running sessions are found with `ps` and `sysctl
+KERN_PROCARGS2` instead of `/proc`, and reminders use launchd instead of
+systemd (see [Reminders](#reminders)).
+
 ## Launching
 
 ```bash
@@ -96,8 +115,11 @@ On each launch it:
    `<name>.bak-per-account`.
 3. Sets `hasCompletedOnboarding: true` in the account's `.claude.json` so the
    TUI skips its first-run wizard.
-4. Stops with the login command if the account has no `.credentials.json`.
-5. Execs `claude-custom`, which regenerates `settings.json` from the linked
+4. Stops with the login command if the account has no `.credentials.json`
+   (and, on macOS, no Keychain item).
+5. On macOS, when `default` points at this account, syncs the two Keychain
+   items (see [Default account](#default-account)).
+6. Execs `claude-custom`, which regenerates `settings.json` from the linked
    base and local layers and execs claude.
 
 `accounts --json` also lists the resolved `orchestrate_pool`. Selectors that
@@ -123,6 +145,21 @@ stale after 60s, gives up after about 70s) and renames a new relative symlink
 over `default`. It refuses to touch a `default` that is a regular dir, and
 prints how many running sessions use `default`. `default` is never an account
 and never in `orchestrate_pool`.
+
+On macOS the symlink alone moves nothing, because the `default` path gets its
+own Keychain item (see [macOS](#macos)). claude-as keeps that item in step with
+the account it points at:
+
+- `set-default`, under the same lock and before flipping the symlink:
+  1. If the `default` item holds newer tokens than its owner's item, it
+     copies them back to the owner. The owner is recorded in
+     `<data dir>/.default-keychain-owner`.
+  2. It writes the new target's tokens into the `default` item.
+- On every launch, through `default` or directly, while `default` points at
+  that account, claude-as copies the newer of the two items over the other.
+
+"Newer" means a later `claudeAiOauth.expiresAt`. Running default sessions
+re-read the Keychain and switch within about 30s.
 
 ## Finding and resuming sessions
 
@@ -237,6 +274,17 @@ kept; acked and cancelled ones are pruned after 30 days) and `tg-state.json`
 `ExecStart` set to the `claude-as` found on `PATH`, enables them and restarts
 the listener. `--uninstall` stops and removes them.
 
+On macOS, `remind --install` writes launchd agents to `~/Library/LaunchAgents`
+instead of systemd units:
+
+- `com.claude-as.remind.plist` runs `dispatch` every 60s and at load.
+- `com.claude-as.remind-listen.plist` runs `listen` and is restarted 10s after
+  a failed exit.
+
+Both are loaded with `launchctl bootstrap gui/<uid>` and log to
+`~/Library/Logs/claude-as/`. `--uninstall` boots them out and removes the
+plists.
+
 Without `tg-notify`, `dispatch` marks due reminders as fired with
 `last_error` `tg-notify not found`, so they show as missed, and skips the
 digest. With a `tg-notify` that lacks `--reply-markup`, `--print-id` or
@@ -295,3 +343,10 @@ process outlive the session, start it outside claude (`systemd-run --user`,
 A live session shares its account's `.credentials.json` with any other tool
 that refreshes tokens in that dir. A refresh-token race is possible, rare, and
 fixed by the next refresh; there is no locking.
+
+macOS: while `default` points at an account, its `default` item and its own
+item start with the same refresh token. Copies are made only at launch and
+at `set-default`. If a direct session and a `default` session both refresh
+before the next sync, one of them may hit a rotated refresh token and need
+`/login`. To avoid that, use either `claude-as default` or `claude-as
+<account>` for a given account, not both at once.

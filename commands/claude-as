@@ -102,7 +102,8 @@ Usage:
   claude-as remind --install|--uninstall
                                   systemd user timer running dispatch every
                                   minute and the listen service (only when
-                                  tg-notify has --api; ~/.config/systemd/user)
+                                  tg-notify has --api; ~/.config/systemd/user).
+                                  macOS: launchd agents in ~/Library/LaunchAgents
   claude-as --help
 
 The selector (left of `--`) matches an exact email, an exact label, or a unique
@@ -121,12 +122,18 @@ request, so `set-default` moves running default sessions to another account
 without a restart (background shells keep running). set-default links shared
 state into every account dir, holds the current target's OAuth refresh lock
 while flipping, and prints how many running sessions use `default`.
+
+macOS: claude keeps tokens in the login Keychain, keyed by a hash of the
+CLAUDE_CONFIG_DIR string, so `default` has its own Keychain item.
+set-default (and every launch while `default` points at the account) copies
+the newer tokens between that item and the account's item.
 """
 from __future__ import annotations
 
 import contextlib
 import fcntl
 import glob
+import hashlib
 import html
 import json
 import os
@@ -149,6 +156,11 @@ console = Console()
 err_console = Console(stderr=True)
 
 CLAUDE_HOME = Path.home() / ".claude"
+
+# macOS has no /proc, keeps claude's OAuth tokens in the login Keychain (not
+# `.credentials.json`) and runs user jobs under launchd (not systemd). Tests
+# flip this to exercise either branch on any host.
+IS_MAC = sys.platform == "darwin"
 
 # Shared config symlinked into each account dir. Source = realpath(~/.claude/X),
 # target = <acct>/X. settings.json is GENERATED (by claude-custom), never linked.
@@ -318,7 +330,108 @@ def parse_users(data) -> list[tuple[str, str | None]]:
 
 def creds_present(email: str) -> bool:
     """Cheap, no-network check: does the account have stored credentials?"""
-    return (accounts_root() / email / ".credentials.json").exists()
+    return has_credentials(accounts_root() / email)
+
+
+def has_credentials(cfg: Path) -> bool:
+    """`<cfg>/.credentials.json` exists, or (macOS) the Keychain holds the
+    item claude keys by `cfg`. `cfg` must be the exact CLAUDE_CONFIG_DIR
+    string claude gets: the Keychain name hashes it unresolved."""
+    if (cfg / ".credentials.json").exists():
+        return True
+    return IS_MAC and keychain_has(cfg)
+
+
+# --- macOS Keychain -----------------------------------------------------------
+#
+# On macOS claude stores OAuth tokens in the login Keychain: a generic password
+# with account $USER and service `Claude Code-credentials`, plus
+# `-<first 8 hex of sha256(CLAUDE_CONFIG_DIR)>` when CLAUDE_CONFIG_DIR is set.
+# The hash is over the string as given (NFC, not resolved), so the `default`
+# symlink path has its own item. `<dir>/.credentials.json` is only a fallback
+# claude reads when the Keychain has no item (and deletes on its next write).
+KEYCHAIN_SERVICE = "Claude Code-credentials"
+# `security -i` reads one command line from stdin; claude falls back to argv
+# above about 4 KiB, and so do we.
+SECURITY_STDIN_MAX = 4000
+SECURITY_TIMEOUT_SECS = 15
+
+
+def keychain_service(config_dir: Path | str) -> str:
+    """Keychain service name claude uses for CLAUDE_CONFIG_DIR=`config_dir`."""
+    key = unicodedata.normalize("NFC", str(config_dir)).encode()
+    return f"{KEYCHAIN_SERVICE}-{hashlib.sha256(key).hexdigest()[:8]}"
+
+
+def keychain_account() -> str:
+    """Keychain account name claude uses: $USER when it is a plain name."""
+    user = os.environ.get("USER")
+    if not user:
+        import getpass
+        try:
+            user = getpass.getuser()
+        except Exception:
+            user = ""
+    return user if re.fullmatch(r"[a-zA-Z0-9._-]+", user or "") else "claude-code-user"
+
+
+def _security(args: list[str], stdin: str | None = None):
+    """Run /usr/bin/security; the CompletedProcess, or None when it cannot run."""
+    try:
+        return subprocess.run(["security", *args], input=stdin, capture_output=True,
+                              text=True, timeout=SECURITY_TIMEOUT_SECS)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def keychain_has(config_dir: Path | str) -> bool:
+    """The item exists (attributes only: no secret read, no access prompt)."""
+    proc = _security(["find-generic-password", "-a", keychain_account(),
+                      "-s", keychain_service(config_dir)])
+    return proc is not None and proc.returncode == 0
+
+
+def keychain_read(config_dir: Path | str) -> str | None:
+    """The item's secret (claude's credentials JSON), or None."""
+    proc = _security(["find-generic-password", "-a", keychain_account(),
+                      "-s", keychain_service(config_dir), "-w"])
+    if proc is None or proc.returncode != 0:
+        return None
+    return proc.stdout.rstrip("\n") or None
+
+
+def keychain_write(config_dir: Path | str, secret: str) -> bool:
+    """Create or replace the item, the way claude does (hex via `security -i`
+    so the secret stays off argv)."""
+    acct, svc = keychain_account(), keychain_service(config_dir)
+    hexed = secret.encode().hex()
+    line = f'add-generic-password -U -a "{acct}" -s "{svc}" -X "{hexed}"\n'
+    if len(line) <= SECURITY_STDIN_MAX:
+        proc = _security(["-i"], stdin=line)
+    else:
+        proc = _security(["add-generic-password", "-U", "-a", acct, "-s", svc, "-X", hexed])
+    return proc is not None and proc.returncode == 0
+
+
+def read_credentials(cfg: Path) -> str | None:
+    """Stored credentials JSON for `cfg`: the Keychain item, else the
+    plaintext `.credentials.json` (claude's own read order on macOS)."""
+    secret = keychain_read(cfg)
+    if secret is not None:
+        return secret
+    try:
+        return (cfg / ".credentials.json").read_text() or None
+    except OSError:
+        return None
+
+
+def _creds_expiry(secret: str | None) -> int:
+    """claudeAiOauth.expiresAt (ms) of a credentials JSON; -1 when unknown.
+    A refresh moves it forward, so the larger one holds the newer tokens."""
+    try:
+        return int(json.loads(secret)["claudeAiOauth"]["expiresAt"])
+    except Exception:
+        return -1
 
 
 def load_users():
@@ -563,12 +676,17 @@ def login_cmd(email: str) -> str:
             f"--email {shlex.quote(email)}")
 
 
+def _not_logged_in(email: str) -> None:
+    where = "no Keychain item or .credentials.json" if IS_MAC else "no .credentials.json"
+    console.print(f"[red]not logged in:[/red] {email} has {where}")
+    console.print(f"Log in first: [bold]{login_cmd(email)}[/bold]", soft_wrap=True)
+
+
 def auth_gate(cfg: Path, email: str) -> None:
     """Abort (with a pointer) if the account has no stored credentials."""
-    if (cfg / ".credentials.json").exists():
+    if has_credentials(cfg):
         return
-    console.print(f"[red]not logged in:[/red] {email} has no .credentials.json")
-    console.print(f"Log in first: [bold]{login_cmd(email)}[/bold]", soft_wrap=True)
+    _not_logged_in(email)
     raise SystemExit(1)
 
 
@@ -584,6 +702,8 @@ def launch(email: str, passthrough: list[str], config_dir: Path | None = None) -
     reconcile_symlinks(cfg)
     warn_unclassified()
     ensure_onboarding(cfg)
+    if IS_MAC:
+        _sync_default_before_launch(email, via_default=config_dir is not None)
 
     _sync_quietly()
 
@@ -694,6 +814,68 @@ def oauth_refresh_lock(cfg: Path, *, timeout: float = OAUTH_LOCK_TIMEOUT_SECS,
             os.rmdir(lock)
 
 
+# macOS: which account's tokens the `default` Keychain item holds (one email),
+# so set-default can save a refresh made through `default` back to that
+# account before overwriting the item.
+DEFAULT_OWNER_FILE = ".default-keychain-owner"
+
+
+def sync_default_keychain(target: str | None) -> None:
+    """macOS: make the `default` Keychain item hold `target`'s newest tokens.
+
+    `default` and `<target>` are two Keychain items with the same tokens, and
+    claude refreshes whichever one its session uses. First, when the item's
+    owner (DEFAULT_OWNER_FILE) has older tokens than it, they are written back
+    to the owner. Then the target's tokens (or the item's own, when it already
+    belongs to the target and is newer) are written to the `default` item.
+    Newer = later claudeAiOauth.expiresAt. Raises DefaultError on a failed
+    write or when the target has no credentials. Run it under the current
+    target's OAuth refresh lock.
+    """
+    root = accounts_root()
+    dflt = default_link(root)
+    marker = as_home() / DEFAULT_OWNER_FILE
+    try:
+        owner = marker.read_text().strip() or None
+    except OSError:
+        owner = None
+    cur = keychain_read(dflt)
+    if owner and cur is not None and (root / owner).is_dir():
+        theirs = read_credentials(root / owner)
+        if cur != theirs and _creds_expiry(cur) > _creds_expiry(theirs):
+            if not keychain_write(root / owner, cur):
+                raise DefaultError(f"could not save {DEFAULT_NAME}'s refreshed tokens "
+                                   f"back to {owner}'s Keychain item")
+    if target is None:
+        return
+    new = read_credentials(root / target)
+    if owner == target and cur is not None and _creds_expiry(cur) > _creds_expiry(new):
+        new = cur
+    if new is None:
+        raise DefaultError(f"{target} has no stored credentials")
+    if new != cur and not keychain_write(dflt, new):
+        raise DefaultError(f"could not write {target}'s tokens to the "
+                           f"{DEFAULT_NAME} Keychain item")
+    if owner != target:
+        marker.write_text(target + "\n")
+
+
+def _sync_default_before_launch(email: str, *, via_default: bool) -> None:
+    """macOS: when `default` points at `email`, sync the two Keychain items
+    before launching through either path, so neither starts on tokens the
+    other has already rotated. Only a launch through `default` aborts on
+    failure; a direct launch warns."""
+    try:
+        if current_default() != email:
+            return
+        with oauth_refresh_lock(accounts_root() / email):
+            sync_default_keychain(email)
+    except (DefaultError, LockTimeout) as exc:
+        console.print(f"[{'red' if via_default else 'yellow'}]Keychain sync:[/] {exc}")
+        if via_default:
+            raise SystemExit(1)
+
+
 def count_default_sessions(default_path: Path, proc_root: Path = Path("/proc")) -> int:
     """Count running sessions whose CLAUDE_CONFIG_DIR is `default_path`.
 
@@ -702,11 +884,19 @@ def count_default_sessions(default_path: Path, proc_root: Path = Path("/proc")) 
     matching processes whose parent does not match are counted.
     """
     want = os.path.normpath(str(default_path))
-    matched: dict[str, str | None] = {}  # pid -> ppid
+    procs = _mac_config_dir_procs() if IS_MAC else _proc_config_dir_procs(proc_root)
+    matched = {pid: ppid for pid, ppid, val in procs
+               if val and os.path.normpath(val) == want}
+    return sum(1 for ppid in matched.values() if ppid not in matched)
+
+
+def _proc_config_dir_procs(proc_root: Path) -> list[tuple[str, str | None, str]]:
+    """(pid, ppid, CLAUDE_CONFIG_DIR) for each /proc process that sets it."""
+    out = []
     try:
         entries = list(os.scandir(proc_root))
     except OSError:
-        return 0
+        return out
     for entry in entries:
         if not entry.name.isdigit():
             continue
@@ -717,10 +907,74 @@ def count_default_sessions(default_path: Path, proc_root: Path = Path("/proc")) 
         for var in raw.split(b"\0"):
             if var.startswith(b"CLAUDE_CONFIG_DIR="):
                 val = var.split(b"=", 1)[1].decode(errors="replace")
-                if val and os.path.normpath(val) == want:
-                    matched[entry.name] = _ppid(Path(entry.path))
+                out.append((entry.name, _ppid(Path(entry.path)), val))
                 break
-    return sum(1 for ppid in matched.values() if ppid not in matched)
+    return out
+
+
+def _ps(args: list[str]) -> str:
+    """`ps` output (TZ=UTC, C locale: the `lstart` format claude records on
+    macOS as procStart); empty on failure."""
+    env = {**os.environ, "TZ": "UTC", "LC_ALL": "C"}
+    try:
+        return subprocess.run(["ps", *args], capture_output=True, text=True,
+                              env=env, timeout=10).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def _mac_proc_environ(pid: int) -> list[bytes] | None:
+    """Environment of `pid` via sysctl KERN_PROCARGS2 (works for the user's
+    own processes; `ps e` hides it on current macOS). None when unreadable."""
+    import ctypes
+    import ctypes.util
+
+    libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+    mib = (ctypes.c_int * 3)(1, 49, pid)  # CTL_KERN, KERN_PROCARGS2
+    size = ctypes.c_size_t(0)
+    if libc.sysctl(mib, 3, None, ctypes.byref(size), None, 0) != 0:
+        return None
+    buf = ctypes.create_string_buffer(size.value)
+    if libc.sysctl(mib, 3, buf, ctypes.byref(size), None, 0) != 0:
+        return None
+    return _parse_procargs2(buf.raw[:size.value])
+
+
+def _parse_procargs2(raw: bytes) -> list[bytes] | None:
+    """Env strings from a KERN_PROCARGS2 buffer: int argc, exec path, NUL
+    padding, argc argv strings, env strings, an empty string, apple strings."""
+    if len(raw) < 4:
+        return None
+    argc = int.from_bytes(raw[:4], sys.byteorder)
+    pos = raw.find(b"\0", 4)
+    if pos < 0:
+        return None
+    while pos < len(raw) and raw[pos] == 0:
+        pos += 1
+    env = []
+    for item in raw[pos:].split(b"\0")[argc:]:
+        if not item:
+            break
+        env.append(item)
+    return env
+
+
+def _mac_config_dir_procs() -> list[tuple[str, str | None, str]]:
+    """(pid, ppid, CLAUDE_CONFIG_DIR) for each readable process that sets it."""
+    out = []
+    for line in _ps(["-axo", "pid=,ppid="]).splitlines():
+        parts = line.split()
+        if len(parts) != 2 or not parts[0].isdigit():
+            continue
+        try:
+            env = _mac_proc_environ(int(parts[0]))
+        except Exception:
+            env = None
+        for var in env or ():
+            if var.startswith(b"CLAUDE_CONFIG_DIR="):
+                out.append((parts[0], parts[1], var.split(b"=", 1)[1].decode(errors="replace")))
+                break
+    return out
 
 
 def _ppid(proc_dir: Path) -> str | None:
@@ -766,8 +1020,7 @@ def cmd_set_default(selector: str) -> int:
     labels = dict(users)
     email = resolve_selector(selector, users)
     if not creds_present(email):
-        console.print(f"[red]not logged in:[/red] {email} has no .credentials.json")
-        console.print(f"Log in first: [bold]{login_cmd(email)}[/bold]", soft_wrap=True)
+        _not_logged_in(email)
         return 1
     try:
         old = current_default()
@@ -788,12 +1041,19 @@ def cmd_set_default(selector: str) -> int:
     for cfg in dirs:
         reconcile_symlinks(cfg)
 
+    def flip() -> None:
+        # macOS: the `default` path has its own Keychain item, so the symlink
+        # alone moves nothing; copy the new account's tokens in first.
+        if IS_MAC:
+            sync_default_keychain(email)
+        flip_default(email)
+
     try:
         if old is not None and (accounts_root() / old).is_dir():
             with oauth_refresh_lock(accounts_root() / old):
-                flip_default(email)
+                flip()
         else:
-            flip_default(email)
+            flip()
     except (DefaultError, LockTimeout) as exc:
         console.print(f"[red]error:[/red] {exc}")
         return 1
@@ -1227,7 +1487,7 @@ def active_sessions(sessions_dir: Path | None = None,
         entries = list(os.scandir(sessions_dir))
     except OSError:
         return {}
-    out: dict[str, dict] = {}
+    found: list[tuple[str, int, object, dict]] = []
     for entry in entries:
         stem, ext = os.path.splitext(entry.name)
         if ext != ".json" or not stem.isdigit():
@@ -1245,12 +1505,47 @@ def active_sessions(sessions_dir: Path | None = None,
             continue
         if not isinstance(pid, int):
             pid = int(stem)
-        if not _pid_alive(pid, data.get("procStart"), proc_root):
+        found.append((sid, pid, data.get("procStart"), data))
+    if IS_MAC:
+        procs = _mac_procs({pid for _, pid, _, _ in found})
+        alive = {pid for _, pid, start, _ in found
+                 if _mac_pid_alive(pid, start, procs)}
+    else:
+        alive = {pid for _, pid, start, _ in found
+                 if _pid_alive(pid, start, proc_root)}
+    out: dict[str, dict] = {}
+    for sid, pid, _, data in found:
+        if pid not in alive:
             continue
         out[sid] = {"pid": pid, "status": str(data.get("status") or ""),
                     "cwd": str(data.get("cwd") or ""),
                     "name": str(data.get("name") or "")}
     return out
+
+
+def _mac_procs(pids: set[int]) -> dict[int, tuple[str, str]]:
+    """pid -> (lstart, command) for the running ones among `pids`, from one
+    `ps` call. lstart is five words (`Tue Nov 17 15:18:41 2026`). Lists all
+    processes: `ps -p` prints nothing at all when one pid is out of range."""
+    if not pids:
+        return {}
+    out = {}
+    for line in _ps(["-axo", "pid=,lstart=,command="]).splitlines():
+        parts = line.split(None, 6)
+        if len(parts) < 6 or not parts[0].isdigit() or int(parts[0]) not in pids:
+            continue
+        out[int(parts[0])] = (" ".join(parts[1:6]), parts[6] if len(parts) > 6 else "")
+    return out
+
+
+def _mac_pid_alive(pid: int, proc_start, procs: dict[int, tuple[str, str]]) -> bool:
+    """macOS _pid_alive: claude records procStart as `ps -o lstart=` in UTC."""
+    info = procs.get(pid)
+    if info is None:
+        return False
+    if proc_start not in (None, ""):
+        return " ".join(str(proc_start).split()) == info[0]
+    return "claude" in info[1]
 
 
 # --- index -------------------------------------------------------------------
@@ -2498,6 +2793,11 @@ REMIND_LATE_SECS = 5 * 60
 REMIND_UNIT = "claude-as-remind"
 LISTEN_UNIT = "claude-as-remind-listen"
 SYSTEMD_USER_DIR = Path.home() / ".config" / "systemd" / "user"
+# macOS: launchd agents instead of systemd units.
+LAUNCH_AGENTS_DIR = Path.home() / "Library" / "LaunchAgents"
+LAUNCHD_LOG_DIR = Path.home() / "Library" / "Logs" / "claude-as"
+REMIND_LABEL = "com.claude-as.remind"
+LISTEN_LABEL = "com.claude-as.remind-listen"
 TG_NOTIFY_FALLBACK = Path.home() / ".local" / "bin" / "tg-notify"
 NOTIFY_TIMEOUT_SECS = 60
 TG_MISSING = "tg-notify not found"
@@ -3432,7 +3732,89 @@ def _systemctl(*args: str) -> int:
     return rc
 
 
+def remind_plists(exe: str, path: str) -> dict[str, bytes]:
+    """{plist file name: contents} for the launchd dispatcher (every 60s, and
+    at load) and the listener (restarted 10s after a failed exit)."""
+    import plistlib
+
+    def plist(label: str, args: list[str], env: dict, **extra) -> bytes:
+        log = str(LAUNCHD_LOG_DIR / f"{label.rsplit('.', 1)[1]}.log")
+        return plistlib.dumps({
+            "Label": label,
+            "ProgramArguments": [exe, *args],
+            "EnvironmentVariables": env,
+            "RunAtLoad": True,
+            "StandardOutPath": log,
+            "StandardErrorPath": log,
+            **extra,
+        })
+
+    return {
+        f"{REMIND_LABEL}.plist": plist(REMIND_LABEL, ["remind", "dispatch"],
+                                       {"PATH": path}, StartInterval=60),
+        f"{LISTEN_LABEL}.plist": plist(LISTEN_LABEL, ["remind", "listen"],
+                                       {"PATH": path, "PYTHONUNBUFFERED": "1"},
+                                       KeepAlive={"SuccessfulExit": False},
+                                       ThrottleInterval=10),
+    }
+
+
+def _launchctl(*args: str, check: bool = True) -> int:
+    """`launchctl` in the user's GUI domain; `check=False` hides failures
+    (bootout of a job that is not loaded)."""
+    cmd = ["launchctl", *args]
+    try:
+        proc = subprocess.run(cmd, capture_output=not check)
+    except OSError as exc:
+        console.print(f"[red]{' '.join(cmd)} failed:[/red] {exc}")
+        return 1
+    if check and proc.returncode != 0:
+        console.print(f"[red]{' '.join(cmd)} exited {proc.returncode}[/red]")
+    return proc.returncode
+
+
+def _launchd_domain() -> str:
+    return f"gui/{os.getuid()}"
+
+
+def cmd_remind_install_launchd(*, uninstall: bool) -> int:
+    domain = _launchd_domain()
+    listener = f"{LISTEN_LABEL}.plist"
+    for label in (REMIND_LABEL, LISTEN_LABEL):  # reload = bootout, bootstrap
+        _launchctl("bootout", f"{domain}/{label}", check=False)
+    if uninstall:
+        for name in remind_plists("", ""):
+            path = LAUNCH_AGENTS_DIR / name
+            with contextlib.suppress(FileNotFoundError):
+                path.unlink()
+                console.print(f"[green]removed[/green] {path}")
+        return 0
+    LAUNCH_AGENTS_DIR.mkdir(parents=True, exist_ok=True)
+    LAUNCHD_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    plists = remind_plists(_remind_exe(), _remind_path())
+    if not tg_api_supported():
+        del plists[listener]
+        console.print(f"[yellow]note:[/yellow] tg-notify missing or without --api; "
+                      f"{LISTEN_LABEL} not installed (no button presses)")
+        stale = LAUNCH_AGENTS_DIR / listener
+        if stale.exists():
+            stale.unlink()
+            console.print(f"[green]removed[/green] {stale}")
+    rc = 0
+    for name, data in plists.items():
+        path = LAUNCH_AGENTS_DIR / name
+        path.write_bytes(data)
+        console.print(f"[green]wrote[/green] {path}")
+        rc = rc or _launchctl("bootstrap", domain, str(path))
+    if rc == 0:
+        console.print(f"[green]loaded[/green] {', '.join(plists)} "
+                      f"(logs: {LAUNCHD_LOG_DIR})")
+    return rc
+
+
 def cmd_remind_install(*, uninstall: bool) -> int:
+    if IS_MAC:
+        return cmd_remind_install_launchd(uninstall=uninstall)
     timer = f"{REMIND_UNIT}.timer"
     listener = f"{LISTEN_UNIT}.service"
     if uninstall:

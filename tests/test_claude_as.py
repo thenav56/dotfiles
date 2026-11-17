@@ -21,8 +21,11 @@ _loader.exec_module(ca)
 
 @pytest.fixture(autouse=True)
 def as_home(tmp_path, monkeypatch):
-    """Every test gets tmp_path as its claude-as data dir."""
+    """Every test gets tmp_path as its claude-as data dir, and the Linux code
+    paths (fake /proc, .credentials.json, systemd) whatever the host; the
+    macOS tests at the end opt in with the `mac` fixture."""
     monkeypatch.setenv("CLAUDE_AS_HOME", str(tmp_path))
+    monkeypatch.setattr(ca, "IS_MAC", False)
     return tmp_path
 
 
@@ -703,12 +706,18 @@ def test_read_tty(keys, expected):
         if select.select([master], [], [], 0.1)[0]:
             shown += os.read(master, 1024)
     os.write(master, keys)
-    while time.monotonic() < deadline:
-        if select.select([r], [], [], 0.1)[0]:
-            chunk = os.read(r, 1024)
-            if not chunk:
-                break
-            out += chunk
+    eof = False
+    while not eof and time.monotonic() < deadline:
+        # Keep draining the echo: on macOS the child's exit blocks closing a
+        # tty whose output nobody has read.
+        for fd in select.select([r, master], [], [], 0.1)[0]:
+            try:
+                chunk = os.read(fd, 1024)
+            except OSError:  # master after the slave closes (EIO)
+                chunk = b""
+            if fd == r:
+                eof = not chunk
+                out += chunk
     if not out:
         os.kill(pid, 9)
     os.waitpid(pid, 0)
@@ -2652,3 +2661,231 @@ def test_auth_gate_prints_login_command(tmp_path, capsys):
 
 def test_top_level_install_is_unknown(capsys):
     assert ca.main(["--install"]) == 2
+
+
+# --- macOS: Keychain credentials, ps/sysctl process scan, launchd ------------
+
+class FakeSecurity:
+    """Stands in for ca._security: an in-memory login Keychain."""
+
+    def __init__(self):
+        self.items: dict[tuple[str, str], str] = {}
+        self.calls: list[tuple[list[str], str | None]] = []
+
+    def __call__(self, args, stdin=None):
+        import shlex
+        self.calls.append((args, stdin))
+        done = lambda rc, out="": subprocess.CompletedProcess(args, rc, out, "")  # noqa: E731
+        if args[0] == "find-generic-password":
+            key = (args[args.index("-a") + 1], args[args.index("-s") + 1])
+            if key not in self.items:
+                return done(44)
+            return done(0, self.items[key] + "\n" if "-w" in args else "")
+        words = shlex.split(stdin) if args == ["-i"] else args
+        if words[0] == "add-generic-password" and "-U" in words:
+            key = (words[words.index("-a") + 1], words[words.index("-s") + 1])
+            self.items[key] = bytes.fromhex(words[words.index("-X") + 1]).decode()
+            return done(0)
+        return done(1)
+
+    def get(self, cfg):
+        return self.items.get(("tester", ca.keychain_service(cfg)))
+
+    def put(self, cfg, secret):
+        self.items[("tester", ca.keychain_service(cfg))] = secret
+
+
+def _creds(token: str, expires: int) -> str:
+    return json.dumps({"claudeAiOauth": {"accessToken": token, "refreshToken": "r" + token,
+                                         "expiresAt": expires}})
+
+
+@pytest.fixture
+def mac(monkeypatch):
+    monkeypatch.setattr(ca, "IS_MAC", True)
+    monkeypatch.setenv("USER", "tester")
+    fake = FakeSecurity()
+    monkeypatch.setattr(ca, "_security", fake)
+    return fake
+
+
+def test_keychain_service_hashes_unresolved_dir():
+    import hashlib
+    d = "/data/accounts/default"
+    assert ca.keychain_service(d) == \
+        "Claude Code-credentials-" + hashlib.sha256(d.encode()).hexdigest()[:8]
+    assert ca.keychain_service(Path(d)) == ca.keychain_service(d)
+    assert ca.keychain_service(d) != ca.keychain_service("/data/accounts/a@x.org")
+
+
+def test_keychain_account(monkeypatch):
+    monkeypatch.setenv("USER", "jane.doe")
+    assert ca.keychain_account() == "jane.doe"
+    monkeypatch.setenv("USER", "a b")
+    assert ca.keychain_account() == "claude-code-user"
+
+
+def test_keychain_write_keeps_secret_off_argv(mac):
+    secret = _creds('tok"en', 5)
+    assert ca.keychain_write("/d", secret)
+    (args, stdin), = mac.calls
+    assert args == ["-i"] and secret.encode().hex() in stdin
+    assert ca.keychain_read("/d") == secret
+    big = "x" * 3000  # hex no longer fits one `security -i` line
+    assert ca.keychain_write("/d", big)
+    assert mac.calls[-1][0][0] == "add-generic-password"
+    assert ca.keychain_read("/d") == big
+
+
+def test_mac_creds_from_keychain_or_file(mac, accounts):
+    assert not ca.creds_present("a@x.org")
+    mac.put(accounts / "a@x.org", _creds("a", 1))
+    assert ca.creds_present("a@x.org")
+    assert all("-w" not in args for args, _ in mac.calls)  # existence check only
+    (accounts / "b@x.org" / ".credentials.json").write_text(_creds("b", 1))
+    assert ca.creds_present("b@x.org")
+    assert ca.read_credentials(accounts / "b@x.org") == _creds("b", 1)
+
+
+def test_mac_auth_gate_message(mac, tmp_path, capsys):
+    cfg = tmp_path / "accounts" / "a@x.org"
+    cfg.mkdir(parents=True)
+    with pytest.raises(SystemExit):
+        ca.auth_gate(cfg, "a@x.org")
+    assert "no Keychain item or .credentials.json" in capsys.readouterr().out
+
+
+@pytest.fixture
+def mac_accounts(mac, accounts, tmp_path, monkeypatch):
+    home = tmp_path / "claude-home"
+    (home / "projects").mkdir(parents=True)
+    monkeypatch.setattr(ca, "CLAUDE_HOME", home)
+    _write_config([("a@x.org", "A"), ("b@x.org", "B")])
+    monkeypatch.setattr(ca, "count_default_sessions", lambda *a, **k: 0)
+    mac.put(accounts / "a@x.org", _creds("a1", 100))
+    mac.put(accounts / "b@x.org", _creds("b1", 100))
+    return accounts
+
+
+def _owner():
+    return (ca.as_home() / ca.DEFAULT_OWNER_FILE).read_text().strip()
+
+
+def test_mac_set_default_moves_tokens_both_ways(mac, mac_accounts):
+    acc, dflt = mac_accounts, mac_accounts / "default"
+    assert ca.cmd_set_default("A") == 0
+    assert mac.get(dflt) == _creds("a1", 100) and _owner() == "a@x.org"
+    # A session on `default` refreshes A's tokens; flipping saves them to A.
+    mac.put(dflt, _creds("a2", 200))
+    assert ca.cmd_set_default("B") == 0
+    assert mac.get(acc / "a@x.org") == _creds("a2", 200)
+    assert mac.get(dflt) == _creds("b1", 100) and _owner() == "b@x.org"
+    # An older `default` item never overwrites the owner's newer tokens.
+    mac.put(acc / "b@x.org", _creds("b3", 300))
+    mac.put(dflt, _creds("b2", 200))
+    assert ca.cmd_set_default("A") == 0
+    assert mac.get(acc / "b@x.org") == _creds("b3", 300)
+    assert mac.get(dflt) == _creds("a2", 200)
+
+
+def test_mac_set_default_needs_keychain_creds(mac, mac_accounts):
+    del mac.items[("tester", ca.keychain_service(mac_accounts / "b@x.org"))]
+    assert ca.cmd_set_default("B") == 1
+    assert ca.current_default() is None
+
+
+def test_mac_launch_syncs_default_item(mac, mac_accounts):
+    acc, dflt = mac_accounts, mac_accounts / "default"
+    assert ca.cmd_set_default("A") == 0
+    mac.put(acc / "a@x.org", _creds("a2", 200))       # refreshed by a direct session
+    ca._sync_default_before_launch("a@x.org", via_default=True)
+    assert mac.get(dflt) == _creds("a2", 200)
+    mac.put(dflt, _creds("a3", 300))                    # refreshed through default
+    ca._sync_default_before_launch("a@x.org", via_default=False)
+    assert mac.get(acc / "a@x.org") == _creds("a3", 300)
+    before = list(mac.items.items())
+    ca._sync_default_before_launch("b@x.org", via_default=False)  # not the default
+    assert list(mac.items.items()) == before
+
+
+def test_parse_procargs2():
+    raw = ((2).to_bytes(4, os.sys.byteorder) + b"/bin/claude\0\0\0\0"
+           + b"claude\0\0" + b"HOME=/h\0CLAUDE_CONFIG_DIR=/d\0\0ptr_munge=\0")
+    assert ca._parse_procargs2(raw) == [b"HOME=/h", b"CLAUDE_CONFIG_DIR=/d"]
+    assert ca._parse_procargs2(b"\0") is None
+
+
+def test_mac_count_default_sessions(mac, monkeypatch):
+    monkeypatch.setattr(ca, "_mac_config_dir_procs", lambda: [
+        ("100", "1", "/a/default"), ("101", "100", "/a/default"),
+        ("200", "1", "/a/default/"), ("300", "1", "/a/x")])
+    assert ca.count_default_sessions(Path("/a/default")) == 2
+
+
+def test_mac_active_sessions(mac, search_env, monkeypatch):
+    home = ca.CLAUDE_HOME
+    _session_file(home, 10, "live", procStart="Tue Nov  7 15:18:41 2026")
+    _session_file(home, 11, "recycled", procStart="Mon Nov  6 01:00:00 2026")
+    _session_file(home, 12, "dead", procStart="Tue Nov  7 15:18:41 2026")
+    _session_file(home, 13, "nostart")
+    seen = []
+
+    def ps(args):
+        seen.append(args)
+        return ("   10 Tue Nov  7 15:18:41 2026     /opt/homebrew/bin/claude --x\n"
+                "   11 Tue Nov  7 15:18:41 2026     claude\n"
+                "   13 Tue Nov  7 15:18:41 2026     /opt/homebrew/bin/claude\n")
+
+    monkeypatch.setattr(ca, "_ps", ps)
+    assert set(ca.active_sessions()) == {"live", "nostart"}
+    assert seen == [["-axo", "pid=,lstart=,command="]]
+
+
+@pytest.mark.skipif(os.sys.platform != "darwin", reason="real ps/sysctl")
+def test_mac_live_process_scan(mac, search_env, tmp_path):
+    dflt = tmp_path / "accounts" / "default"
+    child = subprocess.Popen(["sleep", "30"], env={**os.environ, "CLAUDE_CONFIG_DIR": str(dflt)})
+    try:
+        time.sleep(0.2)
+        assert ca.count_default_sessions(dflt) == 1
+        start = subprocess.run(["ps", "-o", "lstart=", "-p", str(child.pid)],
+                               capture_output=True, text=True,
+                               env={**os.environ, "TZ": "UTC", "LC_ALL": "C"}).stdout.strip()
+        _session_file(ca.CLAUDE_HOME, child.pid, "live", procStart=start)
+        _session_file(ca.CLAUDE_HOME, child.pid + 100000, "gone", procStart=start)
+        assert set(ca.active_sessions()) == {"live"}
+    finally:
+        child.kill()
+        child.wait()
+
+
+def test_remind_launchd_install_uninstall(mac, remind_env, tmp_path, monkeypatch):
+    import plistlib
+    calls = []
+    monkeypatch.setattr(ca.subprocess, "run", lambda cmd, **kw:
+                        calls.append(cmd) or ca.subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(ca, "LAUNCH_AGENTS_DIR", tmp_path / "LaunchAgents")
+    monkeypatch.setattr(ca, "LAUNCHD_LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(ca, "_remind_exe", lambda: "/x/claude-as")
+    monkeypatch.setattr(ca, "_remind_path", lambda: "/p")
+    monkeypatch.setattr(ca, "tg_api_supported", lambda: True)
+    dom = f"gui/{os.getuid()}"
+    assert ca.main(["remind", "--install"]) == 0
+    agents = ca.LAUNCH_AGENTS_DIR
+    disp = plistlib.loads((agents / "com.claude-as.remind.plist").read_bytes())
+    assert disp["ProgramArguments"] == ["/x/claude-as", "remind", "dispatch"]
+    assert disp["StartInterval"] == 60 and disp["EnvironmentVariables"] == {"PATH": "/p"}
+    listen = plistlib.loads((agents / "com.claude-as.remind-listen.plist").read_bytes())
+    assert listen["ProgramArguments"][1:] == ["remind", "listen"]
+    assert listen["KeepAlive"] == {"SuccessfulExit": False}
+    assert calls == [["launchctl", "bootout", f"{dom}/com.claude-as.remind"],
+                     ["launchctl", "bootout", f"{dom}/com.claude-as.remind-listen"],
+                     ["launchctl", "bootstrap", dom, str(agents / "com.claude-as.remind.plist")],
+                     ["launchctl", "bootstrap", dom,
+                      str(agents / "com.claude-as.remind-listen.plist")]]
+    assert not (tmp_path / "systemd").exists()
+    calls.clear()
+    assert ca.main(["remind", "--uninstall"]) == 0
+    assert calls == [["launchctl", "bootout", f"{dom}/com.claude-as.remind"],
+                     ["launchctl", "bootout", f"{dom}/com.claude-as.remind-listen"]]
+    assert list(agents.iterdir()) == []
