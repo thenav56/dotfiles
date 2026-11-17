@@ -75,7 +75,8 @@
     "cmd-e": "mod.open:split-flip",
     "cmd-d": "mod.open:agent-switcher",
     "cmd-shift-d": "mod.open:space-switcher",
-    "cmd-g": "mod.open:questions-toggle"
+    "cmd-g": "mod.open:questions-toggle",
+    "cmd-z": "pane.zoom"
   },
   "terminal": {
     "cmd-f": "terminal.search",
