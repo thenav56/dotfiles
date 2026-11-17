@@ -33,7 +33,7 @@ const forkSystemPrompt = (q) =>
   `If the user asks for a change, say it belongs in the main session and include it in the summary instead. ` +
   `When the user asks you to wrap up, write a short summary for the main session (what was clarified, any decision or leaning the user stated, open concerns; a few bullet lines, no preamble) and post it with:\n` +
   `herdr-ask --discussion ${q.id} <<'EOF'\n<summary>\nEOF\n` +
-  `(use ~/.dotfiles/commands/herdr-ask if herdr-ask isn't on PATH). Then stop: this session ends once the summary is posted.`;
+  `If that says "command not found", run ~/.dotfiles/commands/herdr-ask the same way; don't give up or ask me to paste it. Then stop: this session ends once the summary is posted.`;
 // The fork's first message, sent at launch.
 const forkFirstPrompt = (q) =>
   `[Side discussion from the question panel: ${q.id}${q.title ? ` (${q.title})` : ""}. This is a discussion-only fork: don't change anything.] ` +
@@ -424,7 +424,9 @@ export default class Questions extends View {
     const args = ["run", "--bg", "--json", "--no-parent", "--rm", ...(on ? ["--on", on] : []), ...(round.cwd ? ["--cwd", round.cwd] : []), "--label", `${DISCUSS_LABEL}=${tag}`, "--"];
     // The prompt goes first: --disallowedTools/--allowedTools take every value after them.
     // The fork runs on the agent's account: its CLAUDE_CONFIG_DIR, when the round has one.
-    const argv = [...(round.configDir ? ["env", `CLAUDE_CONFIG_DIR=${round.configDir}`] : []), "claude", forkFirstPrompt(q), "--resume", round.session, "--fork-session", "--append-system-prompt", forkSystemPrompt(q), "--disallowedTools", ...FORK_DENIED_TOOLS, "--allowedTools", "Bash(herdr-ask --discussion:*)", "Bash(~/.dotfiles/commands/herdr-ask --discussion:*)"];
+    // hc runs it without a login shell, so ~/.dotfiles/commands (herdr-ask) isn't on PATH: add it.
+    const withPath = ["sh", "-c", 'PATH="$HOME/.dotfiles/commands:$PATH" exec "$@"', "sh"];
+    const argv = [...withPath, ...(round.configDir ? ["env", `CLAUDE_CONFIG_DIR=${round.configDir}`] : []), "claude", forkFirstPrompt(q), "--resume", round.session, "--fork-session", "--append-system-prompt", forkSystemPrompt(q), "--disallowedTools", ...FORK_DENIED_TOOLS, "--allowedTools", "Bash(herdr-ask --discussion:*)", "Bash(~/.dotfiles/commands/herdr-ask --discussion:*)"];
     cx.spawn(async (cx) => {
       try {
         const r = await hc([...args, ...argv]);
