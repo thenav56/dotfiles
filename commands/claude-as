@@ -5,8 +5,8 @@
 # ///
 """claude-as — launch an interactive `claude` as one of the tracked accounts.
 
-Each account in `config.yaml` has a dedicated `accounts/<email>/` dir (the same
-one the usage collector uses) that we point `CLAUDE_CONFIG_DIR` at. Before
+Each account in `config.yaml` has a dedicated `accounts/<email>/` dir that we
+point `CLAUDE_CONFIG_DIR` at. Before
 launching we set that dir up so the session behaves exactly like the normal
 aliased `claude`:
 
@@ -20,7 +20,10 @@ aliased `claude`:
     symlinked base+local and execs the real claude binary.
 
 This tool does CONFIG SETUP ONLY, never auth. If an account isn't logged in it
-points you at `./cli.py check --fix`.
+prints the `claude auth login` command for that account dir.
+
+Data dir: $CLAUDE_AS_HOME, else the ~/.config/claude-as/home symlink. It holds
+`accounts/<email>/` and `config.yaml` (`users:`, optional `orchestrate_pool:`).
 
 Usage:
   claude-as                       pick an account, launch
@@ -100,8 +103,6 @@ Usage:
                                   systemd user timer running dispatch every
                                   minute and the listen service (only when
                                   tg-notify has --api; ~/.config/systemd/user)
-  claude-as --install             (re)create the ~/.local/bin/claude-as symlink
-                                  and the ~/.claude/skills/* links for skills/
   claude-as --help
 
 The selector (left of `--`) matches an exact email, an exact label, or a unique
@@ -142,14 +143,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
-# Invoked via the ~/.local/bin symlink, so resolve our real location and put it
-# on sys.path before importing the sibling cli.py (config/account helpers).
-_HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE))
-
-import cli  # noqa: E402
-
-from rich.console import Console  # noqa: E402
+from rich.console import Console
 
 console = Console()
 err_console = Console(stderr=True)
@@ -231,18 +225,107 @@ OAUTH_LOCK_POLL_SECS = 0.5
 OAUTH_LOCK_TIMEOUT_SECS = 70.0
 
 
+# --- data dir ---------------------------------------------------------------
+
+# The data dir holds `accounts/<email>/` and `config.yaml`. It comes from
+# $CLAUDE_AS_HOME, else from the ~/.config/claude-as/home symlink.
+HOME_ENV = "CLAUDE_AS_HOME"
+
+
+def home_link() -> Path:
+    return Path.home() / ".config" / "claude-as" / "home"
+
+
+def find_home() -> Path | None:
+    """The data dir, or None when neither $CLAUDE_AS_HOME nor the
+    ~/.config/claude-as/home symlink is set."""
+    env = os.environ.get(HOME_ENV)
+    if env:
+        return Path(env).expanduser().resolve()
+    link = home_link()
+    if link.exists():
+        return link.resolve()
+    return None
+
+
+def as_home() -> Path:
+    """The data dir; exits with setup instructions when it is not configured."""
+    home = find_home()
+    if home is None:
+        raise SystemExit(
+            f"claude-as: no data dir configured. Set ${HOME_ENV} to it, or "
+            f"symlink it: ln -s /path/to/data {home_link()}\n"
+            f"The data dir holds accounts/<email>/ and config.yaml.")
+    return home
+
+
+def accounts_root() -> Path:
+    return as_home() / "accounts"
+
+
+def account_dir(email: str) -> Path:
+    """`accounts/<email>`, created when missing."""
+    d = accounts_root() / email
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def load_config() -> dict:
+    import yaml
+
+    path = as_home() / "config.yaml"
+    try:
+        with open(path) as fh:
+            return yaml.safe_load(fh) or {}
+    except FileNotFoundError:
+        raise SystemExit(f"claude-as: missing {path}") from None
+
+
+def parse_users(data) -> list[tuple[str, str | None]]:
+    """Parse the config.yaml `users` into [(email, label-or-None), ...].
+
+    Accepts either form:
+      users:                       # mapping of label -> email
+        Frontend: a@x.com
+      users:                       # list of emails or {email, label} maps
+        - b@x.com
+        - {email: c@x.com, label: QA}
+    Entries without an email are dropped; blank labels become None.
+    """
+    users = (data or {}).get("users")
+    out = []
+    if isinstance(users, dict):
+        for label, email in users.items():
+            email = str(email or "").strip()
+            label = str(label or "").strip() or None
+            if email:
+                out.append((email, label))
+    elif isinstance(users, list):
+        for u in users:
+            if isinstance(u, dict):
+                email = str(u.get("email") or "").strip()
+                raw_label = u.get("label")
+                label = str(raw_label).strip() if raw_label else ""
+            else:
+                email = str(u).strip()
+                label = ""
+            if email:
+                out.append((email, label or None))
+    return out
+
+
 # --- account selection ------------------------------------------------------
 
 def creds_present(email: str) -> bool:
     """Cheap, no-network check: does the account have stored credentials?"""
-    return (cli.ACCOUNTS_DIR / email / ".credentials.json").exists()
+    return (accounts_root() / email / ".credentials.json").exists()
 
 
 def load_users():
     """config.yaml users minus the reserved `default` name (it is the symlink,
     never an account of its own)."""
     users = []
-    for email, label in cli.load_users():
+    for email, label in parse_users(load_config()):
         if email == DEFAULT_NAME:
             print(f"warning: config.yaml user {email!r} is reserved — skipped",
                   file=sys.stderr)
@@ -292,7 +375,7 @@ def orchestrate_pool(users) -> list[str]:
     or ambiguous entries warn on stderr and are skipped — the pool must never
     silently widen. Empty/absent -> [] (orchestrators must then ask the user).
     """
-    spec = cli.load_config().get("orchestrate_pool")
+    spec = load_config().get("orchestrate_pool")
     if spec is None:
         raw = []
     elif isinstance(spec, str):
@@ -473,13 +556,19 @@ def ensure_onboarding(cfg: Path) -> None:
         console.print(f"[yellow]warning:[/yellow] could not set onboarding flag: {exc}")
 
 
+def login_cmd(email: str) -> str:
+    """Shell command that logs `email` in to its own account dir."""
+    cfg = shlex.quote(str(accounts_root() / email))
+    return (f"CLAUDE_CONFIG_DIR={cfg} claude auth login --claudeai "
+            f"--email {shlex.quote(email)}")
+
+
 def auth_gate(cfg: Path, email: str) -> None:
     """Abort (with a pointer) if the account has no stored credentials."""
     if (cfg / ".credentials.json").exists():
         return
-    cli_path = cli.REPO_DIR / "cli.py"
     console.print(f"[red]not logged in:[/red] {email} has no .credentials.json")
-    console.print(f"Run [bold]{cli_path} check --fix[/bold] to log in first.")
+    console.print(f"Log in first: [bold]{login_cmd(email)}[/bold]", soft_wrap=True)
     raise SystemExit(1)
 
 
@@ -490,7 +579,7 @@ def launch(email: str, passthrough: list[str], config_dir: Path | None = None) -
     symlink path for `claude-as default`); setup always runs on the real
     account dir.
     """
-    cfg = cli.account_dir(email)          # ensures the dir exists
+    cfg = account_dir(email)          # ensures the dir exists
     auth_gate(cfg, email)
     reconcile_symlinks(cfg)
     warn_unclassified()
@@ -524,7 +613,7 @@ class LockTimeout(Exception):
 
 def default_link(accounts_dir: Path | None = None) -> Path:
     """Path of the `default` symlink (never resolved)."""
-    return (accounts_dir or cli.ACCOUNTS_DIR) / DEFAULT_NAME
+    return (accounts_dir or accounts_root()) / DEFAULT_NAME
 
 
 def current_default(accounts_dir: Path | None = None) -> str | None:
@@ -548,7 +637,7 @@ def flip_default(email: str, accounts_dir: Path | None = None) -> None:
     `mv -T`), so readers see either the old or the new target, never a gap.
     Refuses to replace a real file/dir.
     """
-    accounts_dir = accounts_dir or cli.ACCOUNTS_DIR
+    accounts_dir = accounts_dir or accounts_root()
     link = default_link(accounts_dir)
     if link.exists() and not link.is_symlink():
         raise DefaultError(f"{link} is a real file/dir, not a symlink — "
@@ -651,7 +740,6 @@ def _who(email: str | None, labels: dict[str, str | None]) -> str:
 
 
 def cmd_get_default() -> int:
-    cli.load_env()
     labels = dict(load_users())
     try:
         email = current_default()
@@ -662,9 +750,9 @@ def cmd_get_default() -> int:
         print("none")
         return 0
     console.print(_who(email, labels))
-    if not (cli.ACCOUNTS_DIR / email).is_dir():
+    if not (accounts_root() / email).is_dir():
         console.print(f"[yellow]warning:[/yellow] target dir missing: "
-                      f"{cli.ACCOUNTS_DIR / email}")
+                      f"{accounts_root() / email}")
     return 0
 
 
@@ -674,13 +762,12 @@ def cmd_set_default(selector: str) -> int:
         console.print(f"[red]{DEFAULT_NAME!r} is not an account[/red] — pass an "
                       f"email, label, or substring")
         return 2
-    cli.load_env()
     users = load_users()
     labels = dict(users)
     email = resolve_selector(selector, users)
     if not creds_present(email):
         console.print(f"[red]not logged in:[/red] {email} has no .credentials.json")
-        console.print(f"Run [bold]{cli.REPO_DIR / 'cli.py'} check --fix[/bold] first.")
+        console.print(f"Log in first: [bold]{login_cmd(email)}[/bold]", soft_wrap=True)
         return 1
     try:
         old = current_default()
@@ -693,17 +780,17 @@ def cmd_set_default(selector: str) -> int:
 
     # Shared state must be linked in every dir before a flip: a running
     # default session writes transcripts/history into whichever dir it lands on.
-    dirs = [cli.account_dir(e) for e, _ in users]
-    if old is not None and (cli.ACCOUNTS_DIR / old).is_dir():
-        old_dir = cli.ACCOUNTS_DIR / old
+    dirs = [account_dir(e) for e, _ in users]
+    if old is not None and (accounts_root() / old).is_dir():
+        old_dir = accounts_root() / old
         if old_dir not in dirs:
             dirs.append(old_dir)
     for cfg in dirs:
         reconcile_symlinks(cfg)
 
     try:
-        if old is not None and (cli.ACCOUNTS_DIR / old).is_dir():
-            with oauth_refresh_lock(cli.ACCOUNTS_DIR / old):
+        if old is not None and (accounts_root() / old).is_dir():
+            with oauth_refresh_lock(accounts_root() / old):
                 flip_default(email)
         else:
             flip_default(email)
@@ -722,7 +809,6 @@ def cmd_accounts(as_json: bool) -> int:
     """List accounts with creds + orchestration-pool membership + default."""
     import json
 
-    cli.load_env()
     users = load_users()
     pool = orchestrate_pool(users)
     try:
@@ -1302,8 +1388,11 @@ def _sync_tree(src: Path, dst: Path) -> int:
 def _file_history_dirs() -> list[tuple[str, Path]]:
     """(account, file-history dir) for every real account dir, one per distinct
     resolved file-history dir."""
+    home = find_home()
+    if home is None:
+        return []
     try:
-        accts = sorted(cli.ACCOUNTS_DIR.iterdir())
+        accts = sorted((home / "accounts").iterdir())
     except OSError:
         return []
     out, seen = [], set()
@@ -1379,7 +1468,7 @@ def restore_session(row: dict, email: str | None) -> int:
     if sources and email is None:
         print("warning: no account to restore file-history into", file=sys.stderr)
     elif sources:
-        target = cli.ACCOUNTS_DIR / email / "file-history" / sid
+        target = accounts_root() / email / "file-history" / sid
         # The launching account's own copy is applied last so its files win.
         for path in sorted(sources, key=lambda p: p.parent.name == email):
             n += _sync_tree(path, target)
@@ -1864,7 +1953,6 @@ def resume_row(row: dict, *, selector: str | None, passthrough: list[str],
                       f"status {row['active_status'] or '?'}, cwd {row['cwd'] or '?'}"
                       f" — pass --force-resume to open it anyway")
         return 1
-    cli.load_env()
     email = resolve_selector(selector, load_users()) if selector is not None else None
     if not row["live"]:
         target = email
@@ -3482,44 +3570,7 @@ def _remind_main(args: list[str], passthrough: list[str]) -> int:
     return 2
 
 
-# --- install / cli ----------------------------------------------------------
-
-def _install_link(link: Path, target: Path) -> int:
-    """Idempotently point `link` at `target`; refuse to clobber real files."""
-    if link.is_symlink():
-        if link.resolve() == target:
-            console.print(f"[dim]already installed:[/dim] {link} → {target}")
-            return 0
-        link.unlink()
-    elif link.exists():
-        console.print(f"[red]refusing to overwrite real file/dir:[/red] {link}")
-        return 1
-    os.symlink(target, link)
-    console.print(f"[green]installed:[/green] {link} → {target}")
-    return 0
-
-
-def install() -> int:
-    self = Path(__file__).resolve()
-    bindir = Path.home() / ".local" / "bin"
-    bindir.mkdir(parents=True, exist_ok=True)
-    rc = _install_link(bindir / "claude-as", self)
-    if str(bindir) not in os.environ.get("PATH", "").split(os.pathsep):
-        console.print(f"[yellow]note:[/yellow] {bindir} is not on your PATH")
-
-    # Skills authored in this repo (skills/<name>/SKILL.md) are installed as
-    # symlinks into ~/.claude/skills so edits here go live instantly. These
-    # links are hand-authored as far as skills-cli is concerned (no sentinel),
-    # so its --prune never touches them.
-    skills_src = self.parent / "skills"
-    skills_dst = CLAUDE_HOME / "skills"
-    if skills_src.is_dir():
-        skills_dst.mkdir(parents=True, exist_ok=True)
-        for skill_dir in sorted(skills_src.iterdir()):
-            if (skill_dir / "SKILL.md").is_file():
-                rc = max(rc, _install_link(skills_dst / skill_dir.name, skill_dir))
-    return rc
-
+# --- cli --------------------------------------------------------------------
 
 HELP = __doc__
 
@@ -3538,8 +3589,6 @@ def main(argv: list[str]) -> int:
         return _remind_main(left[1:], passthrough)
     if left and left[0] == "resume":
         return _resume_main(left[1:], passthrough)
-    if "--install" in left:
-        return install()
     if left and left[0] == "accounts":
         extra = [a for a in left[1:] if a != "--json"]
         if extra or passthrough:
@@ -3574,7 +3623,6 @@ def main(argv: list[str]) -> int:
                       f"{' '.join(positionals)}")
         return 2
 
-    cli.load_env()
     if positionals and positionals[0] == DEFAULT_NAME:
         return launch_default(passthrough)
     users = load_users()
@@ -3598,9 +3646,9 @@ def launch_default(passthrough: list[str]) -> int:
         console.print(f"[red]no default account set[/red] — run "
                       f"[bold]claude-as set-default <selector>[/bold] first")
         return 1
-    if not (cli.ACCOUNTS_DIR / email).is_dir():
+    if not (accounts_root() / email).is_dir():
         console.print(f"[red]default points at a missing dir:[/red] "
-                      f"{cli.ACCOUNTS_DIR / email} — run [bold]claude-as set-default[/bold]")
+                      f"{accounts_root() / email} — run [bold]claude-as set-default[/bold]")
         return 1
     launch(email, passthrough, config_dir=default_link())  # execs; does not return
     return 0
