@@ -2889,3 +2889,302 @@ def test_remind_launchd_install_uninstall(mac, remind_env, tmp_path, monkeypatch
     assert calls == [["launchctl", "bootout", f"{dom}/com.claude-as.remind"],
                      ["launchctl", "bootout", f"{dom}/com.claude-as.remind-listen"]]
     assert list(agents.iterdir()) == []
+
+
+# --- backlog ----------------------------------------------------------------
+
+def _out_json(capsys):
+    """The last stdout line as JSON (backlog commands print one object)."""
+    lines = [l for l in capsys.readouterr().out.splitlines() if l.strip()]
+    return json.loads(lines[-1])
+
+
+def _environ(pid: int, **env) -> None:
+    d = ca.PROC_ROOT / str(pid)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "environ").write_bytes(b"\0".join(f"{k}={v}".encode() for k, v in env.items()) + b"\0")
+
+
+@pytest.fixture
+def backlog_env(protect_env, tmp_path, monkeypatch):
+    """Session abc123 run by claude pid 42 (idle), launched as
+    `uv run claude-as default` (pid 40) via CLAUDE_CONFIG_DIR=accounts/default;
+    claude has a caffeinate and an MCP server child. Terminating is recorded."""
+    monkeypatch.setattr(ca, "BACKLOG_FILE", tmp_path / "share" / "backlog.json")
+    _session_file(ca.CLAUDE_HOME, 42, "abc123", procStart="7", name="w-1")
+    _fake_proc(ca.PROC_ROOT, 42, "7")
+    _environ(42, HOME="/h", CLAUDE_CONFIG_DIR=str(ca.accounts_root() / "default"))
+    table = {40: (1, "uv run --script /h/.local/bin/claude-as default --"),
+             42: (40, "claude"),
+             43: (42, "caffeinate -i -t 300"),
+             44: (42, "npx -y some-mcp-server")}
+    monkeypatch.setattr(ca, "_proc_table", lambda: dict(table))
+    killed = []
+    monkeypatch.setattr(ca, "_terminate", lambda pid, timeout=5.0: killed.append(pid) or True)
+    return {"table": table, "killed": killed}
+
+
+def _backlog():
+    return json.loads(ca.BACKLOG_FILE.read_text())
+
+
+def test_backlog_add_records_protects_and_kills(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "40", "--title", "T", "--note", "N",
+                    "--meta", '{"machine": "m1", "space": "s1"}']) == 0
+    out = _out_json(capsys)
+    assert out["ok"] is True and out["killed"] is True
+    e = _backlog()["entries"]["abc123"]
+    assert e["id"] == "abc123"
+    assert (e["title"], e["note"], e["cwd"], e["branch"]) == ("T", "N", "/w", "main")
+    assert e["session_name"] == "w-1"
+    assert e["launcher"] == {"kind": "as", "account": "default"}
+    assert e["protected_before"] is False
+    assert e["meta"] == {"machine": "m1", "space": "s1"}
+    assert e["archived_at"]
+    assert out["entry"]["id"] == "abc123"
+    # Backed up through protect: flagged with the note, archived.
+    assert _store()["sessions"]["abc123"]["note"] == "N"
+    assert (ca.PROTECTED_ARCHIVE / "projects" / "-w" / "abc123.jsonl").exists()
+    assert backlog_env["killed"] == [42]
+
+
+def test_backlog_add_title_defaults_to_session_title(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    e = _backlog()["entries"]["abc123"]
+    assert e["title"] == "keep me" and e["note"] is None
+    assert e["last_prompt"] == ""
+
+
+def test_backlog_add_refuses_working_session(backlog_env, capsys):
+    _session_file(ca.CLAUDE_HOME, 42, "abc123", procStart="7", status="busy")
+    assert ca.main(["backlog", "add", "--pid", "40"]) == 1
+    out = _out_json(capsys)
+    assert out["ok"] is False and out["busy"] == ["claude is busy"]
+    assert not ca.BACKLOG_FILE.exists()
+    assert not ca.PROTECTED_FILE.exists()
+    assert backlog_env["killed"] == []
+
+
+def test_backlog_add_refuses_running_shells(backlog_env, capsys, monkeypatch):
+    table = dict(backlog_env["table"])
+    table[45] = (42, "/bin/zsh -c source /h/.claude/shell-snapshots/snapshot-zsh-1.sh "
+                     "2>/dev/null || true && eval 'npm run dev'")
+    table[46] = (45, "node server.js")
+    table[47] = (42, "<defunct>")
+    monkeypatch.setattr(ca, "_proc_table", lambda: table)
+    assert ca.main(["backlog", "add", "--pid", "40"]) == 1
+    out = _out_json(capsys)
+    assert len(out["busy"]) == 1 and "npm run dev" in out["busy"][0]
+    assert backlog_env["killed"] == []
+
+
+def test_backlog_add_no_claude_under_pid(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "43"]) == 1
+    assert "no claude session" in _out_json(capsys)["error"]
+    assert ca.main(["backlog", "add", "--pid", "999"]) == 1
+
+
+@pytest.mark.parametrize("env,launcher", [
+    ({}, {"kind": "plain"}),
+    ({"CLAUDE_CONFIG_DIR": "/elsewhere"}, {"kind": "config_dir", "config_dir": "/elsewhere"}),
+    ("acct", {"kind": "as", "account": "a@x.org"}),
+])
+def test_backlog_add_launcher(backlog_env, capsys, env, launcher):
+    if env == "acct":
+        env = {"CLAUDE_CONFIG_DIR": str(ca.accounts_root() / "a@x.org") + "/"}
+    (ca.PROC_ROOT / "42" / "environ").unlink()
+    _environ(42, HOME="/h", **env)
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    assert _backlog()["entries"]["abc123"]["launcher"] == launcher
+
+
+def test_backlog_add_keeps_prior_protection_and_note(backlog_env, capsys):
+    assert ca.main(["protect", "abc123", "--note", "mine"]) == 0
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    e = _backlog()["entries"]["abc123"]
+    assert e["protected_before"] is True
+    assert _store()["sessions"]["abc123"]["note"] == "mine"
+
+
+def test_backlog_readd_replaces_binned_copy_and_keeps_text(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "42", "--title", "T", "--note", "N"]) == 0
+    assert ca.main(["backlog", "bin", "abc123"]) == 0
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    data = _backlog()
+    assert data["bin"] == {}
+    assert (data["entries"]["abc123"]["title"], data["entries"]["abc123"]["note"]) == ("T", "N")
+
+
+def test_backlog_list_json(backlog_env, capsys):
+    assert ca.main(["backlog", "list", "--json"]) == 0
+    assert _out_json(capsys) == {"ok": True, "entries": [], "bin": []}
+    assert ca.main(["backlog", "add", "--pid", "42", "--title", "T"]) == 0
+    capsys.readouterr()
+    assert ca.main(["backlog", "list", "--json"]) == 0
+    out = _out_json(capsys)
+    (e,) = out["entries"]
+    assert e["id"] == "abc123" and e["title"] == "T"
+    assert e["live"] is True and e["active"] is True and e["cwd_exists"] is False
+    assert e["first_prompt"] == "keep me"
+    assert out["bin"] == []
+
+
+def test_backlog_edit(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "42", "--title", "T", "--note", "N"]) == 0
+    assert ca.main(["backlog", "edit", "abc", "--title", "T2"]) == 0
+    assert ca.main(["backlog", "edit", "abc123", "--note", ""]) == 0
+    e = _backlog()["entries"]["abc123"]
+    assert (e["title"], e["note"]) == ("T2", None)
+    assert ca.main(["backlog", "edit", "zzz", "--title", "x"]) == 1
+    assert ca.main(["backlog", "edit", "abc123"]) == 2
+
+
+def test_backlog_bin_and_restore(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    assert ca.main(["backlog", "bin", "abc"]) == 0
+    data = _backlog()
+    assert data["entries"] == {}
+    b = data["bin"]["abc123"]
+    assert b["reason"] == "deleted" and b["binned_at"]
+    assert ca.main(["backlog", "bin", "abc123"]) == 1  # not in the backlog any more
+    assert ca.main(["backlog", "restore", "abc123"]) == 0
+    data = _backlog()
+    assert data["bin"] == {}
+    assert "binned_at" not in data["entries"]["abc123"]
+    assert "reason" not in data["entries"]["abc123"]
+    assert ca.main(["backlog", "restore", "abc123"]) == 1
+
+
+def _age_bin(sid: str, days: float) -> None:
+    data = _backlog()
+    data["bin"][sid]["binned_at"] = datetime_iso(time.time() - days * 86400)
+    ca.BACKLOG_FILE.write_text(json.dumps(data))
+
+
+def datetime_iso(ts: float) -> str:
+    from datetime import datetime
+    return datetime.fromtimestamp(ts).astimezone().isoformat(timespec="seconds")
+
+
+def test_backlog_list_purges_expired_bin(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    assert ca.main(["backlog", "bin", "abc123"]) == 0
+    _age_bin("abc123", ca.BACKLOG_BIN_DAYS - 1)
+    assert ca.main(["backlog", "list", "--json"]) == 0
+    assert [b["id"] for b in _out_json(capsys)["bin"]] == ["abc123"]
+    _age_bin("abc123", ca.BACKLOG_BIN_DAYS + 1)
+    assert ca.main(["backlog", "list", "--json"]) == 0
+    assert _out_json(capsys)["bin"] == []
+    assert _backlog()["bin"] == {}
+    # The backlog added the protection, so purging drops it and the backup.
+    assert "abc123" not in _store()["sessions"]
+    assert not (ca.PROTECTED_ARCHIVE / "projects" / "-w" / "abc123.jsonl").exists()
+    assert protect_live_transcript_kept()
+
+
+def protect_live_transcript_kept() -> bool:
+    return (ca.CLAUDE_HOME / "projects" / "-w" / "abc123.jsonl").exists()
+
+
+def test_backlog_purge_keeps_prior_protection(backlog_env, capsys):
+    assert ca.main(["protect", "abc123"]) == 0
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    assert ca.main(["backlog", "bin", "abc123"]) == 0
+    assert ca.main(["backlog", "purge", "abc123"]) == 0
+    assert _backlog()["bin"] == {}
+    assert "abc123" in _store()["sessions"]
+    assert (ca.PROTECTED_ARCHIVE / "projects" / "-w" / "abc123.jsonl").exists()
+
+
+def test_backlog_purge_only_from_bin(backlog_env, capsys):
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    assert ca.main(["backlog", "purge", "abc123"]) == 1
+    assert "abc123" in _backlog()["entries"]
+
+
+def _resume_env(backlog_env, monkeypatch, launcher=None):
+    """Add abc123 to the backlog, then make claude 42 exit; record launches."""
+    assert ca.main(["backlog", "add", "--pid", "42"]) == 0
+    if launcher is not None:
+        data = _backlog()
+        data["entries"]["abc123"]["launcher"] = launcher
+        ca.BACKLOG_FILE.write_text(json.dumps(data))
+    (ca.CLAUDE_HOME / "sessions" / "42.json").unlink()
+    calls = []
+    monkeypatch.setattr(ca, "launch_default", lambda args: calls.append(("default", args)) or 0)
+    monkeypatch.setattr(ca, "launch", lambda email, args, config_dir=None:
+                        calls.append((email, args)))
+    monkeypatch.setattr(ca, "_exec_claude", lambda args, config_dir:
+                        calls.append(("exec", args, config_dir)))
+    return calls
+
+
+def test_backlog_resume_as_default_bins_entry(backlog_env, monkeypatch, capsys):
+    calls = _resume_env(backlog_env, monkeypatch)
+    assert ca.main(["backlog", "resume", "abc"]) == 0
+    assert calls == [("default", ["--resume", "abc123"])]
+    data = _backlog()
+    assert data["entries"] == {} and data["bin"]["abc123"]["reason"] == "resumed"
+
+
+@pytest.mark.parametrize("launcher,call", [
+    ({"kind": "as", "account": "a@x.org"}, ("a@x.org", ["--resume", "abc123"])),
+    ({"kind": "plain"}, ("exec", ["--resume", "abc123"], None)),
+    ({"kind": "config_dir", "config_dir": "/c"}, ("exec", ["--resume", "abc123"], "/c")),
+])
+def test_backlog_resume_launchers(backlog_env, monkeypatch, capsys, launcher, call):
+    calls = _resume_env(backlog_env, monkeypatch, launcher)
+    assert ca.main(["backlog", "resume", "abc123"]) == 0
+    assert calls == [call]
+
+
+def test_backlog_resume_refuses_running(backlog_env, monkeypatch, capsys):
+    calls = _resume_env(backlog_env, monkeypatch)
+    _session_file(ca.CLAUDE_HOME, 42, "abc123", procStart="7")
+    assert ca.main(["backlog", "resume", "abc123"]) == 1
+    assert "already running" in capsys.readouterr().out
+    assert calls == [] and "abc123" in _backlog()["entries"]
+
+
+def test_backlog_resume_restores_deleted_transcript(backlog_env, monkeypatch, capsys):
+    calls = _resume_env(backlog_env, monkeypatch)
+    live = ca.CLAUDE_HOME / "projects" / "-w" / "abc123.jsonl"
+    data = live.read_bytes()
+    live.unlink()
+    assert ca.main(["backlog", "resume", "abc123"]) == 0
+    assert live.read_bytes() == data
+    assert calls == [("default", ["--resume", "abc123"])]
+
+
+def test_backlog_resume_unknown(backlog_env, monkeypatch, capsys):
+    _resume_env(backlog_env, monkeypatch)
+    assert ca.main(["backlog", "resume", "zzz"]) == 1
+
+
+def test_backlog_bad_args(backlog_env):
+    assert ca.main(["backlog"]) == 2
+    assert ca.main(["backlog", "bogus"]) == 2
+    assert ca.main(["backlog", "add"]) == 2
+    assert ca.main(["backlog", "add", "--pid", "x"]) == 2
+    assert ca.main(["backlog", "add", "--pid", "42", "--meta", "[1]"]) == 2
+    assert ca.main(["backlog", "bin"]) == 2
+
+
+def test_proc_table_parses_ps(monkeypatch):
+    monkeypatch.setattr(ca, "_ps", lambda args: (
+        "    1     0 /sbin/init\n   42     1 claude --x  y\n  bad line\n"))
+    assert ca._proc_table() == {1: (0, "/sbin/init"), 42: (1, "claude --x  y")}
+
+
+def test_backlog_resume_missing_dir_uses_nearest_parent(backlog_env, monkeypatch, capsys, tmp_path):
+    calls = _resume_env(backlog_env, monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    data = _backlog()
+    data["entries"]["abc123"]["cwd"] = str(repo / "wt" / "gone")
+    ca.BACKLOG_FILE.write_text(json.dumps(data))
+    monkeypatch.chdir(tmp_path)
+    assert ca.main(["backlog", "resume", "abc123"]) == 0
+    assert os.getcwd() == os.path.realpath(repo)
+    assert "no longer exists" in capsys.readouterr().err
+    assert calls == [("default", ["--resume", "abc123"])]

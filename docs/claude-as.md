@@ -230,6 +230,52 @@ is remembered there (newest 50, at most 30 days) with its note and date, and
 `protect --undo` restores both. A copy removed by `--purge` is archived again
 from the live transcript when one exists.
 
+## Backlog
+
+Sessions put away to resume later. The herdr-app Backlog tab
+(`config/herdr-app/mods/backlog`) drives these commands on each machine; they
+also work by hand. Each prints one JSON object (`{"ok": true, ...}` or
+`{"ok": false, "error": ...}`).
+
+```bash
+claude-as backlog add --pid 4188293 --title "infra" --note "after review"
+claude-as backlog list [--json]
+claude-as backlog edit 3f2a --note "blocked on X"
+claude-as backlog bin 3f2a                 # Delete in the UI
+claude-as backlog restore 3f2a             # bin -> backlog
+claude-as backlog purge 3f2a               # drop a binned entry now
+claude-as backlog resume 3f2a [-- <claude args>]
+```
+
+`add --pid` takes the terminal's foreground process (claude itself, or a
+launcher above it such as `uv run claude-as default`) and finds the running
+claude at or below it. It refuses while the session is busy:
+
+- claude's status (`sessions/<pid>.json`) is anything but `idle`, or
+- a Bash-tool shell is still a child of claude (its command line has
+  `shell-snapshots/snapshot-`; this covers `run_in_background` shells and
+  Monitor loops). MCP servers, `caffeinate` and the status line do not count.
+
+Otherwise it records the entry, protects the session (see
+[Protected sessions](#protected-sessions)) and archives it, stops claude
+(SIGTERM so SessionEnd hooks run, SIGKILL after 5s; `--no-kill` skips this),
+then archives once more. The entry records how claude was launched, read from
+its `CLAUDE_CONFIG_DIR`: unset (plain `claude`), an account dir of this data
+dir (`as <email>` or `as default`), or another dir. `resume` starts it the same
+way (`claude-custom`/`claude` for plain and other dirs) in its dir, restoring
+the backup first if claude deleted the transcript, and refuses a session that
+is already running unless `--force-resume`.
+
+`bin` and `resume` move the entry to the bin with a reason. `list`, `add` and
+`resume` purge binned entries older than 7 days. Purging drops the protection
+flag and backup the backlog added; a session that was protected before it was
+added keeps both. `--meta JSON` stores caller data (herdr: machine, space,
+tab) as is.
+
+State: `~/.local/share/claude-as/backlog.json`
+(`{"entries": {id: entry}, "bin": {id: entry}}`), locked with
+`backlog.json.lock`.
+
 ## Reminders
 
 ```bash

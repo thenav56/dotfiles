@@ -79,6 +79,23 @@ Usage:
                                   resume one session without the picker (same
                                   dir change, archive restore and running
                                   check as search)
+  claude-as backlog add --pid <pid> [--title T] [--note N] [--meta JSON]
+                    [--no-kill]   put away the claude session running in
+                                  <pid> or below: refused while it works or
+                                  a Bash-tool shell runs; protects it, then
+                                  stops it (SIGTERM, SIGKILL after 5s)
+  claude-as backlog list [--json] backlog and bin (binned entries are purged
+                                  after 7 days, with the protection the
+                                  backlog added)
+  claude-as backlog edit <id> [--title T] [--note N]
+  claude-as backlog bin <id> [--reason deleted|resumed]
+  claude-as backlog restore <id>  bin -> backlog
+  claude-as backlog purge <id>    drop a binned entry now
+  claude-as backlog resume <id> [--force-resume] [-- <claude args>]
+                                  resume it as it was launched (plain claude,
+                                  an account, or a CLAUDE_CONFIG_DIR), in its
+                                  dir; the entry moves to the bin. Backlog
+                                  commands print one JSON object
   claude-as remind add (--in DUR | --at WHEN) [--session ID] [--no-protect]
                    NOTE...        Telegram reminder (tg-notify) at a time. DUR
                                   30m/3h/2d/2w/1d12h; WHEN `YYYY-MM-DD HH:MM`
@@ -2747,6 +2764,563 @@ def _resume_main(args: list[str], passthrough: list[str]) -> int:
                       force_resume=force_resume)
 
 
+# --- backlog -----------------------------------------------------------------
+
+# Sessions put away to resume later (the herdr-app Backlog tab drives these).
+# BACKLOG_FILE = {"entries": {id: entry}, "bin": {id: entry}}; an entry is
+#   {"id", "title", "note", "cwd", "branch", "session_name", "first_prompt",
+#    "last_prompt", "launcher", "protected_before", "meta", "archived_at"}
+# and a binned one adds "binned_at" and "reason" ("deleted" | "resumed").
+# `launcher` says how to start it again: {"kind": "plain"} (no
+# CLAUDE_CONFIG_DIR), {"kind": "as", "account": <email>|"default"} (an
+# account dir of this data dir) or {"kind": "config_dir", "config_dir": ...}.
+# Adding protects the session (backup in PROTECTED_ARCHIVE); purging a binned
+# entry drops that flag and backup again unless the session was protected
+# before (`protected_before`). Binned entries are purged BACKLOG_BIN_DAYS after
+# binned_at, by any `backlog list` / `add` / `resume`. `meta` is opaque
+# caller data (herdr: machine, space, tab).
+# All backlog commands print one JSON object on stdout: {"ok": true, ...} or
+# {"ok": false, "error": ..., ...}.
+BACKLOG_FILE = PROTECT_HOME / "backlog.json"
+BACKLOG_BIN_DAYS = 7
+BACKLOG_REASONS = ("deleted", "resumed")
+# Claude's Bash tool (foreground and run_in_background) runs every command as
+# `<shell> -c source <config>/shell-snapshots/snapshot-<shell>-….sh … && eval …`,
+# a child of the claude process.
+BASH_TOOL_MARK = "shell-snapshots/snapshot-"
+TERMINATE_SECS = 5.0
+
+
+def _emit(obj: dict) -> None:
+    print(json.dumps(obj), flush=True)
+
+
+def _fail(msg: str, code: int = 1, **extra) -> int:
+    _emit({"ok": False, "error": msg, **extra})
+    return code
+
+
+@contextlib.contextmanager
+def _backlog_locked():
+    """Exclusive flock on BACKLOG_FILE.lock for a read-modify-write."""
+    lock = BACKLOG_FILE.with_name(f"{BACKLOG_FILE.name}.lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock, "a") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
+def load_backlog() -> dict:
+    """BACKLOG_FILE as {"entries": {...}, "bin": {...}}; missing = empty,
+    unreadable = exit 1 (it is written back, so never read it as empty)."""
+    try:
+        with open(BACKLOG_FILE) as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        data = {}
+    except (OSError, ValueError) as exc:
+        _fail(f"cannot read {BACKLOG_FILE}: {exc}")
+        raise SystemExit(1)
+    if not isinstance(data, dict):
+        data = {}
+    out = {}
+    for key in ("entries", "bin"):
+        section = data.get(key)
+        out[key] = ({sid: e for sid, e in section.items() if isinstance(e, dict)}
+                    if isinstance(section, dict) else {})
+    return out
+
+
+def save_backlog(data: dict) -> None:
+    _write_json_atomic(BACKLOG_FILE, {"entries": data["entries"], "bin": data["bin"]})
+
+
+def _proc_table() -> dict[int, tuple[int, str]]:
+    """pid -> (ppid, command) for every process, from one `ps` call."""
+    out = {}
+    for line in _ps(["-axo", "pid=,ppid=,command="]).splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        out[int(parts[0])] = (int(parts[1]), parts[2].strip() if len(parts) > 2 else "")
+    return out
+
+
+def _descendants(pid: int, table: dict[int, tuple[int, str]]) -> list[int]:
+    """Children of pid, then theirs (breadth first)."""
+    kids: dict[int, list[int]] = {}
+    for child, (parent, _) in table.items():
+        kids.setdefault(parent, []).append(child)
+    out, queue = [], sorted(kids.get(pid, []))
+    while queue:
+        p = queue.pop(0)
+        out.append(p)
+        queue.extend(sorted(kids.get(p, [])))
+    return out
+
+
+def _proc_env(pid: int) -> dict[str, str] | None:
+    """Environment of one of the user's processes; None when unreadable."""
+    if IS_MAC:
+        try:
+            raw = _mac_proc_environ(pid)
+        except Exception:
+            raw = None
+    else:
+        try:
+            raw = (PROC_ROOT / str(pid) / "environ").read_bytes().split(b"\0")
+        except OSError:
+            raw = None
+    if raw is None:
+        return None
+    env = {}
+    for item in raw:
+        key, sep, val = item.decode(errors="replace").partition("=")
+        if sep:
+            env[key] = val
+    return env
+
+
+def _launcher_of(pid: int) -> dict:
+    """How the claude process `pid` was started (see BACKLOG_FILE)."""
+    val = (_proc_env(pid) or {}).get("CLAUDE_CONFIG_DIR")
+    if not val:
+        return {"kind": "plain"}
+    norm = os.path.normpath(val)
+    home = find_home()
+    if home is not None:
+        root = home / "accounts"
+        parent = os.path.dirname(norm)
+        if (os.path.normpath(str(root)) == parent
+                or os.path.realpath(parent) == os.path.realpath(root)):
+            return {"kind": "as", "account": os.path.basename(norm)}
+    return {"kind": "config_dir", "config_dir": val}
+
+
+def _shell_label(cmd: str) -> str:
+    """The user-visible part of a Bash-tool command line."""
+    if " eval " in cmd:
+        cmd = cmd.split(" eval ", 1)[1]
+    return _oneline(cmd.strip().strip("'\""), 120)
+
+
+def _busy_reasons(claude_pid: int, status: str,
+                  table: dict[int, tuple[int, str]]) -> list[str]:
+    """Why the session must not be stopped now: claude is mid-turn (anything
+    but idle), or one of its Bash-tool shells is still running. Other children
+    (MCP servers, caffeinate, the status line) do not count."""
+    reasons = [f"claude is {status}"] if status and status != "idle" else []
+    for p in _descendants(claude_pid, table):
+        cmd = table[p][1]
+        if BASH_TOOL_MARK in cmd:
+            reasons.append(f"shell: {_shell_label(cmd)}")
+    return reasons
+
+
+def _terminate(pid: int, timeout: float = TERMINATE_SECS) -> bool:
+    """SIGTERM (so claude runs its SessionEnd hooks), SIGKILL after `timeout`.
+    True once the process is gone."""
+    def gone() -> bool:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        except OSError:
+            return False
+        return False
+
+    for sig, wait in ((signal.SIGTERM, timeout), (signal.SIGKILL, 2.0)):
+        try:
+            os.kill(pid, sig)
+        except ProcessLookupError:
+            return True
+        except OSError:
+            return False
+        deadline = time.monotonic() + wait
+        while time.monotonic() < deadline:
+            if gone():
+                return True
+            time.sleep(0.1)
+    return gone()
+
+
+def _backlog_resolve(prefix: str, ids) -> tuple[str | None, str | None]:
+    """(id, None) for an exact id or unique prefix, else (None, error)."""
+    ids = set(ids)
+    if prefix in ids:
+        return prefix, None
+    cands = sorted(i for i in ids if prefix and i.startswith(prefix))
+    if len(cands) == 1:
+        return cands[0], None
+    if cands:
+        return None, f"ambiguous id {prefix!r}: {', '.join(c[:8] for c in cands)}"
+    return None, f"not found: {prefix!r}"
+
+
+def _purge_binned(data: dict, sid: str) -> None:
+    """Drop a binned entry, and the protection the backlog added (flag and
+    backup) unless the session was protected before or is still listed."""
+    entry = data["bin"].pop(sid)
+    if entry.get("protected_before") or sid in data["entries"]:
+        return
+    store = load_protected(strict=True)
+    if store["sessions"].pop(sid, None) is not None:
+        save_protected(store)
+    if not protection(sid, str(entry.get("cwd") or ""), store)[0]:
+        purge_archive(sid)
+
+
+def _purge_expired(data: dict, now: float | None = None) -> list[str]:
+    """Purge binned entries older than BACKLOG_BIN_DAYS; returns their ids."""
+    cutoff = (now if now is not None else time.time()) - BACKLOG_BIN_DAYS * 86400
+    old = [sid for sid, e in data["bin"].items()
+           if (ts := _iso_ts(e.get("binned_at"))) is not None and ts < cutoff]
+    for sid in old:
+        _purge_binned(data, sid)
+    return old
+
+
+def cmd_backlog_add(pid: int, *, title: str | None, note: str | None,
+                    meta: dict, kill: bool = True) -> int:
+    """Put away the claude session running in process `pid` (or below it):
+    refuse while it is busy, record it, protect and archive it, stop it."""
+    table = _proc_table()
+    by_pid = {v["pid"]: (sid, v) for sid, v in active_sessions().items()}
+    cpid = next((p for p in [pid, *_descendants(pid, table)] if p in by_pid), None)
+    if cpid is None:
+        return _fail(f"no claude session in process {pid} or below")
+    sid, act = by_pid[cpid]
+    busy = _busy_reasons(cpid, act["status"], table)
+    if busy:
+        return _fail(f"session {sid[:8]} is still running something", busy=busy, id=sid)
+    launcher = _launcher_of(cpid)
+
+    store = load_protected(strict=True)
+    row = next((r for r in session_index(store=store) if r["id"] == sid), None)
+    if row is None:
+        return _fail(f"no transcript for session {sid} yet", id=sid)
+    with _backlog_locked():
+        data = load_backlog()
+        _purge_expired(data)
+        prev = data["entries"].get(sid) or data["bin"].get(sid)
+        protected_before = (bool(prev.get("protected_before")) if prev
+                            else protection(sid, row["cwd"], store)[0])
+        prev = prev or {}
+        note = (note if note is not None else prev.get("note")) or None
+        if not protected_before:
+            _set_flag(store, "session", sid, note)
+            save_protected(store)
+        entry = {
+            "id": sid,
+            "title": title or prev.get("title") or row["title"] or act["name"] or sid[:8],
+            "note": note,
+            "cwd": row["cwd"] or act["cwd"],
+            "branch": row["branch"],
+            "session_name": act["name"],
+            "first_prompt": row["first_prompt"],
+            "last_prompt": row["last_prompt"],
+            "launcher": launcher,
+            "protected_before": protected_before,
+            "meta": meta,
+            "archived_at": _now_iso(),
+        }
+        data["entries"][sid] = entry
+        data["bin"].pop(sid, None)
+        save_backlog(data)
+
+    transcript = Path(row["path"])
+    fh_dirs = _file_history_dirs()
+    if row["live"]:
+        archive_session(transcript, fh_dirs)
+    killed = _terminate(cpid) if kill else False
+    if killed and row["live"] and transcript.exists():
+        archive_session(transcript, fh_dirs)  # whatever it wrote on the way out
+    _emit({"ok": True, "entry": entry, "killed": killed, "pid": cpid})
+    return 0
+
+
+def _backlog_rows() -> dict[str, dict]:
+    try:
+        return {r["id"]: r for r in session_index()}
+    except Exception as exc:  # the list still shows without the index
+        print(f"warning: session index failed: {exc}", file=sys.stderr)
+        return {}
+
+
+def _joined(entry: dict, rows: dict[str, dict]) -> dict:
+    """An entry with the session index's live view of it."""
+    r = rows.get(entry["id"]) or {}
+    cwd = str(entry.get("cwd") or "")
+    return {
+        **entry,
+        "transcript": bool(r),
+        "live": bool(r.get("live")),
+        "active": bool(r.get("active")),
+        "active_status": r.get("active_status"),
+        "cwd_exists": bool(cwd) and os.path.isdir(cwd),
+        "ai_title": r.get("ai_title", ""),
+        "first_prompt": entry.get("first_prompt") or r.get("first_prompt", ""),
+        "last_prompt": r.get("last_prompt") or entry.get("last_prompt", ""),
+        "mtime": r.get("mtime"),
+    }
+
+
+def cmd_backlog_list(as_json: bool) -> int:
+    with _backlog_locked():
+        data = load_backlog()
+        if _purge_expired(data):
+            save_backlog(data)
+    rows = _backlog_rows()
+    by = lambda key: (lambda e: _iso_ts(e.get(key)) or 0)  # noqa: E731
+    entries = [_joined(e, rows) for e in sorted(data["entries"].values(),
+                                                key=by("archived_at"), reverse=True)]
+    binned = [_joined(e, rows) for e in sorted(data["bin"].values(),
+                                               key=by("binned_at"), reverse=True)]
+    if as_json:
+        _emit({"ok": True, "entries": entries, "bin": binned})
+        return 0
+    for label, items, key in (("backlog", entries, "archived_at"), ("bin", binned, "binned_at")):
+        console.print(f"[bold]{label}[/bold] ({len(items)})")
+        for e in items:
+            ts = _iso_ts(e.get(key))
+            age = _age(ts) if ts is not None else "?"
+            console.print(f"  {e['id'][:8]}  {age:>4}  {_fit(e['title'] or '', 50).rstrip()}"
+                          f"  [dim]{_tilde(e.get('cwd') or '')}[/dim]"
+                          + (f"  [italic]{e['note']}[/italic]" if e.get("note") else ""),
+                          highlight=False)
+    return 0
+
+
+def cmd_backlog_edit(target: str, *, title: str | None, note: str | None) -> int:
+    with _backlog_locked():
+        data = load_backlog()
+        sid, err = _backlog_resolve(target, data["entries"])
+        if sid is None:
+            return _fail(err)
+        entry = data["entries"][sid]
+        if title is not None:
+            entry["title"] = title or entry["title"]
+        if note is not None:
+            entry["note"] = note or None
+        save_backlog(data)
+    _emit({"ok": True, "entry": entry})
+    return 0
+
+
+def cmd_backlog_bin(target: str, reason: str) -> int:
+    with _backlog_locked():
+        data = load_backlog()
+        sid, err = _backlog_resolve(target, data["entries"])
+        if sid is None:
+            return _fail(err)
+        entry = data["entries"].pop(sid)
+        entry.update(binned_at=_now_iso(), reason=reason)
+        data["bin"][sid] = entry
+        save_backlog(data)
+    _emit({"ok": True, "entry": entry})
+    return 0
+
+
+def cmd_backlog_restore(target: str) -> int:
+    with _backlog_locked():
+        data = load_backlog()
+        sid, err = _backlog_resolve(target, data["bin"])
+        if sid is None:
+            return _fail(err)
+        entry = data["bin"].pop(sid)
+        entry.pop("binned_at", None)
+        entry.pop("reason", None)
+        data["entries"][sid] = entry
+        save_backlog(data)
+    _emit({"ok": True, "entry": entry})
+    return 0
+
+
+def cmd_backlog_purge(target: str) -> int:
+    with _backlog_locked():
+        data = load_backlog()
+        sid, err = _backlog_resolve(target, data["bin"])
+        if sid is None:
+            return _fail(err)
+        _purge_binned(data, sid)
+        save_backlog(data)
+    _emit({"ok": True, "id": sid})
+    return 0
+
+
+def _exec_claude(args: list[str], config_dir: str | None) -> None:
+    """Exec claude (through claude-custom when on PATH) with CLAUDE_CONFIG_DIR
+    = config_dir, or unset for a plain session."""
+    exe = shutil.which("claude-custom") or shutil.which("claude")
+    if not exe:
+        raise SystemExit("neither claude-custom nor claude found on PATH")
+    env = dict(os.environ)
+    env.pop("CLAUDE_CONFIG_DIR", None)
+    if config_dir:
+        env["CLAUDE_CONFIG_DIR"] = config_dir
+    _sync_quietly()
+    os.execve(exe, [exe, *args], env)
+
+
+def cmd_backlog_resume(target: str, *, passthrough: list[str], force_resume: bool) -> int:
+    """Resume a backlog entry the way it was launched, in its dir; the entry
+    moves to the bin (reason "resumed") just before claude starts."""
+    with _backlog_locked():
+        data = load_backlog()
+        if _purge_expired(data):
+            save_backlog(data)
+    sid, err = _backlog_resolve(target, data["entries"])
+    if sid is None:
+        return _fail(err)
+    entry = data["entries"][sid]
+    row = next((r for r in session_index() if r["id"] == sid), None)
+    if row is None:
+        return _fail(f"no transcript or backup left for {sid}")
+    if row["active"] and not force_resume:
+        return _fail(f"already running: pid {row['active_pid']}, status "
+                     f"{row['active_status'] or '?'} (--force-resume opens it anyway)")
+    launcher = entry.get("launcher") or {"kind": "plain"}
+    account = launcher.get("account") if launcher.get("kind") == "as" else None
+    if not row["live"]:
+        target_acct = account
+        if account == DEFAULT_NAME:
+            target_acct = None
+            with contextlib.suppress(DefaultError):
+                target_acct = current_default()
+        try:
+            restore_session(row, target_acct)
+        except OSError as exc:
+            return _fail(f"cannot restore {sid} from backup: {exc}")
+    cwd = str(entry.get("cwd") or row["cwd"] or "")
+    if cwd and os.path.isdir(cwd):
+        os.chdir(cwd)
+    else:
+        # A removed worktree or subdir: its nearest surviving parent.
+        near = os.path.dirname(cwd) if cwd else ""
+        while near and near != os.path.dirname(near) and not os.path.isdir(near):
+            near = os.path.dirname(near)
+        if near and near != os.path.dirname(near):
+            os.chdir(near)
+        print(f"warning: session dir {cwd or '(unknown)'} no longer exists — "
+              f"resuming from {os.getcwd()}", file=sys.stderr)
+
+    def move(to_bin: bool) -> None:
+        with _backlog_locked():
+            data = load_backlog()
+            if to_bin and sid in data["entries"]:
+                e = data["entries"].pop(sid)
+                e.update(binned_at=_now_iso(), reason="resumed")
+                data["bin"][sid] = e
+            elif not to_bin and sid in data["bin"]:
+                e = data["bin"].pop(sid)
+                e.pop("binned_at", None)
+                e.pop("reason", None)
+                data["entries"][sid] = e
+            save_backlog(data)
+
+    move(True)
+    args = ["--resume", sid, *passthrough]
+    try:
+        if account == DEFAULT_NAME:
+            rc = launch_default(args)
+            if rc:
+                move(False)
+            return rc
+        if account:
+            launch(account, args)  # execs
+        else:
+            _exec_claude(args, launcher.get("config_dir"))  # execs
+    except BaseException:
+        move(False)
+        raise
+    return 0
+
+
+def _backlog_main(args: list[str], passthrough: list[str]) -> int:
+    usage = ("[red]usage:[/red] claude-as backlog "
+             "add --pid <pid> \\[--title T] \\[--note N] \\[--meta JSON] \\[--no-kill]"
+             " | list \\[--json] | edit <id> \\[--title T] \\[--note N]"
+             " | bin <id> \\[--reason deleted|resumed] | restore <id> | purge <id>"
+             " | resume <id> \\[--force-resume] \\[-- <claude args>]")
+    if not args:
+        console.print(usage)
+        return 2
+    sub, rest = args[0], args[1:]
+    valued = {"--pid", "--title", "--note", "--meta", "--reason"}
+    flags = {"--json", "--no-kill", "--force-resume"}
+    opts: dict[str, str | bool] = {}
+    targets: list[str] = []
+    it = iter(rest)
+    for arg in it:
+        if arg in valued:
+            val = next(it, None)
+            if val is None:
+                console.print(f"[red]{arg} needs a value[/red]")
+                return 2
+            opts[arg] = val
+        elif arg in flags:
+            opts[arg] = True
+        elif arg.startswith("-"):
+            console.print(f"[red]unknown backlog option:[/red] {arg}")
+            console.print(usage)
+            return 2
+        else:
+            targets.append(arg)
+    allowed = {"add": {"--pid", "--title", "--note", "--meta", "--no-kill"},
+               "list": {"--json"}, "edit": {"--title", "--note"},
+               "bin": {"--reason"}, "restore": set(), "purge": set(),
+               "resume": {"--force-resume"}}
+    if sub not in allowed or set(opts) - allowed[sub] or (
+            passthrough and sub != "resume"):
+        console.print(usage)
+        return 2
+    if sub in ("add", "list"):
+        if targets:
+            console.print(usage)
+            return 2
+    elif len(targets) != 1:
+        console.print(usage)
+        return 2
+
+    if sub == "add":
+        pid, meta = opts.get("--pid"), opts.get("--meta", "{}")
+        if not isinstance(pid, str) or not pid.isdigit():
+            console.print("[red]--pid needs a process id[/red]")
+            return 2
+        try:
+            meta = json.loads(meta)
+        except ValueError:
+            meta = None
+        if not isinstance(meta, dict):
+            console.print("[red]--meta must be a JSON object[/red]")
+            return 2
+        return cmd_backlog_add(int(pid), title=opts.get("--title"), note=opts.get("--note"),
+                               meta=meta, kill="--no-kill" not in opts)
+    if sub == "list":
+        return cmd_backlog_list("--json" in opts)
+    target = targets[0]
+    if sub == "edit":
+        if "--title" not in opts and "--note" not in opts:
+            console.print(usage)
+            return 2
+        return cmd_backlog_edit(target, title=opts.get("--title"), note=opts.get("--note"))
+    if sub == "bin":
+        reason = opts.get("--reason", "deleted")
+        if reason not in BACKLOG_REASONS:
+            console.print(f"[red]--reason must be one of:[/red] {', '.join(BACKLOG_REASONS)}")
+            return 2
+        return cmd_backlog_bin(target, reason)
+    if sub == "restore":
+        return cmd_backlog_restore(target)
+    if sub == "purge":
+        return cmd_backlog_purge(target)
+    return cmd_backlog_resume(target, passthrough=passthrough,
+                              force_resume="--force-resume" in opts)
+
+
 # --- remind ------------------------------------------------------------------
 
 # REMINDERS_FILE = {"reminders": [record, ...]}; a record is
@@ -3971,6 +4545,8 @@ def main(argv: list[str]) -> int:
         return _remind_main(left[1:], passthrough)
     if left and left[0] == "resume":
         return _resume_main(left[1:], passthrough)
+    if left and left[0] == "backlog":
+        return _backlog_main(left[1:], passthrough)
     if left and left[0] == "accounts":
         extra = [a for a in left[1:] if a != "--json"]
         if extra or passthrough:
