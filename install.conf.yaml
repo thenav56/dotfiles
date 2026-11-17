@@ -89,6 +89,8 @@
       path: config/xsettingsd/
     ~/.claude/:
       path: config/claude
+    ~/.local/bin/claude-as:
+      path: commands/claude-as
     ~/.config/ccstatusline/settings.json:
       path: config/ccstatusline.json
     # Herdr GUI (Herdr.app): personal keys, mods and layouts only; the rest of
