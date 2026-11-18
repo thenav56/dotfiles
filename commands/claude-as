@@ -231,8 +231,9 @@ SKIP_LIST = {
     "daemon.status.json", "feedback", "hooks", "jobs",
     "mcp-needs-auth-cache.json",
     "policy-limits.json", "policy-limits.json.signature.json",
-    "policy-limits.json.stamp.json",
+    "policy-limits.json.stamp.json", "policy-limits.json.signature-iat.json",
     "remote-settings.json", "remote-settings.json.signature.json",
+    "remote-settings.json.signature-iat.json", "remote-settings.json.synced-at",
     "session-env",
     "settings.json", "settings.json.bak", "stats-cache.json", "telemetry",
 }
