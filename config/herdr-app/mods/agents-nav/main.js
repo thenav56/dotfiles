@@ -52,6 +52,22 @@ const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status;
   return s === "error" ? "blocked" : s === "done" ? "idle" : s;
 };
+// A terminal's records (programs reporting on several things, e.g. Claude Code's
+// in-process sub-agents) as sub-agent rows. They have no terminal: a click peeks the owner.
+// Off with the sort menu's "Show sub-agent records" (shared "agents.records", default on).
+const showRecords = () => shared("agents.records") !== false;
+const records = (all, addr) => {
+  if (!showRecords()) return [];
+  const owner = all.find((x) => x.address === addr);
+  return Object.entries(owner?.records ?? {}).map(([id, r]) => ({
+    address: `${addr}#${id}`,
+    owner: addr,
+    name: r.title || id,
+    status: r.state,
+    program: owner.program,
+    state: "live",
+  }));
+};
 // Space avatar colors, as the spaces mod draws them.
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 // Space dots skip green (ansi2), teal (ansi6) and red (ansi1): they read as status.
@@ -169,16 +185,35 @@ export default class Agents extends View {
         })
         .child(svg(`mods/workspace-chrome/${s.icon}.svg`).size(14).flex_none().text_color(t.muted))
         .child(div().flex_1().child(s.label))
-        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))));
+        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))))
+      .child(div().h(1).mx(8).my(4).bg(t.border))
+      .child(h_flex()
+        .id("show-records")
+        .h(31)
+        .px(8)
+        .gap(9)
+        .rounded(7)
+        .items_center()
+        .text_color(t.foreground)
+        .hover((el) => el.bg(t.hover))
+        .tooltip("In-process sub-agents a program reports, e.g. Claude Code's Agent tool")
+        .on_click(() => {
+          setShared("agents.records", !showRecords());
+          closeOverlay(props().overlay);
+        })
+        .child(svg("mods/workspace-chrome/layers.svg").size(14).flex_none().text_color(t.muted))
+        .child(div().flex_1().child("Show sub-agent records"))
+        .when(showRecords(), (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground))));
   }
 
   peek(addr) {
     run("terminal.peek", { terminal: addr });
   }
 
-  // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
+  // Live sub-agents of `addr`, depth first, each with the tree lines in front of it:
+  // child terminals, then the in-process sub-agents its program reports as records.
   tree(all, addr, lead = []) {
-    const kids = all.filter((k) => k.parent === addr && k.state === "live");
+    const kids = [...all.filter((k) => k.parent === addr && k.state === "live"), ...records(all, addr)];
     return kids.flatMap((k, i) => {
       const last = i === kids.length - 1;
       return [
@@ -205,7 +240,7 @@ export default class Agents extends View {
       .text_size(12.5)
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
-      .on_click(() => this.peek(k.address))
+      .on_click(() => this.peek(k.owner ?? k.address))
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
@@ -530,7 +565,7 @@ export default class Agents extends View {
                 .text_size(11)
                 .text_color(t.dim)
                 .hover((s) => s.text_color(t.foreground))
-                .on_click(() => openOverlay({ mod: "agents-nav", kind: "popup", width: 200, height: 175, props: { sortMenu: true } }))
+                .on_click(() => openOverlay({ mod: "agents-nav", kind: "popup", width: 220, height: 220, props: { sortMenu: true } }))
                 .tooltip(`Sort agents: ${sort.label}`)
                 .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
             ),
