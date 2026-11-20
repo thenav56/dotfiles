@@ -1586,6 +1586,23 @@ def test_dispatch_sends_marks_and_prunes(tg, capsys):
     assert capsys.readouterr() == ("", "")
 
 
+def test_dispatch_maybe_sent_is_not_resent(remind_env, monkeypatch):
+    """tg-notify exit 75 (maybe delivered) marks the reminder fired, no resend."""
+    _write_rems([_rem("due001", time.time() - 10)])
+    monkeypatch.setattr(ca.shutil, "which", lambda name: None)
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return ca.subprocess.CompletedProcess([], ca.TG_MAYBE_SENT, stdout="", stderr="maybe\n")
+
+    monkeypatch.setattr(ca.subprocess, "run", fake_run)
+    assert ca.main(["remind", "dispatch"]) == 0
+    assert _rems()[0]["status"] == "fired"
+    assert ca.main(["remind", "dispatch"]) == 0
+    assert sum(c[-1].startswith("⏰ note due001") for c in calls) == 1
+
+
 def test_dispatch_failure_retries(remind_env, monkeypatch, capsys):
     _write_rems([_rem("due001", time.time() - 10)])
     monkeypatch.setattr(ca.shutil, "which", lambda name: None)

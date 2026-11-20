@@ -3374,7 +3374,8 @@ LAUNCHD_LOG_DIR = Path.home() / "Library" / "Logs" / "claude-as"
 REMIND_LABEL = "com.claude-as.remind"
 LISTEN_LABEL = "com.claude-as.remind-listen"
 TG_NOTIFY_FALLBACK = Path.home() / ".local" / "bin" / "tg-notify"
-NOTIFY_TIMEOUT_SECS = 60
+NOTIFY_TIMEOUT_SECS = 240  # tg-notify retries by itself, up to about 3 minutes
+TG_MAYBE_SENT = 75  # tg-notify exit: may have been delivered, don't resend
 TG_MISSING = "tg-notify not found"
 LAST_ERROR_MAX = 300
 _DUR_UNITS = {"m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
@@ -3614,6 +3615,8 @@ def send_notification(message: str, *, level: str = "info",
             cmd = plain
             continue
         break
+    if proc.returncode == TG_MAYBE_SENT:
+        return SendResult(None, None)
     if proc.returncode != 0:
         return SendResult(None, _proc_error(proc))
     out = proc.stdout.strip()
