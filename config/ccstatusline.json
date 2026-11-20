@@ -114,9 +114,18 @@
     ],
     [
       {
+        "id": "cee06b7a-5454-42e5-8660-5a2027cbe07c",
+        "type": "custom-text",
+        "customText": "👤 "
+      },
+      {
         "id": "969657ee-b46a-4f41-ae9f-dd53a8d77261",
         "type": "claude-account-email",
         "rawValue": true
+      },
+      {
+        "id": "b1c4586d-f141-4ce3-8551-2a3bc801f21f",
+        "type": "flex-separator"
       },
       {
         "id": "9d3621b3-2650-4022-a763-f334095517cf",
@@ -149,39 +158,33 @@
       {
         "id": "a92b4acc-1470-484c-9581-2218c6edf8e5",
         "type": "tokens-total"
-      },
-      {
-        "id": "b1c4586d-f141-4ce3-8551-2a3bc801f21f",
-        "type": "flex-separator"
-      },
-      {
-        "id": "61eda54b-86a7-44cf-93d0-910fec5f98b2",
-        "type": "input-speed"
-      },
-      {
-        "id": "d6e6d0fb-acfe-4d70-af8d-bb530ee96fb6",
-        "type": "separator"
-      },
-      {
-        "id": "c3eea5b3-e52d-4027-9d4e-43c42f7bd00a",
-        "type": "output-speed"
-      },
-      {
-        "id": "e407296a-de4e-4700-8445-931573f287e6",
-        "type": "separator"
-      },
-      {
-        "id": "5ce77f0b-d2de-452a-9aad-736d6a6f47f9",
-        "type": "total-speed"
       }
     ],
     [
       {
+        "id": "e83cd573-5330-4256-a9ae-e94db1bba1a3",
+        "type": "current-working-dir",
+        "character": "🗂️",
+        "metadata": {
+          "abbreviateHome": "true",
+          "label": ""
+        }
+      },
+      {
+        "id": "bc44f534-8f6b-4308-b9eb-f19f0c36e266",
+        "type": "flex-separator"
+      },
+      {
         "id": "a7fdae15-8558-4b63-9d38-6393602fca44",
         "type": "git-origin-repo",
         "metadata": {
-          "hide": "no-remote"
+          "hide": "no-remote",
+          "linkToRepo": "true"
         }
+      },
+      {
+        "id": "939a9028-e825-46b9-8b16-b119946351ef",
+        "type": "separator"
       },
       {
         "id": "29ca368f-4c7a-4585-8f69-bdd506194444",
@@ -197,24 +200,9 @@
         "metadata": {
           "hide": "no-git"
         }
-      },
-      {
-        "id": "36c0d1fa-6bb8-4e58-9793-dacfa3532d3a",
-        "type": "separator"
-      },
-      {
-        "id": "e83cd573-5330-4256-a9ae-e94db1bba1a3",
-        "type": "current-working-dir",
-        "character": "🗂️",
-        "metadata": {
-          "abbreviateHome": "true",
-          "label": ""
-        }
       }
     ]
   ],
-  "flexMode": "full-until-compact",
-  "compactThreshold": 60,
   "colorLevel": 2,
   "defaultPaddingSide": "both",
   "inheritSeparatorColors": false,
