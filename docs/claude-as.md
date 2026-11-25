@@ -2,8 +2,8 @@
 
 `claude-as` starts an interactive `claude` as one of several Claude accounts.
 Each account has its own `accounts/<email>/` dir, used as `CLAUDE_CONFIG_DIR`.
-The tool only sets up config. It never logs in: when an account has no
-credentials it prints the login command for that account's dir.
+Launching only sets up config. It never logs in: when an account has no
+credentials it points at `claude-as login <email>`.
 
 Script: `commands/claude-as` (a single-file `uv run --script`, deps `pyyaml`
 and `rich`).
@@ -63,8 +63,15 @@ orchestrate_pool:
 Account dirs are created on first launch. To log an account in:
 
 ```bash
-CLAUDE_CONFIG_DIR=<data dir>/accounts/work@example.com claude auth login --claudeai --email work@example.com
+claude-as login work@example.com
 ```
+
+It runs `claude auth login --claudeai --email <email>` with
+`CLAUDE_CONFIG_DIR` set to that account's dir, calling the `claude` binary on
+`PATH` directly. A shell alias for `claude` (such as `claude-as default --`)
+is skipped, so the login cannot land in the `default` account. When the
+account already has credentials it asks, then logs out first. `default` is
+refused.
 
 ### macOS
 

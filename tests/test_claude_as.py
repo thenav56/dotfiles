@@ -2685,7 +2685,59 @@ def test_auth_gate_prints_login_command(tmp_path, capsys):
     with pytest.raises(SystemExit):
         ca.auth_gate(cfg, "a@x.org")
     out = capsys.readouterr().out
-    assert f"CLAUDE_CONFIG_DIR={cfg} claude auth login --claudeai --email a@x.org\n" in out
+    assert "claude-as login a@x.org\n" in out
+
+
+@pytest.fixture
+def login_env(tmp_path, monkeypatch):
+    """One configured account; records the logout run and the login exec."""
+    _write_config([("a@x.org", "Work")])
+    monkeypatch.setattr(ca.shutil, "which", lambda name: f"/usr/bin/{name}")
+    calls = []
+    monkeypatch.setattr(ca.subprocess, "run",
+                        lambda argv, env: calls.append(("run", argv, env["CLAUDE_CONFIG_DIR"])))
+    monkeypatch.setattr(ca.os, "execve",
+                        lambda exe, argv, env: calls.append(("exec", argv, env["CLAUDE_CONFIG_DIR"])))
+    return calls
+
+
+def test_login_execs_real_claude_with_account_dir(login_env, tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "accounts" / "default"))
+    assert ca.main(["login", "Work"]) == 0
+    assert login_env == [("exec",
+                          ["/usr/bin/claude", "auth", "login", "--claudeai", "--email", "a@x.org"],
+                          str(tmp_path / "accounts" / "a@x.org"))]
+
+
+def test_login_with_credentials_declined(login_env, tmp_path, monkeypatch, capsys):
+    cfg = tmp_path / "accounts" / "a@x.org"
+    cfg.mkdir(parents=True)
+    (cfg / ".credentials.json").touch()
+    monkeypatch.setattr("builtins.input", lambda prompt: "")
+    assert ca.main(["login", "a@x.org"]) == 1
+    assert login_env == []
+
+
+def test_login_with_credentials_logs_out_first(login_env, tmp_path, monkeypatch):
+    cfg = tmp_path / "accounts" / "a@x.org"
+    cfg.mkdir(parents=True)
+    (cfg / ".credentials.json").touch()
+    monkeypatch.setattr("builtins.input", lambda prompt: "y")
+    assert ca.main(["login", "a@x.org"]) == 0
+    assert [(kind, argv[1:3]) for kind, argv, _ in login_env] == [
+        ("run", ["auth", "logout"]), ("exec", ["auth", "login"])]
+    assert {d for _, _, d in login_env} == {str(cfg)}
+
+
+@pytest.mark.parametrize("argv", [["login"], ["login", "a", "b"], ["login", "a", "--", "x"]])
+def test_login_usage(login_env, argv):
+    assert ca.main(argv) == 2
+    assert login_env == []
+
+
+def test_login_refuses_default(login_env):
+    assert ca.main(["login", "default"]) == 2
+    assert login_env == []
 
 
 def test_top_level_install_is_unknown(capsys):

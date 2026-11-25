@@ -19,8 +19,8 @@ aliased `claude`:
   * then `exec claude-custom` — which regenerates settings.json from the
     symlinked base+local and execs the real claude binary.
 
-This tool does CONFIG SETUP ONLY, never auth. If an account isn't logged in it
-prints the `claude auth login` command for that account dir.
+Launching does CONFIG SETUP ONLY, never auth. If an account isn't logged in it
+points at `claude-as login <email>`.
 
 Data dir: $CLAUDE_AS_HOME, else the ~/.config/claude-as/home symlink. It holds
 `accounts/<email>/` and `config.yaml` (`users:`, optional `orchestrate_pool:`).
@@ -31,6 +31,9 @@ Usage:
   claude-as work@example.com      launch as that account
   claude-as work@… -- --resume    launch as that account, pass `--resume`
   claude-as default [-- args]     launch via the `default` symlink (see below)
+  claude-as login <sel>           `claude auth login` into that account's own
+                                  dir (asks before replacing existing
+                                  credentials; `default` is refused)
   claude-as set-default <sel>     point `default` at another account
   claude-as get-default           print the current default account (or none)
   claude-as accounts [--json]     list accounts (email, label, creds, in_pool,
@@ -689,9 +692,41 @@ def ensure_onboarding(cfg: Path) -> None:
 
 def login_cmd(email: str) -> str:
     """Shell command that logs `email` in to its own account dir."""
-    cfg = shlex.quote(str(accounts_root() / email))
-    return (f"CLAUDE_CONFIG_DIR={cfg} claude auth login --claudeai "
-            f"--email {shlex.quote(email)}")
+    return f"claude-as login {shlex.quote(email)}"
+
+
+def cmd_login(selector: str) -> int:
+    """`claude auth login` with CLAUDE_CONFIG_DIR = the account's real dir.
+
+    The real claude binary runs directly: a shell alias for `claude` (e.g.
+    `claude-as default --`) would otherwise replace CLAUDE_CONFIG_DIR and save
+    the login into the `default` account.
+    """
+    if selector == DEFAULT_NAME:
+        console.print(f"[red]{DEFAULT_NAME!r} is not an account[/red] — pass an "
+                      f"email, label, or substring")
+        return 2
+    email = resolve_selector(selector, load_users())
+    cfg = account_dir(email)
+    exe = shutil.which("claude")
+    if not exe:
+        raise SystemExit("claude not found on PATH")
+    env = dict(os.environ)
+    env["CLAUDE_CONFIG_DIR"] = str(cfg)
+    if has_credentials(cfg):
+        # `auth login` over live credentials can return without a new login.
+        ans = input(f"{email} already has credentials. Log out and log in "
+                    f"again? [y/N] ").strip().lower()
+        if ans != "y":
+            console.print("skipped")
+            return 1
+        subprocess.run([exe, "auth", "logout"], env=env)
+    # --email only pre-fills the login page; a browser signed in as another
+    # account hands back that account.
+    console.print(f"[dim]pick {email} on the login page — a browser already "
+                  f"signed in as someone else reuses that account[/dim]")
+    os.execve(exe, [exe, "auth", "login", "--claudeai", "--email", email], env)
+    return 0
 
 
 def _not_logged_in(email: str) -> None:
@@ -4603,6 +4638,11 @@ def main(argv: list[str]) -> int:
         return _search_main(left[1:], passthrough)
     if left and left[0] in ("protect", "unprotect"):
         return _protect_main(left[1:], passthrough, unprotect=left[0] == "unprotect")
+    if left and left[0] == "login":
+        if len(left) != 2 or passthrough:
+            console.print("[red]usage:[/red] claude-as login <selector>")
+            return 2
+        return cmd_login(left[1])
     if left and left[0] == "set-default":
         if len(left) != 2 or passthrough:
             console.print("[red]usage:[/red] claude-as set-default <selector>")
