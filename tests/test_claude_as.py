@@ -158,6 +158,18 @@ def test_count_default_sessions(tmp_path):
     assert ca.count_default_sessions(Path(want), proc_root=proc) == 2
 
 
+def test_default_session_terminals(tmp_path):
+    proc = tmp_path / "proc"
+    want = "/repo/accounts/default"
+    _proc(proc, 100, 1, {"CLAUDE_CONFIG_DIR": want, "HC_TERMINAL_ID": "t1"})
+    _proc(proc, 101, 100, {"CLAUDE_CONFIG_DIR": want, "HC_TERMINAL_ID": "t1"})  # child shell
+    _proc(proc, 200, 1, {"CLAUDE_CONFIG_DIR": want})                            # not in herdr
+    # An explicit account keeps its account through set-default: not relabelled.
+    _proc(proc, 300, 1, {"CLAUDE_CONFIG_DIR": "/repo/accounts/a@x.org", "HC_TERMINAL_ID": "t3"})
+    _proc(proc, 400, 1, {"CLAUDE_CONFIG_DIR": want, "HC_TERMINAL_ID": "t4"})
+    assert ca.default_session_terminals(Path(want), proc_root=proc) == ["t1", "t4"]
+
+
 def test_count_default_sessions_missing_proc(tmp_path):
     assert ca.count_default_sessions(Path("/x"), proc_root=tmp_path / "nope") == 0
 

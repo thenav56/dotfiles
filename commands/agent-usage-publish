@@ -3,6 +3,7 @@
 
     agent-usage-publish claude   # stdin: Claude Code statusline JSON (claude-statusline)
     agent-usage-publish codex    # stdin: Codex hook JSON (config/codex/hooks.json: SessionStart, Stop)
+    agent-usage-publish claude-switch <email> <terminal>...   # from `claude-as set-default`
 
 Sets the `agent.usage` label on this herdr terminal ($HC_TERMINAL_ID), or for
 Codex, whose hooks run in a daemon outside any terminal, on every live Codex
@@ -33,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime
 
 LABEL = "agent.usage"
 REFRESH = 300
@@ -52,17 +54,23 @@ def window(pct, resets_at, key: str) -> dict:
 
 
 def claude_account(state: dict) -> str | None:
-    """The account's email: claude-as names account dirs by email, else ask .claude.json."""
+    """The account's email, looked up on every render: `claude-as set-default` flips
+    the `default` symlink under running sessions, so the path alone says nothing.
+    claude-as names account dirs by email; otherwise .claude.json says, cached
+    until that file changes (it can be large)."""
     d = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
-    if state.get("dir") == d and state.get("acct"):
-        return state["acct"]
     name = os.path.basename(os.path.realpath(d))
     if "@" in name:
         return name
     path = os.path.join(d, ".claude.json") if os.environ.get("CLAUDE_CONFIG_DIR") else os.path.expanduser("~/.claude.json")
     try:
+        key = f"{os.path.realpath(path)}:{os.path.getmtime(path)}"
+        if state.get("acct_key") == key and state.get("acct"):
+            return state["acct"]
         with open(path, encoding="utf-8") as f:
-            return json.load(f).get("oauthAccount", {}).get("emailAddress")
+            acct = json.load(f).get("oauthAccount", {}).get("emailAddress")
+        state.update(acct_key=key, acct=acct)
+        return acct
     except Exception:
         return None
 
@@ -75,8 +83,15 @@ def claude(data: dict, state: dict) -> dict | None:
     acct = claude_account(state)
     if not usage or not acct:
         return None
-    state["dir"] = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
     return {"app": "claude", "acct": acct, **usage}
+
+
+def stale_after_switch(prev: dict | None, usage: dict) -> bool:
+    """Right after the account changes under a running session, its rate limits are
+    still the old account's until its next API request: same numbers, new account."""
+    if not prev or prev.get("acct") == usage["acct"]:
+        return False
+    return {k: v for k, v in prev.items() if k != "acct"} == {k: v for k, v in usage.items() if k != "acct"}
 
 
 # --- Codex -------------------------------------------------------------------
@@ -180,8 +195,63 @@ def codex_terminals() -> list[str]:
     return [t["address"] for t in listed if t.get("agent") == "codex" and t.get("state") == "live" and "/" not in t["address"]]
 
 
+def state_dir() -> str:
+    return os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+
+
+def known_claude_usage(email: str) -> dict | None:
+    """The newest usage this machine has seen for a Claude account: what any session
+    here last published for it, or ccstatusline's own cache (it asks the usage API
+    per OAuth token and records which email each token is)."""
+    best = None
+
+    def offer(u: dict | None) -> None:
+        nonlocal best
+        if u and u.get("acct") == email and u.get("at", 0) > (best or {}).get("at", -1):
+            best = u
+
+    for path in glob.glob(os.path.join(state_dir(), "agent-usage-*.json")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                for s in json.load(f).get("sent", {}).values():
+                    offer({**s["usage"], "at": s["at"]})
+        except Exception:
+            continue
+
+    cache = os.path.expanduser("~/.cache/ccstatusline")
+    for path in glob.glob(os.path.join(cache, "usage-*.json")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                c = json.load(f)
+            with open(os.path.join(cache, f"account-email-{c['tokenHash']}.json"), encoding="utf-8") as f:
+                if json.load(f).get("email") != email:
+                    continue
+            u = {"app": "claude", "acct": email}
+            for key, pct, reset in (("h5", "sessionUsage", "sessionResetAt"), ("wk", "weeklyUsage", "weeklyResetAt")):
+                when = datetime.fromisoformat(c[reset]).timestamp() if c.get(reset) else None
+                u.update(window(c.get(pct), when, key))
+            offer({**u, "at": int(os.path.getmtime(path))})
+        except Exception:
+            continue
+    return best
+
+
+def claude_switch(email: str, terms: list[str]) -> None:
+    """`claude-as set-default` moved these terminals' sessions to `email`: show that
+    account's newest known usage at once, or nothing rather than the old account's.
+    Each session's own report takes over after its next request (stale_after_switch
+    holds off its old numbers until then)."""
+    u = known_claude_usage(email)
+    value = json.dumps(u, separators=(",", ":")) if u else ""
+    for t in terms:
+        subprocess.run([HC, "label", t, f"{LABEL}={value}"], capture_output=True, timeout=5)
+
+
 def main() -> None:
     app = sys.argv[1] if len(sys.argv) > 1 else ""
+    if app == "claude-switch" and len(sys.argv) > 3:
+        claude_switch(sys.argv[2], sys.argv[3:])
+        return
     if app not in ("claude", "codex"):
         return
     term = os.environ.get("HC_TERMINAL_ID")
@@ -191,9 +261,8 @@ def main() -> None:
     data = json.loads(raw) if raw.strip() else {}
 
     # Claude: state per terminal. Codex: one per machine, remembering what each terminal got.
-    state_dir = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
     key = term.replace("/", "_") if app == "claude" else "codex"
-    state_path = os.path.join(state_dir, f"agent-usage-{key}.json")
+    state_path = os.path.join(state_dir(), f"agent-usage-{key}.json")
     try:
         with open(state_path, encoding="utf-8") as f:
             state = json.load(f)
@@ -205,6 +274,8 @@ def main() -> None:
         return
     now = int(time.time())
     sent = state.get("sent", {})
+    if app == "claude" and stale_after_switch(sent.get(term, {}).get("usage"), usage):
+        return
     targets = [term] if app == "claude" else codex_terminals()
     due = [t for t in targets if sent.get(t, {}).get("usage") != usage or now - sent[t].get("at", 0) >= REFRESH]
     if not due:
@@ -217,7 +288,6 @@ def main() -> None:
             sent[t] = {"usage": usage, "at": now}
     # Forget terminals that are gone.
     state["sent"] = {t: s for t, s in sent.items() if t in targets}
-    state["acct"] = usage["acct"]
     tmp = f"{state_path}.{os.getpid()}"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f)

@@ -901,11 +901,46 @@ def count_default_sessions(default_path: Path, proc_root: Path = Path("/proc")) 
     Child processes (tool shells, MCP servers) inherit the env, so only
     matching processes whose parent does not match are counted.
     """
+    return len(_default_session_pids(default_path, proc_root))
+
+
+def _default_session_pids(default_path: Path, proc_root: Path = Path("/proc")) -> list[str]:
+    """Pids of the sessions count_default_sessions counts."""
     want = os.path.normpath(str(default_path))
     procs = _mac_config_dir_procs() if IS_MAC else _proc_config_dir_procs(proc_root)
     matched = {pid: ppid for pid, ppid, val in procs
                if val and os.path.normpath(val) == want}
-    return sum(1 for ppid in matched.values() if ppid not in matched)
+    return [pid for pid, ppid in matched.items() if ppid not in matched]
+
+
+def default_session_terminals(default_path: Path, proc_root: Path = Path("/proc")) -> list[str]:
+    """herdr terminals ($HC_TERMINAL_ID) of running sessions on `default_path`."""
+    out = set()
+    for pid in _default_session_pids(default_path, proc_root):
+        try:
+            env = _mac_proc_environ(int(pid)) if IS_MAC else Path(proc_root, pid, "environ").read_bytes().split(b"\0")
+        except Exception:
+            env = None
+        for var in env or ():
+            if var.startswith(b"HC_TERMINAL_ID="):
+                out.add(var.split(b"=", 1)[1].decode(errors="replace"))
+                break
+    return sorted(t for t in out if t)
+
+
+def push_usage_switch(email: str, default_path: Path) -> None:
+    """Relabel the herdr terminals of running default sessions at once, so the
+    agents sidebar shows the new account without waiting for each session's next
+    request and status-line redraw (commands/agent-usage-publish). Best effort."""
+    publisher = Path(__file__).resolve().parent / "agent-usage-publish"
+    terms = default_session_terminals(default_path)
+    if not terms or not publisher.exists():
+        return
+    try:
+        subprocess.run([sys.executable, str(publisher), "claude-switch", email, *terms],
+                       capture_output=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
 
 
 def _proc_config_dir_procs(proc_root: Path) -> list[tuple[str, str | None, str]]:
@@ -1077,6 +1112,7 @@ def cmd_set_default(selector: str) -> int:
         return 1
 
     console.print(f"[green]default:[/green] {_who(old, labels)} → {_who(email, labels)}")
+    push_usage_switch(email, default_link())
     n = count_default_sessions(default_link())
     console.print(f"{n} running session(s) use {DEFAULT_NAME} — they switch on "
                   f"their next API request")
