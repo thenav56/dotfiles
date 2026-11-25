@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""herdr-pane-move - move a Herdr pane's terminal to another tab or space.
+
+Herdr.app has no command for it, so it's done with supported ones: the
+terminal is parked (it keeps running, its pane goes; a tab left empty closes),
+then kept back where it should go:
+
+  --tab SPACE      a new tab in that space (space id)
+  --into TAB       beside the last pane of that tab (--place right|down)
+  --new-space      a new space (--folder: where its new terminals start)
+
+Focus follows the terminal. If placing it fails, the terminal is kept as a new
+tab in whatever space is shown, so it's never left parked.
+
+Usage: herdr-pane-move <pane-id> (--tab SPACE | --into TAB | --new-space) [...]
+Called by the `pane-move` mod (keys.json: mod+shift+m, pane header button).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+
+
+def app(command: str, args: dict) -> dict:
+    proc = subprocess.run(
+        ["herdr-app", "do", command, json.dumps(args)],
+        capture_output=True, text=True, timeout=10,
+    )
+    try:
+        out = json.loads(proc.stdout or "{}")
+    except ValueError:
+        out = {}
+    if proc.returncode != 0 or "error" in out:
+        raise RuntimeError(f"{command}: {out.get('error') or proc.stderr.strip() or proc.stdout.strip()}")
+    return out
+
+
+def layout() -> list[dict]:
+    proc = subprocess.run(["herdr-app", "ls"], capture_output=True, text=True, timeout=10)
+    return json.loads(proc.stdout).get("spaces", [])
+
+
+def where(key: str, value: str) -> tuple[dict, dict, dict] | None:
+    """(space, tab, terminal entry) whose terminal entry has key == value."""
+    for space in layout():
+        for tab in space.get("tabs", []):
+            for t in tab.get("terminals", []):
+                if t.get(key) == value:
+                    return space, tab, t
+    return None
+
+
+def find_tab(tab_id: str) -> tuple[dict, dict]:
+    for space in layout():
+        for tab in space.get("tabs", []):
+            if tab.get("id") == tab_id:
+                return space, tab
+    raise RuntimeError(f"no tab {tab_id}")
+
+
+def wait_for(cond, what: str, timeout: float = 4.0):
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        got = cond()
+        if got:
+            return got
+        time.sleep(0.1)
+    raise RuntimeError(f"timed out waiting for {what}")
+
+
+def machine(id_: str) -> str | None:
+    return id_.split("/", 1)[0] if "/" in id_ else None
+
+
+def place(terminal: str, a: argparse.Namespace) -> None:
+    if a.tab:
+        app("space.select", {"id": a.tab})
+        out = app("terminal.keep", {"terminal": terminal, "place": "tab"})
+        # Kept tabs are named after the terminal; give it the automatic name.
+        if out.get("tab"):
+            wait_for(lambda: where("terminal", terminal), "the new tab")
+            app("tab.rename", {"id": out["tab"], "name": ""})
+    elif a.into:
+        _, tab = find_tab(a.into)
+        if not tab.get("terminals"):
+            raise RuntimeError("that tab has no terminal pane to go beside")
+        app("tab.select", {"id": a.into})
+        app("pane.focus", {"pane": tab["terminals"][-1]["pane"]})
+        app("terminal.keep", {"terminal": terminal, "place": a.place})
+    else:
+        new = app("space.new", {"focus": True, "machine": machine(a.pane) or ""} | ({"folder": a.folder} if a.folder else {}))
+        # Its first tab comes with a shell: put the terminal beside it, then end the shell.
+        shell = wait_for(lambda: where("terminal", new["terminal"]), "the new space")[2]
+        app("pane.focus", {"pane": shell["pane"]})
+        app("terminal.keep", {"terminal": terminal, "place": "right"})
+        wait_for(lambda: where("terminal", terminal), "the pane to come back")
+        app("pane.close", {"pane": shell["pane"]})
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="herdr-pane-move", description=__doc__.split("\n\n")[0])
+    ap.add_argument("pane")
+    dest = ap.add_mutually_exclusive_group(required=True)
+    dest.add_argument("--tab", metavar="SPACE", help="new tab in this space")
+    dest.add_argument("--into", metavar="TAB", help="split into this tab")
+    dest.add_argument("--new-space", action="store_true")
+    ap.add_argument("--place", choices=("right", "down"), default="right")
+    ap.add_argument("--folder", help="--new-space: its folder")
+    a = ap.parse_args()
+
+    src = where("pane", a.pane)
+    if not src:
+        raise RuntimeError(f"pane {a.pane} not found (only terminal panes move)")
+    src_space, src_tab, entry = src
+    terminal = entry["terminal"]
+    if a.into == src_tab["id"]:
+        raise RuntimeError("already in that tab")
+    target = a.tab or a.into
+    if target and machine(target) != machine(src_space["id"]):
+        raise RuntimeError("can't move a terminal to another machine")
+
+    app("terminal.park", {"terminal": terminal})
+    wait_for(lambda: where("terminal", terminal) is None, "the pane to park")
+    try:
+        place(terminal, a)
+        wait_for(lambda: where("terminal", terminal), "the pane to come back")
+    except Exception:
+        if not where("terminal", terminal):
+            app("terminal.keep", {"terminal": terminal, "place": "tab"})
+        raise
+    app("pane.focus", {"terminal": terminal})
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:  # noqa: BLE001 - one line for the mod's toast
+        print(f"herdr-pane-move: {exc}", file=sys.stderr)
+        sys.exit(1)

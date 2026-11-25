@@ -73,6 +73,7 @@
     "cmd-w": "mod.open:pane-close",
     "cmd-shift-w": "tab.close",
     "cmd-e": "mod.open:split-flip",
+    "cmd-shift-m": "mod.open:pane-move",
     "cmd-d": "mod.open:agent-switcher",
     "cmd-shift-d": "mod.open:space-switcher",
     "cmd-g": "mod.open:questions-toggle",
@@ -98,6 +99,10 @@
   "mod:space-switcher": {
     "cmd-j": "space-switcher.down",
     "cmd-k": "space-switcher.up"
+  },
+  "mod:pane-move": {
+    "cmd-j": "pane-move.down",
+    "cmd-k": "pane-move.up"
   },
   "mod:questions": {
     "cmd-enter": "questions.push"
