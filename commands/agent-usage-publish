@@ -97,11 +97,11 @@ def stale_after_switch(prev: dict | None, usage: dict) -> bool:
 # --- Codex -------------------------------------------------------------------
 
 
-def newest_rollout() -> str | None:
-    """This machine's most recently written Codex transcript."""
+def recent_rollouts(n: int = 5) -> list[str]:
+    """This machine's most recently written Codex transcripts, newest first."""
     home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
     paths = glob.glob(os.path.join(home, "sessions", "*", "*", "*", "*.jsonl"))
-    return max(paths, key=os.path.getmtime, default=None)
+    return sorted(paths, key=os.path.getmtime, reverse=True)[:n]
 
 
 def codex_email(account_id: str) -> str | None:
@@ -122,12 +122,13 @@ def codex_email(account_id: str) -> str | None:
 
 def codex(data: dict, state: dict) -> dict | None:
     """The newest rate limits in a rollout transcript (token_count events): the
-    session's own, else (a new session has none yet) the machine's newest."""
-    usage = codex_from(data.get("transcript_path"))
-    if not usage:
-        newest = newest_rollout()
-        if newest and newest != data.get("transcript_path"):
-            usage = codex_from(newest)
+    session's own, else (a new session has none yet, and is itself the newest
+    transcript) the machine's newest other transcript that has some."""
+    own = data.get("transcript_path")
+    usage = codex_from(own)
+    for path in [] if usage else recent_rollouts():
+        if path != own and (usage := codex_from(path)):
+            break
     if usage and usage["acct"].startswith("codex:"):
         # Remembered per account so auth.json is read once, not every turn.
         emails = state.setdefault("emails", {})
