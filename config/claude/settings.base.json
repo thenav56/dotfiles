@@ -118,7 +118,7 @@
     ]
   },
   "statusLine": {
-    "command": "npx -y ccstatusline@latest",
+    "command": "\"$HOME/.dotfiles/commands/claude-statusline\"",
     "padding": 0,
     "type": "command"
   },

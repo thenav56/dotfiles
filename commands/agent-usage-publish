@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""agent-usage-publish - publish a coding agent's plan usage to herdr.
+
+    agent-usage-publish claude   # stdin: Claude Code statusline JSON (claude-statusline)
+    agent-usage-publish codex    # stdin: Codex hook JSON (config/codex/hooks.json: SessionStart, Stop)
+
+Sets the `agent.usage` label on this herdr terminal ($HC_TERMINAL_ID), or for
+Codex, whose hooks run in a daemon outside any terminal, on every live Codex
+terminal on this machine:
+
+    {"app": "claude", "acct": "<key>", "h5": 12, "h5r": <epoch s>, "wk": 45, "wkr": <epoch s>, "at": <epoch s>}
+
+acct keys the account: the email for Claude, "codex:<ChatGPT account id>" for
+Codex, which also carries its login's "email" when auth.json's id token is
+that account. h5/wk: 5-hour and weekly used %, h5r/wkr: when each resets (absent when
+the agent didn't report that window). herdr-app's agents sidebar
+(config/herdr-app/mods/agents-nav) shows the newest report per account next to
+each machine name. Labels sync from remote machines too.
+
+Writes only when the numbers change, or every REFRESH seconds so `at` says how
+fresh they are. Silent and exits 0 on any problem: it must never hurt the
+status line or the agent's turn.
+"""
+
+from __future__ import annotations
+
+import base64
+import glob
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+LABEL = "agent.usage"
+REFRESH = 300
+TAIL = 512 * 1024  # How far back to look in a Codex transcript for its last rate limits.
+
+
+def window(pct, resets_at, key: str) -> dict:
+    if not isinstance(pct, (int, float)):
+        return {}
+    out = {key: round(pct)}
+    if isinstance(resets_at, (int, float)):
+        out[key + "r"] = int(resets_at)
+    return out
+
+
+# --- Claude Code -------------------------------------------------------------
+
+
+def claude_account(state: dict) -> str | None:
+    """The account's email: claude-as names account dirs by email, else ask .claude.json."""
+    d = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    if state.get("dir") == d and state.get("acct"):
+        return state["acct"]
+    name = os.path.basename(os.path.realpath(d))
+    if "@" in name:
+        return name
+    path = os.path.join(d, ".claude.json") if os.environ.get("CLAUDE_CONFIG_DIR") else os.path.expanduser("~/.claude.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("oauthAccount", {}).get("emailAddress")
+    except Exception:
+        return None
+
+
+def claude(data: dict, state: dict) -> dict | None:
+    limits = data.get("rate_limits") or {}
+    five, week = limits.get("five_hour") or {}, limits.get("seven_day") or {}
+    usage = {**window(five.get("used_percentage"), five.get("resets_at"), "h5"),
+             **window(week.get("used_percentage"), week.get("resets_at"), "wk")}
+    acct = claude_account(state)
+    if not usage or not acct:
+        return None
+    state["dir"] = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    return {"app": "claude", "acct": acct, **usage}
+
+
+# --- Codex -------------------------------------------------------------------
+
+
+def newest_rollout() -> str | None:
+    """This machine's most recently written Codex transcript."""
+    home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
+    paths = glob.glob(os.path.join(home, "sessions", "*", "*", "*", "*.jsonl"))
+    return max(paths, key=os.path.getmtime, default=None)
+
+
+def codex_email(account_id: str) -> str | None:
+    """The login's email, from the id token's claims in auth.json, only when that
+    login is this account. Only the email claim is read; tokens go nowhere."""
+    home = os.environ.get("CODEX_HOME") or os.path.expanduser("~/.codex")
+    try:
+        with open(os.path.join(home, "auth.json"), encoding="utf-8") as f:
+            token = json.load(f)["tokens"]["id_token"]
+        payload = token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except Exception:
+        return None
+    if (claims.get("https://api.openai.com/auth") or {}).get("chatgpt_account_id") != account_id:
+        return None
+    return claims.get("email") or (claims.get("https://api.openai.com/profile") or {}).get("email")
+
+
+def codex(data: dict, state: dict) -> dict | None:
+    """The newest rate limits in a rollout transcript (token_count events): the
+    session's own, else (a new session has none yet) the machine's newest."""
+    usage = codex_from(data.get("transcript_path"))
+    if not usage:
+        newest = newest_rollout()
+        if newest and newest != data.get("transcript_path"):
+            usage = codex_from(newest)
+    if usage and usage["acct"].startswith("codex:"):
+        # Remembered per account so auth.json is read once, not every turn.
+        emails = state.setdefault("emails", {})
+        if usage["acct"] not in emails:
+            emails[usage["acct"]] = codex_email(usage["acct"].removeprefix("codex:"))
+        if emails[usage["acct"]]:
+            usage["email"] = emails[usage["acct"]]
+    return usage
+
+
+def codex_from(path: str | None) -> dict | None:
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        head = f.readline()
+        f.seek(0, os.SEEK_END)
+        f.seek(max(0, f.tell() - TAIL))
+        tail = f.read().splitlines()
+    limits = None
+    for line in reversed(tail):
+        if b'"rate_limits"' not in line:
+            continue
+        try:
+            rl = json.loads(line).get("payload", {}).get("rate_limits")
+        except Exception:
+            continue
+        if rl and rl.get("limit_id", "codex") == "codex":
+            limits = rl
+            break
+    if not limits:
+        return None
+    usage = {}
+    # By window length, not position: primary is 5h and secondary weekly today.
+    for w in (limits.get("primary"), limits.get("secondary")):
+        minutes = (w or {}).get("window_minutes") or 0
+        key = "h5" if 0 < minutes <= 360 else "wk" if minutes >= 1440 else None
+        if key:
+            usage.update(window(w.get("used_percent"), w.get("resets_at"), key))
+    if not usage:
+        return None
+    # The ChatGPT account from the session's first line, so auth.json stays unread.
+    acct = "codex"
+    try:
+        meta = json.loads(head).get("payload", {})
+        if meta.get("creator_account_id"):
+            acct = f"codex:{meta['creator_account_id']}"
+    except Exception:
+        pass
+    return {"app": "codex", "acct": acct, **usage}
+
+
+# -----------------------------------------------------------------------------
+
+
+HC = shutil.which("hc") or os.path.expanduser("~/.local/bin/hc")
+
+
+def codex_terminals() -> list[str]:
+    """Live Codex terminals on this machine. Codex runs hooks in its shared app-server
+    daemon, which has no $HC_TERMINAL_ID; its sessions here share one login
+    (~/.codex), so they all get the same usage."""
+    done = subprocess.run([HC, "ls", "--json"], capture_output=True, timeout=5)
+    listed = json.loads(done.stdout or b"[]")
+    listed = listed if isinstance(listed, list) else listed.get("terminals", [])
+    return [t["address"] for t in listed if t.get("agent") == "codex" and t.get("state") == "live" and "/" not in t["address"]]
+
+
+def main() -> None:
+    app = sys.argv[1] if len(sys.argv) > 1 else ""
+    if app not in ("claude", "codex"):
+        return
+    term = os.environ.get("HC_TERMINAL_ID")
+    if app == "claude" and not term:
+        return
+    raw = sys.stdin.read()
+    data = json.loads(raw) if raw.strip() else {}
+
+    # Claude: state per terminal. Codex: one per machine, remembering what each terminal got.
+    state_dir = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    key = term.replace("/", "_") if app == "claude" else "codex"
+    state_path = os.path.join(state_dir, f"agent-usage-{key}.json")
+    try:
+        with open(state_path, encoding="utf-8") as f:
+            state = json.load(f)
+    except Exception:
+        state = {}
+
+    usage = (claude if app == "claude" else codex)(data, state)
+    if not usage:
+        return
+    now = int(time.time())
+    sent = state.get("sent", {})
+    targets = [term] if app == "claude" else codex_terminals()
+    due = [t for t in targets if sent.get(t, {}).get("usage") != usage or now - sent[t].get("at", 0) >= REFRESH]
+    if not due:
+        return
+
+    label = json.dumps({**usage, "at": now}, separators=(",", ":"))
+    for t in due:
+        done = subprocess.run([HC, "label", t, f"{LABEL}={label}"], capture_output=True, timeout=5)
+        if done.returncode == 0:
+            sent[t] = {"usage": usage, "at": now}
+    # Forget terminals that are gone.
+    state["sent"] = {t: s for t, s in sent.items() if t in targets}
+    state["acct"] = usage["acct"]
+    tmp = f"{state_path}.{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(state, f)
+    os.replace(tmp, state_path)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        pass

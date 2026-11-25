@@ -93,6 +93,9 @@
       path: commands/claude-as
     ~/.config/ccstatusline/settings.json:
       path: config/ccstatusline.json
+    # Codex: hooks only; the rest of ~/.codex is app-written.
+    ~/.codex/hooks.json:
+      path: config/codex/hooks.json
     # Herdr GUI (Herdr.app): personal keys, mods and layouts only; the rest of
     # ~/.config/herdr-app is app-written and stays untracked. One link per
     # tracked mod folder / layout file.

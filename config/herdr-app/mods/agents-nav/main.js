@@ -93,6 +93,23 @@ function duration(ms) {
 const FRESH = 30 * 60000;
 const ageTone = (t, ms) => (ms < FRESH ? t.foreground : ms < 86400000 ? t.muted : t.dim);
 
+// Plan usage (5h / weekly %) of Claude Code and Codex sessions, set as the terminal label
+// `agent.usage` by commands/agent-usage-publish (Claude's status line, Codex's Stop hook).
+// Usage is per account, not per machine.
+const usageOf = (term) => {
+  try {
+    const u = JSON.parse(term?.labels?.["agent.usage"] ?? "null");
+    return u?.acct ? { app: "claude", ...u } : null;
+  } catch {
+    return null;
+  }
+};
+// A window whose reset has passed says nothing about the new one.
+const livePct = (pct, resetAt, now) => (pct == null || (resetAt && resetAt * 1000 <= now) ? null : pct);
+// Tells accounts of one app apart: "tc-labs@…" → "tc", "codex:4fdc30b7-…" → "4fdc".
+const acctShort = (u) => (u.app === "codex" ? u.acct.replace(/^codex:?/, "").slice(0, 4) || "codex" : u.acct.split("@")[0].split(/[-._]/)[0]);
+const acctName = (u) => (u.app === "codex" ? `Codex · ${u.email ?? (u.acct.includes(":") ? `ChatGPT account ${acctShort(u)}…` : "ChatGPT")}` : `Claude · ${u.acct}`);
+
 // The agent's icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -321,6 +338,21 @@ export default class Agents extends View {
     list = [...pinned, ...rest];
     setAgentOrder(list.map((a) => a.address));
 
+    // Each account's newest usage report (with its agent's program, for the icon), and
+    // which accounts each machine's agents use.
+    const newestUsage = new Map();
+    const acctsOn = new Map();
+    for (const a of list) {
+      const u = usageOf(termByAddr.get(a.address));
+      if (!u) continue;
+      const had = newestUsage.get(u.acct);
+      if (!((had?.at ?? -1) >= u.at)) newestUsage.set(u.acct, { ...u, program: a.program ?? had?.program });
+      const k = machineOf(a) ?? "";
+      (acctsOn.get(k) ?? acctsOn.set(k, new Set()).get(k)).add(u.acct);
+    }
+    // Claude before Codex, then by account.
+    const usageOn = (m) => [...(acctsOn.get(m ?? "") ?? [])].map((acct) => newestUsage.get(acct)).sort((x, y) => x.app.localeCompare(y.app) || x.acct.localeCompare(y.acct));
+
     const withKids = (a, i) => {
       const subs = collapsed ? [] : this.tree(all, a.address);
       const r = row(a, i, subs);
@@ -487,7 +519,7 @@ export default class Agents extends View {
         const m = machineOf(a);
         const mid = `m-${m ?? "local"}`;
         if (machineGroup?.id !== mid) {
-          machineGroup = { id: mid, machine: true, label: m ?? "This computer", icon: m ? "server" : "monitor", status: null, members: [] };
+          machineGroup = { id: mid, machine: true, label: m ?? "This computer", icon: m ? "server" : "monitor", status: null, members: [], usage: usageOn(m) };
           groups.push(machineGroup);
         }
         machineGroup.members.push(a);
@@ -496,6 +528,51 @@ export default class Agents extends View {
       if (groups.at(-1)?.id === id) groups.at(-1).members.push(a);
       else groups.push({ id, label: byPriority ? SECTION[r] : navGroup ? `📁 ${a.space_name || ""}` : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a], nested: navGroup });
     }
+
+    // Under each machine header, a row per account its agents use (Claude, Codex):
+    //   [icon] tc-labs        5h 70% 3h · wk 59% 3d
+    // Percent dim under 50%, brighter from 50%, the blocked color from 80%; then when it resets.
+    const pctTone = (v) => (v == null || v < 50 ? t.dim : v < 80 ? t.foreground : t.blocked);
+    const pctOf = (v) => (v == null ? "–" : `${v}%`);
+    const resetIn = (r) => (r && r * 1000 > now ? duration(r * 1000 - now) : null);
+    // Fixed widths so 9% and 70%, 3h and 59m line up row to row.
+    const usageWindow = (name, v, r) => h_flex()
+      .gap(3)
+      .items_center()
+      .child(div().text_color(t.dim).child(name))
+      .child(div().w(30).flex_none().text_right().text_color(pctTone(v)).when(v >= 80, (el) => el.font_semibold()).child(pctOf(v)))
+      .child(div().w(24).flex_none().text_color(t.dim).child(v != null ? (resetIn(r) ?? "") : ""));
+    const usageRow = (g, u) => {
+      const h5 = livePct(u.h5, u.h5r, now);
+      const wk = livePct(u.wk, u.wkr, now);
+      const pic = icon(u.program, 12, t.muted);
+      // Which account: its email's name; a Codex login without one, a short id when the machine uses two.
+      const email = u.app === "codex" ? u.email : u.acct;
+      const acct = email ? email.split("@")[0] : g.usage.filter((x) => x.app === u.app).length > 1 ? acctShort(u) : "";
+      const tip = [
+        acctName(u),
+        `5h: ${pctOf(h5)}${resetIn(u.h5r) ? `, resets in ${resetIn(u.h5r)}` : ""}`,
+        `week: ${pctOf(wk)}${resetIn(u.wkr) ? `, resets in ${resetIn(u.wkr)}` : ""}`,
+        `reported ${duration(now - u.at * 1000)} ago`,
+      ].join("\n");
+      return h_flex()
+        .id(`usage-${g.id}-${u.acct}`)
+        .pl(12)
+        .pr(8)
+        .h(20)
+        .flex_none()
+        .gap(6)
+        .items_center()
+        .text_size(11)
+        .tooltip(tip)
+        // The app's icon says which; its name only when the program has no icon.
+        .child(pic ?? div().flex_none().text_color(t.muted).child(u.app))
+        .when(Boolean(acct), (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(acct)))
+        .child(div().flex_1())
+        .child(usageWindow("5h", h5, u.h5r))
+        .child(div().text_color(t.dim).child("·"))
+        .child(usageWindow("wk", wk, u.wkr));
+    };
 
     // A group's header; it folds the group. Folded, it says how many and the most urgent state.
     // Machine headers are stronger; space headers under them are indented.
@@ -539,7 +616,9 @@ export default class Agents extends View {
             machineFolded = this.folded.has(g.id);
             // A divider above every machine but the first (pinned counts as before it).
             const first = groups.find((x) => x.machine) === g && !pinned.length;
-            return first ? [header(g)] : [div().flex_none().h(1).mx(8).mt(6).bg(t.border), header(g)];
+            // Usage rows stay when the machine folds: they're about the machine, not its spaces.
+            const usage = (g.usage ?? []).map((u) => usageRow(g, u));
+            return first ? [header(g), ...usage] : [div().flex_none().h(1).mx(8).mt(6).bg(t.border), header(g), ...usage];
           }
           if (g.nested && machineFolded) return [];
           return [header(g), ...(this.folded.has(g.id) ? [] : g.members.flatMap(withKids))];
