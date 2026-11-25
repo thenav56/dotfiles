@@ -89,6 +89,10 @@ function duration(ms) {
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
+// Last-change time fades with age: fresh reads bright, a day on reads dim.
+const FRESH = 30 * 60000;
+const ageTone = (t, ms) => (ms < FRESH ? t.foreground : ms < 86400000 ? t.muted : t.dim);
+
 // The agent's icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -469,7 +473,7 @@ export default class Agents extends View {
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address && archivable, el => el.child(archive))
         .when(this.hovered === a.address, el => el.child(pin))
-        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
+        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(ageTone(t, now - when)).when(now - when < FRESH, el => el.font_semibold()).child(duration(now - when))))
         .child(this.status(t, a, byPriority && !isPinned));
     };
 
