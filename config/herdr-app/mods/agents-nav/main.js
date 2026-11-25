@@ -339,16 +339,19 @@ export default class Agents extends View {
     setAgentOrder(list.map((a) => a.address));
 
     // Each account's newest usage report (with its agent's program, for the icon), and
-    // which accounts each machine's agents use.
+    // which accounts each machine's agents use. Child terminals (e.g. a Codex run an
+    // agent started with `hc run`) count on their top-level agent's machine.
     const newestUsage = new Map();
     const acctsOn = new Map();
     for (const a of list) {
-      const u = usageOf(termByAddr.get(a.address));
-      if (!u) continue;
-      const had = newestUsage.get(u.acct);
-      if (!((had?.at ?? -1) >= u.at)) newestUsage.set(u.acct, { ...u, program: a.program ?? had?.program });
-      const k = machineOf(a) ?? "";
-      (acctsOn.get(k) ?? acctsOn.set(k, new Set()).get(k)).add(u.acct);
+      for (const x of [a, ...this.tree(all, a.address).map((s) => s.t)]) {
+        const u = usageOf(termByAddr.get(x.address));
+        if (!u) continue;
+        const had = newestUsage.get(u.acct);
+        if (!((had?.at ?? -1) >= u.at)) newestUsage.set(u.acct, { ...u, program: x.program ?? had?.program });
+        const k = machineOf(a) ?? "";
+        (acctsOn.get(k) ?? acctsOn.set(k, new Set()).get(k)).add(u.acct);
+      }
     }
     // Claude before Codex, then by account.
     const usageOn = (m) => [...(acctsOn.get(m ?? "") ?? [])].map((acct) => newestUsage.get(acct)).sort((x, y) => x.app.localeCompare(y.app) || x.acct.localeCompare(y.acct));
