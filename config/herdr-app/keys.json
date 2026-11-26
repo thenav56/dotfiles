@@ -11,6 +11,8 @@
     "cmd-alt-[": "space.prev",
     "cmd-]": "agent.next",
     "cmd-[": "agent.prev",
+    "ctrl-cmd-tab": "agent.next",
+    "ctrl-cmd-shift-tab": "agent.prev",
     "cmd-n": "space.new",
     "cmd-p": "mod.open:picker",
     "cmd-shift-p": "app.palette",
