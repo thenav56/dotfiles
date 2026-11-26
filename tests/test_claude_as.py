@@ -1555,6 +1555,192 @@ def test_reminder_message():
     assert lines[3] == "<code>cd '/a b/&lt;c&gt;'</code>"
 
 
+def _links_msg(monkeypatch, value, rec, now):
+    if value is None:
+        monkeypatch.delenv("CLAUDE_AS_REMIND_LINKS", raising=False)
+    else:
+        monkeypatch.setenv("CLAUDE_AS_REMIND_LINKS", value)
+    return ca.reminder_message(rec, now)
+
+
+def test_reminder_message_links_unset_or_empty(monkeypatch, capsys):
+    now = 1_800_000_000.0
+    rec = _rem("aaa111", now + 60, session_id="sid-1", created=_ts_iso(now))
+    plain = _links_msg(monkeypatch, None, rec, now)
+    assert plain.split("\n")[-1] == "<code>claude-as resume sid-1</code>"
+    assert _links_msg(monkeypatch, "", rec, now) == plain
+    assert _links_msg(monkeypatch, "  \n\t ", rec, now) == plain
+    assert capsys.readouterr().err == ""
+
+
+def test_reminder_message_links_single_and_multiple(monkeypatch):
+    now = 1_800_000_000.0
+    rec = _rem("aaa111", now + 60, session_id="sid-1", created=_ts_iso(now))
+    plain = _links_msg(monkeypatch, None, rec, now).split("\n")
+    lines = _links_msg(monkeypatch, "Open=https://h.example/reminders/{id}", rec, now).split("\n")
+    assert lines[:-1] == plain
+    assert lines[-1] == '<a href="https://h.example/reminders/aaa111">Open</a>'
+    lines = _links_msg(monkeypatch, "Open=https://h.example/reminders/{id}\n"
+                       "  Logs=http://l.example/?r={id}", rec, now).split("\n")
+    assert lines[:-1] == plain
+    assert lines[-1] == ('<a href="https://h.example/reminders/aaa111">Open</a> · '
+                         '<a href="http://l.example/?r=aaa111">Logs</a>')
+
+
+def test_reminder_message_links_session_id(monkeypatch):
+    now = 1_800_000_000.0
+    rec = _rem("a/b c", now + 60, session_id="s/1 2", created=_ts_iso(now))
+    env = "S=https://h.example/s/{session_id}?r={id}"
+    assert _links_msg(monkeypatch, env, rec, now).split("\n")[-1] == \
+        '<a href="https://h.example/s/s%2F1%202?r=a%2Fb%20c">S</a>'
+    rec["session_id"] = None
+    assert _links_msg(monkeypatch, env, rec, now).split("\n")[-1] == \
+        '<a href="https://h.example/s/?r=a%2Fb%20c">S</a>'
+
+
+def test_reminder_message_links_escaping(monkeypatch):
+    now = 1_800_000_000.0
+    rec = _rem("aaa111", now + 60, created=_ts_iso(now))
+    last = _links_msg(monkeypatch, 'A<b>&"c=https://h.example/a?x=1&y="2"&id={id}',
+                      rec, now).split("\n")[-1]
+    assert last == ('<a href="https://h.example/a?x=1&amp;y=&quot;2&quot;&amp;id=aaa111">'
+                    'A&lt;b&gt;&amp;&quot;c</a>')
+
+
+def test_reminder_message_links_malformed_skipped(monkeypatch, capsys):
+    now = 1_800_000_000.0
+    rec = _rem("aaa111", now + 60, created=_ts_iso(now))
+    plain = _links_msg(monkeypatch, None, rec, now)
+    for bad in ("nolabel", "=https://h.example/{id}", "Open=", "Open=ftp://h.example/{id}",
+                "Open=javascript:alert(1)", "Open=https://", "Open=http://[bad"):
+        lines = _links_msg(monkeypatch, f"{bad} Ok=https://h.example/{{id}}",
+                           rec, now).split("\n")
+        assert lines[:-1] == plain.split("\n")
+        assert lines[-1] == '<a href="https://h.example/aaa111">Ok</a>'
+        err = capsys.readouterr().err.splitlines()
+        assert len(err) == 1 and "CLAUDE_AS_REMIND_LINKS" in err[0] and repr(bad) in err[0]
+    assert _links_msg(monkeypatch, "nolabel", rec, now) == plain
+    assert len(capsys.readouterr().err.splitlines()) == 1
+
+
+def test_remind_edit_at_in_note(remind_env, capsys):
+    now = time.time()
+    _list_store(now)
+    target = ca.datetime.fromtimestamp(now + 3 * 86400).replace(second=0, microsecond=0)
+    at = target.strftime("%Y-%m-%d %H:%M")
+    assert ca.main(["remind", "edit", "aaa", "--at", at, "--note", " new note "]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith(f"edited aaa111  due {at} (in ") and out.endswith("note updated\n")
+    by_id = {r["id"]: r for r in _rems()}
+    assert ca._iso_ts(by_id["aaa111"]["due"]) == target.timestamp()
+    assert by_id["aaa111"]["note"] == "new note"
+    assert by_id["aaa111"]["status"] == "pending" and by_id["aaa111"]["snoozed_from"] is None
+
+    before = time.time()
+    assert ca.main(["remind", "edit", "bbb222", "--in", "2h"]) == 0
+    assert "note updated" not in capsys.readouterr().out
+    rec = {r["id"]: r for r in _rems()}["bbb222"]
+    assert rec["note"] == "soonest"
+    assert int(before) + 7200 <= ca._iso_ts(rec["due"]) <= time.time() + 7200
+
+    assert ca.main(["remind", "edit", "bbb222", "--note", "only note"]) == 0
+    assert capsys.readouterr().out == "edited bbb222  note updated\n"
+    after = {r["id"]: r for r in _rems()}["bbb222"]
+    assert after == {**rec, "note": "only note"}
+
+
+def test_remind_edit_missed_then_unsnooze(remind_env, capsys):
+    now = time.time()
+    _list_store(now)
+    old = {r["id"]: r for r in _rems()}["ddd444"]
+    assert ca.main(["remind", "edit", "ddd", "--in", "1h"]) == 0
+    rec = {r["id"]: r for r in _rems()}["ddd444"]
+    assert ca._reminder_state(rec) == "pending"
+    assert (rec["fired_at"], rec["attempts"], rec["last_error"]) == (None, 0, None)
+    assert rec["snoozed_from"] == {"due": old["due"], "fired_at": old["fired_at"]}
+    capsys.readouterr()
+
+    assert ca.main(["remind", "unsnooze", "ddd"]) == 0
+    stamp = ca._local(ca._iso_ts(old["due"]))
+    assert capsys.readouterr().out == f"unsnoozed ddd444  missed, due {stamp}\n"
+    rec = {r["id"]: r for r in _rems()}["ddd444"]
+    assert ca._reminder_state(rec) == "missed"
+    assert (rec["due"], rec["fired_at"], rec["snoozed_from"]) == (
+        old["due"], old["fired_at"], None)
+
+    assert ca.main(["remind", "unsnooze", "ddd444"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err == "ddd444 is missed: no snooze to undo\n"
+    assert ca.main(["remind", "unsnooze", "aaa111"]) == 1  # pending, never missed
+    assert "no snooze to undo" in capsys.readouterr().err
+
+
+def test_remind_edit_rejects(remind_env, capsys):
+    now = time.time()
+    _list_store(now)
+    before = ca.REMINDERS_FILE.read_text()
+    assert ca.main(["remind", "edit", "ccc333", "--in", "1h"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == "" and captured.err == "ccc333 is cancelled\n"
+    assert ca.main(["remind", "edit", "ccc333", "--note", "x"]) == 1
+    for args in (["aaa111"], ["aaa111", "--in", "1h", "--at", "23:59"],
+                 ["aaa111", "--in", "nope"], ["aaa111", "--at", "2000-01-01 10:00"],
+                 ["aaa111", "--note", "  "], ["aaa111", "--note"], ["--in", "1h"],
+                 ["aaa111", "bbb222", "--in", "1h"], ["aaa111", "--bogus", "x"],
+                 ["aaa111", "--in", "1h", "--in", "2h"]):
+        assert ca.main(["remind", "edit", *args]) == 2, args
+        captured = capsys.readouterr()
+        assert captured.out == "" and captured.err.strip(), args
+    assert ca.REMINDERS_FILE.read_text() == before
+
+
+def test_remind_unack(remind_env, capsys):
+    now = time.time()
+    _list_store(now)
+    assert ca.main(["remind", "unack", "fff"]) == 0
+    assert capsys.readouterr().out == "unacked fff666\n"
+    rec = {r["id"]: r for r in _rems()}["fff666"]
+    assert ca._reminder_state(rec) == "missed"
+    assert (rec["acked_at"], rec["acked_via"]) == (None, None)
+    for rid, state in (("fff666", "missed"), ("aaa111", "pending"), ("ccc333", "cancelled")):
+        assert ca.main(["remind", "unack", rid]) == 1
+        captured = capsys.readouterr()
+        assert captured.out == "" and captured.err == f"{rid} is {state}, not acked\n"
+    for sub in ("unack", "unsnooze"):
+        assert ca.main(["remind", sub]) == 2
+        assert ca.main(["remind", sub, "a", "b"]) == 2
+        assert ca.main(["remind", sub, "--all"]) == 2
+
+
+def test_remind_edit_unack_unsnooze_id_resolution(remind_env, capsys):
+    now = time.time()
+    _list_store(now)
+    rems = _rems()
+    rems.append(_rem("aaa999", now + 60))
+    _write_rems(rems)
+    before = ca.REMINDERS_FILE.read_text()
+    for args in (["edit", "aaa", "--note", "x"], ["unack", "aaa"], ["unsnooze", "aaa"]):
+        assert ca.main(["remind", *args]) == 1, args
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == "ambiguous reminder id: 'aaa': aaa111, aaa999\n", args
+    for args in (["edit", "zzz", "--note", "x"], ["unack", "zzz"], ["unsnooze", "zzz"]):
+        assert ca.main(["remind", *args]) == 1, args
+        assert capsys.readouterr().err == "unknown reminder: 'zzz'\n", args
+    assert ca.REMINDERS_FILE.read_text() == before
+    assert ca.main(["remind", "edit", "aaa9", "--note", "x"]) == 0
+    assert capsys.readouterr().out == "edited aaa999  note updated\n"
+
+
+def test_remind_unack_updates_buttons(tg, capsys):
+    now = time.time()
+    _write_rems([_rem("aaa111", now - 60, status="fired", fired_at=_ts_iso(now),
+                      acked_at=_ts_iso(now), acked_via="telegram", tg_message_id=42)])
+    assert ca.main(["remind", "unack", "aaa111"]) == 0
+    assert [b["callback_data"] for b in tg.edits()[42]] == [
+        "rem:aaa111:ack", "rem:aaa111:1h", "rem:aaa111:1d"]
+
+
 def test_dispatch_sends_marks_and_prunes(tg, capsys):
     now = time.time()
     _write_rems([

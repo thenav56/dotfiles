@@ -114,6 +114,16 @@ Usage:
   claude-as remind rm <id>        cancel (the session stays protected)
   claude-as remind snooze <id> DUR
                                   due again in DUR (clears the ack)
+  claude-as remind edit <id> (--at WHEN | --in DUR) [--note TEXT]
+  claude-as remind edit <id> --note TEXT
+                                  change the note and/or the due time; a new
+                                  time works like snooze (undo a missed one
+                                  with unsnooze). Cancelled ones are refused
+  claude-as remind unsnooze <id>  put a reminder snoozed while missed back to
+                                  missed with its old due
+  claude-as remind unack <id>     make an acked reminder missed again.
+                                  edit/unsnooze/unack print one line; errors
+                                  go to stderr (exit 1, usage exit 2)
   claude-as remind dispatch       send due reminders and the weekly digest
                                   (run by the timer)
   claude-as remind listen         apply Telegram button presses as they
@@ -129,6 +139,12 @@ Usage:
 The selector (left of `--`) matches an exact email, an exact label, or a unique
 case-insensitive substring of either. Everything right of `--` is passed
 verbatim to claude.
+
+CLAUDE_AS_REMIND_LINKS (optional, for `remind dispatch`): whitespace-separated
+`Label=URL` entries, e.g. `Open=https://example.com/reminders/{id}`. Each adds a
+link to the reminder message's last line; `{id}` and `{session_id}` in the URL
+become the URL-quoted reminder and session ids (empty when there is no session).
+Entries without a label or an http(s) URL are skipped with a warning.
 
 `accounts --json` also reports the orchestration pool: config.yaml may declare
 `orchestrate_pool:` (list or comma-separated string of selectors) — the
@@ -166,6 +182,7 @@ import subprocess
 import sys
 import time
 import unicodedata
+import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
@@ -3449,6 +3466,7 @@ NOTIFY_TIMEOUT_SECS = 240  # tg-notify retries by itself, up to about 3 minutes
 TG_MAYBE_SENT = 75  # tg-notify exit: may have been delivered, don't resend
 TG_MISSING = "tg-notify not found"
 LAST_ERROR_MAX = 300
+REMIND_LINKS_ENV = "CLAUDE_AS_REMIND_LINKS"  # `Label=URL` links for reminder messages
 _DUR_UNITS = {"m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
 
 
@@ -3562,17 +3580,24 @@ def save_reminders(rems: list[dict]) -> None:
     _write_json_atomic(REMINDERS_FILE, {"reminders": rems})
 
 
-def _find_reminder(rems: list[dict], ident: str) -> dict | None:
-    """Record with id `ident`, else the unique one starting with it."""
+def _find_reminder(rems: list[dict], ident: str, *,
+                   stderr: bool = False) -> dict | None:
+    """Record with id `ident`, else the unique one starting with it. A miss
+    prints why on stdout, or as one plain line on stderr when `stderr`."""
     exact = [r for r in rems if r["id"] == ident]
     hits = exact or [r for r in rems if ident and r["id"].startswith(ident)]
     if len(hits) == 1:
         return hits[0]
     if hits:
-        console.print(f"[red]ambiguous reminder id[/red] {ident!r}: "
-                      f"{', '.join(r['id'] for r in hits)}")
+        label = "ambiguous reminder id"
+        detail = f"{ident!r}: {', '.join(r['id'] for r in hits)}"
     else:
-        console.print(f"[red]unknown reminder:[/red] {ident!r}")
+        label, detail = "unknown reminder", repr(ident)
+    if stderr:
+        print(f"{label}: {detail}", file=sys.stderr)
+    else:
+        console.print(f"[red]{label}[/red]{':' if not hits else ''} {detail}",
+                      highlight=False)
     return None
 
 
@@ -3624,7 +3649,33 @@ def reminder_message(rem: dict, now: float | None = None) -> str:
         lines.append(f"<code>claude-as resume {esc(rem['session_id'])}</code>")
     else:
         lines.append(f"<code>cd {esc(shlex.quote(str(rem.get('cwd') or '~')))}</code>")
+    if links := reminder_links(rem):
+        lines.append(" · ".join(links))
     return "\n".join(lines)
+
+
+def reminder_links(rem: dict) -> list[str]:
+    """HTML links from CLAUDE_AS_REMIND_LINKS for one reminder; malformed
+    entries are skipped with a warning on stderr."""
+    subs = {
+        "{id}": urllib.parse.quote(str(rem.get("id") or ""), safe=""),
+        "{session_id}": urllib.parse.quote(str(rem.get("session_id") or ""), safe=""),
+    }
+    links = []
+    for entry in os.environ.get(REMIND_LINKS_ENV, "").split():
+        label, _, template = entry.partition("=")
+        try:
+            parts = urllib.parse.urlsplit(template)
+        except ValueError:
+            parts = None
+        if not label or not parts or parts.scheme.lower() not in ("http", "https") \
+                or not parts.netloc:
+            print(f"warning: {REMIND_LINKS_ENV}: skipping {entry!r} (want Label=http(s)://...)",
+                  file=sys.stderr)
+            continue
+        url = re.sub(r"\{id\}|\{session_id\}", lambda m: subs[m.group(0)], template)
+        links.append(f'<a href="{html.escape(url, quote=True)}">{html.escape(label, quote=True)}</a>')
+    return links
 
 
 def _tg_notify() -> str:
@@ -4208,6 +4259,82 @@ def cmd_remind_snooze(ident: str, secs: int) -> int:
     return 0
 
 
+def _change_reminder(ident: str, change) -> dict | None:
+    """Apply `change(rem)` to the reminder `ident` (id or prefix) under the
+    lock and return the record. `change` returns an error message, which goes
+    to stderr (None returned, nothing saved), or None, which saves and
+    updates its Telegram buttons. An unknown or ambiguous id also returns
+    None."""
+    with _reminders_locked():
+        rems = load_reminders()
+        rem = _find_reminder(rems, ident, stderr=True)
+        if rem is None:
+            return None
+        err = change(rem)
+        if err is not None:
+            print(err, file=sys.stderr)
+            return None
+        save_reminders(rems)
+    tg_update_buttons([rem])
+    return rem
+
+
+def cmd_remind_edit(ident: str, *, due: float | None, note: str | None) -> int:
+    """Set the note and/or reschedule to `due` through snooze_reminder, so a
+    missed reminder can be put back with unsnooze. Cancelled ones are
+    refused."""
+    now = time.time()
+
+    def change(rem: dict) -> str | None:
+        if _reminder_state(rem) == "cancelled":
+            return f"{rem['id']} is cancelled"
+        if note is not None:
+            rem["note"] = note
+        if due is not None:
+            snooze_reminder(rem, due)
+        return None
+
+    rem = _change_reminder(ident, change)
+    if rem is None:
+        return 1
+    parts = [f"edited {rem['id']}"]
+    if due is not None:
+        parts.append(f"due {_local(due)} ({_relative(due, now)})")
+    if note is not None:
+        parts.append("note updated")
+    print("  ".join(parts))
+    return 0
+
+
+def cmd_remind_unsnooze(ident: str) -> int:
+    """Put a snoozed missed reminder back to missed (unsnooze_reminder)."""
+    def change(rem: dict) -> str | None:
+        if unsnooze_reminder(rem):
+            return None
+        return f"{rem['id']} is {_reminder_state(rem)}: no snooze to undo"
+
+    rem = _change_reminder(ident, change)
+    if rem is None:
+        return 1
+    ts = _iso_ts(rem.get("due"))
+    print(f"unsnoozed {rem['id']}  missed, due {_local(ts) if ts is not None else '?'}")
+    return 0
+
+
+def cmd_remind_unack(ident: str) -> int:
+    """Make an acked reminder missed again (unack_reminder)."""
+    def change(rem: dict) -> str | None:
+        if unack_reminder(rem):
+            return None
+        return f"{rem['id']} is {_reminder_state(rem)}, not acked"
+
+    rem = _change_reminder(ident, change)
+    if rem is None:
+        return 1
+    print(f"unacked {rem['id']}")
+    return 0
+
+
 def _prune_reminders(rems: list[dict], now: float) -> list[dict]:
     """Drop acked records REMIND_KEEP_DAYS after acked_at and cancelled ones
     REMIND_KEEP_DAYS after cancelled_at (else due); missed and pending ones
@@ -4539,9 +4666,49 @@ def _remind_add_main(args: list[str]) -> int:
                           protect=protect, now=now)
 
 
+def _remind_edit_main(args: list[str]) -> int:
+    """`remind edit <id> (--at WHEN | --in DUR) [--note TEXT]` or
+    `remind edit <id> --note TEXT`; usage errors exit 2 with stderr text."""
+    usage = ("usage: claude-as remind edit <id> (--at WHEN | --in DUR) [--note TEXT] "
+             "| claude-as remind edit <id> --note TEXT")
+    ident = None
+    opts: dict[str, str] = {}
+    it = iter(args)
+    for arg in it:
+        if arg in ("--at", "--in", "--note"):
+            val = next(it, None)
+            if val is None or arg in opts:
+                print(f"{arg} {'needs a value' if val is None else 'given twice'}; {usage}",
+                      file=sys.stderr)
+                return 2
+            opts[arg] = val
+        elif arg.startswith("-") or ident is not None:
+            print(usage, file=sys.stderr)
+            return 2
+        else:
+            ident = arg
+    if ident is None or not opts or {"--at", "--in"} <= set(opts):
+        print(usage, file=sys.stderr)
+        return 2
+    note = None
+    if "--note" in opts:
+        note = opts["--note"].strip()
+        if not note:
+            print("--note is empty", file=sys.stderr)
+            return 2
+    now = time.time()
+    try:
+        due = (now + parse_duration(opts["--in"]) if "--in" in opts
+               else parse_when(opts["--at"], now) if "--at" in opts else None)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    return cmd_remind_edit(ident, due=due, note=note)
+
+
 def _remind_main(args: list[str], passthrough: list[str]) -> int:
     usage = ("[red]usage:[/red] claude-as remind "
-             "add|list|ack|rm|snooze|digest|dispatch|listen ... "
+             "add|list|ack|rm|snooze|edit|unsnooze|unack|digest|dispatch|listen ... "
              "| --install | --uninstall")
     if passthrough or not args:
         console.print(usage)
@@ -4582,6 +4749,13 @@ def _remind_main(args: list[str], passthrough: list[str]) -> int:
             console.print(f"[red]{exc}[/red]")
             return 2
         return cmd_remind_snooze(rest[0], secs)
+    if sub == "edit":
+        return _remind_edit_main(rest)
+    if sub in ("unsnooze", "unack"):
+        if len(rest) != 1 or rest[0].startswith("-"):
+            print(f"usage: claude-as remind {sub} <id>", file=sys.stderr)
+            return 2
+        return (cmd_remind_unsnooze if sub == "unsnooze" else cmd_remind_unack)(rest[0])
     if sub == "digest":
         if rest not in ([], ["--force"]):
             console.print("[red]usage:[/red] claude-as remind digest \\[--force]")
