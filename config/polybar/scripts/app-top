@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+"""RAM or CPU per application, for the polybar memory and cpu modules.
+
+    app-top {mem|cpu}          print the table (cpu samples for 1 s first)
+    app-top {mem|cpu} --watch  redraw it every second; q or Esc quits
+    app-top {mem|cpu} --popup  open --watch in a small floating kitty window
+                               under the bar (polybar click; i3 floats it by
+                               its instance name, see config/i3.config); a
+                               second click closes it
+
+Processes are grouped under the application that started them: walk up the
+parent chain and stop below the first "launcher" (init, systemd, i3, a shell,
+a terminal). So every Firefox tab process counts as firefox, and a `claude`
+started from zsh counts as claude rather than zsh or kitty. Kernel threads
+count as [kernel].
+
+mem: PSS where readable (shared pages split between the processes sharing
+them, so Firefox's many processes are not counted many times over), else RSS
+(other users' processes, e.g. the incus VM's qemu). Swap likewise: SwapPss,
+else VmSwap. Reading every process's smaps costs ~0.25 s of CPU, so an open
+mem window uses about a quarter of a core.
+
+cpu: user + system time over the interval, in % of one core (as top shows
+it, so a busy app can pass 100%). Processes that start or exit within the
+interval are missed.
+"""
+import os
+import select
+import subprocess
+import sys
+import termios
+import time
+import tty
+
+TOP = 12
+INTERVAL = 1
+TICK = os.sysconf("SC_CLK_TCK")
+PF_KTHREAD = 0x00200000
+TITLES = {"mem": "RAM by app", "cpu": "CPU by app"}
+
+# Parents that start applications rather than being part of one.
+LAUNCHERS = {
+    "systemd", "init", "kthreadd", "i3", "sh", "bash", "zsh", "fish", "dash",
+    "kitty", "alacritty", "xterm", "wezterm-gui", "tmux: server", "sudo",
+    "rofi", "dbus-daemon", "xdg-desktop-por", "herdr-app", "lightdm",
+    "Xorg", "xinit", "startx", "ly-dm", "ly", "gdm", "sddm", "login",
+}
+
+
+def read(path):
+    try:
+        with open(path) as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def kib_fields(text, names):
+    out = dict.fromkeys(names, None)
+    for line in text.splitlines():
+        key, _, rest = line.partition(":")
+        if key in out:
+            out[key] = int(rest.split()[0])
+    return out
+
+
+def stats():
+    """{pid: (name, ppid, is_kernel_thread, cpu_ticks)} from /proc/*/stat."""
+    procs = {}
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit():
+            continue
+        s = read(f"/proc/{pid}/stat")
+        if not s:
+            continue
+        # comm can hold spaces and parens: it ends at the last ')'.
+        name = s[s.find("(") + 1:s.rfind(")")]
+        f = s[s.rfind(")") + 2:].split()
+        procs[int(pid)] = (name, int(f[1]), bool(int(f[6]) & PF_KTHREAD),
+                           int(f[11]) + int(f[12]))
+    return procs
+
+
+def grouper(procs):
+    cache = {}
+
+    def app_of(pid):
+        if pid in cache:
+            return cache[pid]
+        name, ppid, kthread, _ = procs[pid]
+        parent = procs.get(ppid)
+        if kthread or pid == 2:
+            app = "[kernel]"
+        elif parent is None or ppid <= 1 or parent[0] in LAUNCHERS:
+            app = name
+        else:
+            app = app_of(ppid)
+        cache[pid] = app
+        return app
+
+    return app_of
+
+
+def gib(kib):
+    return f"{kib / 1048576:5.1f}G"
+
+
+def mem_frame():
+    procs = stats()
+    app_of = grouper(procs)
+    apps = {}
+    for pid, (_, _, kthread, _) in procs.items():
+        if kthread:
+            continue
+        status = read(f"/proc/{pid}/status")
+        if status is None:
+            continue
+        f = kib_fields(status, ("VmRSS", "VmSwap"))
+        if f["VmRSS"] is None:
+            continue
+        ram, swap = f["VmRSS"], f["VmSwap"] or 0
+        rollup = read(f"/proc/{pid}/smaps_rollup")
+        if rollup:
+            r = kib_fields(rollup, ("Pss", "SwapPss"))
+            if r["Pss"] is not None:
+                ram = r["Pss"]
+            if r["SwapPss"] is not None:
+                swap = r["SwapPss"]
+        a = apps.setdefault(app_of(pid), [0, 0, 0])
+        a[0] += ram
+        a[1] += swap
+        a[2] += 1
+
+    mem = kib_fields(read("/proc/meminfo"),
+                     ("MemTotal", "MemAvailable", "SwapTotal", "SwapFree"))
+    used = mem["MemTotal"] - mem["MemAvailable"]
+    header = (f"RAM {gib(used).strip()} / {gib(mem['MemTotal']).strip()}"
+              f" · avail {gib(mem['MemAvailable']).strip()}"
+              f" · swap {gib(mem['SwapTotal'] - mem['SwapFree']).strip()}")
+
+    rows = sorted(apps.items(), key=lambda kv: kv[1][0] + kv[1][1], reverse=True)
+    lines = [f"{'RAM':>6} {'swap':>6}  app"]
+    for app, (ram, swap, n) in rows[:TOP]:
+        count = f" ({n})" if n > 1 else ""
+        sw = gib(swap) if swap >= 51200 else "     -"  # hide < 50 MiB
+        lines.append(f"{gib(ram)} {sw}  {app}{count}")
+    return header, lines
+
+
+def cpu_totals():
+    """(busy, total) jiffies over all CPUs from /proc/stat."""
+    f = [int(x) for x in read("/proc/stat").split("\n", 1)[0].split()[1:]]
+    idle = f[3] + f[4]  # idle + iowait
+    total = sum(f[:8])  # guest time is already inside user/nice
+    return total - idle, total
+
+
+class CpuFrames:
+    """Each call reports CPU use since the previous one."""
+
+    def __init__(self):
+        self.prev = self._sample()
+
+    @staticmethod
+    def _sample():
+        return time.monotonic(), stats(), cpu_totals()
+
+    def __call__(self):
+        t0, procs0, (busy0, total0) = self.prev
+        self.prev = t1, procs1, (busy1, total1) = self._sample()
+        secs = max(t1 - t0, 1e-3)
+
+        app_of = grouper(procs1)
+        apps = {}
+        for pid, (name, _, _, ticks) in procs1.items():
+            old = procs0.get(pid)
+            # Same pid and name: the same process, not a reused pid.
+            used = ticks - old[3] if old and old[0] == name else 0
+            a = apps.setdefault(app_of(pid), [0, 0])
+            a[0] += used
+            a[1] += 1
+
+        ncpu = os.cpu_count() or 1
+        busy = 100 * (busy1 - busy0) / max(total1 - total0, 1)
+        load = " ".join(read("/proc/loadavg").split()[:3])
+        header = f"CPU {busy:4.1f}% of {ncpu} cores · load {load}"
+
+        rows = sorted(apps.items(), key=lambda kv: kv[1][0], reverse=True)
+        lines = [f"{'CPU%':>6}  app"]
+        for app, (ticks, n) in rows[:TOP]:
+            pct = 100 * ticks / TICK / secs
+            if pct < 0.05:
+                break
+            count = f" ({n})" if n > 1 else ""
+            lines.append(f"{pct:6.1f}  {app}{count}")
+        return header, lines
+
+
+def frames(mode):
+    return mem_frame if mode == "mem" else CpuFrames()
+
+
+def watch(mode):
+    frame = frames(mode)
+    fd = sys.stdin.fileno()
+    saved = termios.tcgetattr(fd)
+    out = sys.stdout
+    wait = 0.3 if mode == "cpu" else 0  # first cpu frame needs a sample span
+    try:
+        tty.setcbreak(fd)
+        out.write("\033[?25l")  # hide cursor
+        while True:
+            ready, _, _ = select.select([fd], [], [], wait)
+            if ready and os.read(fd, 1) in (b"q", b"\x1b"):
+                return
+            header, lines = frame()
+            out.write("\033[H\033[J" + header + "\n\n" + "\n".join(lines)
+                      + f"\n\n\033[2mevery {INTERVAL}s · q/Esc closes\033[0m")
+            out.flush()
+            wait = INTERVAL
+    except KeyboardInterrupt:
+        pass
+    finally:
+        out.write("\033[?25h")
+        termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+
+
+def popup(mode):
+    cls = f"app-top-{mode}"  # kitty window class and instance, matched by i3
+    # Toggle: a second click closes the window instead of opening another.
+    if subprocess.run(["pkill", "-f", f"^kitty --class {cls} "]).returncode == 0:
+        return
+    subprocess.Popen(
+        ["kitty", "--class", cls, "--name", cls, "--title", TITLES[mode],
+         "-o", "font_size=9", "-o", "window_padding_width=6",
+         "-o", "confirm_os_window_close=0",
+         os.path.abspath(__file__), mode, "--watch"],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def main(args):
+    if not args or args[0] not in TITLES:
+        sys.exit(f"usage: {os.path.basename(sys.argv[0])} {{mem|cpu}} [--watch|--popup]")
+    mode, flags = args[0], args[1:]
+    if "--popup" in flags:
+        popup(mode)
+    elif "--watch" in flags:
+        watch(mode)
+    else:
+        frame = frames(mode)
+        if mode == "cpu":
+            time.sleep(INTERVAL)
+        header, lines = frame()
+        print(header)
+        print("\n".join(lines))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
