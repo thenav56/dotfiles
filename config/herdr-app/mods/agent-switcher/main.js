@@ -1,14 +1,17 @@
-// Jump to an agent: every agent on every machine, ones that need you first
-// (blocked, then finished), the rest in sidebar order. Type to filter (agent,
-// title, space, tab, machine); ↑/↓, ctrl+n/ctrl+p or mod+j/mod+k and Enter to go; Esc to leave.
-// Bound in keys.json as `mod.open:agent-switcher` (mod+d).
+// Jump to an agent: the one you were in before this first (picked), then every
+// agent on every machine, ones that need you first (blocked, then finished), the
+// rest in sidebar order. Type to filter (agent, title, space, tab, machine); ↑/↓,
+// ctrl+n/ctrl+p or mod+j/mod+k and Enter to go; Esc to leave.
+// Bound in keys.json as `mod.open:agent-switcher` (mod+d); mod+d again while open
+// goes to the picked row, so mod+d d flips between your last two agents.
+// The previous agent comes from shared "agents.recent", kept by agents-nav.
 //
 // Mods can't import from outside their own folder, so the list code is shared
 // with space-switcher by copy; keep the two in step.
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { agents, run, theme, props, closeOverlay, nextCommand } from "herdr";
+import { agents, run, theme, props, closeOverlay, nextCommand, shared } from "herdr";
 
 const URGENT = { blocked: 0, done: 1 };
 const ROW_H = 34;
@@ -36,12 +39,13 @@ export default class AgentSwitcher extends View {
     this.input.on("submit", () => this.pick(this.rows()[this.at]));
     this.input.focus();
     cx.timer.after(600, () => this.input.focus());
-    // keys.json "mod:agent-switcher" sends "up"/"down" (mod+k / mod+j).
+    // keys.json "mod:agent-switcher" sends "up"/"down" (mod+k / mod+j) and "pick" (mod+d).
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
         if (c === "down") this.move(1);
         else if (c === "up") this.move(-1);
+        else if (c === "pick") return this.pick(this.rows()[this.at ?? 0]);
         else continue;
         cx.notify();
       }
@@ -58,13 +62,21 @@ export default class AgentSwitcher extends View {
     if (id) closeOverlay(id);
   }
 
+  // The latest agent you were in that isn't the one you're in now, still running.
+  previous(all) {
+    const live = new Set(all.filter((a) => !a.focused).map((a) => a.address));
+    return (shared("agents.recent") ?? []).find((x) => live.has(x)) ?? null;
+  }
+
   rows() {
     const f = this.filter.toLowerCase();
-    return agents()
+    const all = agents();
+    const prev = this.previous(all);
+    return all
       .map((a, i) => ({ a, i }))
       .filter(({ a }) => !f || [a.program?.name, a.title, a.space_name, a.tab_name, machineOf(a.address)].join(" ").toLowerCase().includes(f))
-      .sort((x, y) => (URGENT[x.a.status] ?? 2) - (URGENT[y.a.status] ?? 2) || x.i - y.i)
-      .map(({ a }) => a);
+      .sort((x, y) => (y.a.address === prev) - (x.a.address === prev) || (URGENT[x.a.status] ?? 2) - (URGENT[y.a.status] ?? 2) || x.i - y.i)
+      .map(({ a }) => ({ ...a, previous: a.address === prev }));
   }
 
   pick(a) {
@@ -81,8 +93,11 @@ export default class AgentSwitcher extends View {
   render() {
     const t = theme();
     const rows = this.rows();
-    // Opens on the agent you're in.
-    if (this.at === null) this.at = Math.max(0, rows.findIndex((a) => a.focused));
+    // Opens on the agent you were in before this, else the one you're in.
+    if (this.at === null) {
+      const prev = rows.findIndex((a) => a.previous);
+      this.at = Math.max(0, prev >= 0 ? prev : rows.findIndex((a) => a.focused));
+    }
     this.at = Math.max(0, Math.min(this.at, rows.length - 1));
     const start = Math.max(0, Math.min(this.at - MAX_ROWS + 1, rows.length - MAX_ROWS));
     const shown = rows.slice(start, start + MAX_ROWS);
@@ -108,6 +123,7 @@ export default class AgentSwitcher extends View {
         .child(div().flex_1().truncate().text_size(12).text_color(a.focused ? t.foreground : t.muted).when(a.focused, (d) => d.font_semibold()).child(a.title ?? ""))
         .when(a.status === "blocked", (el) => el.child(div().flex_none().text_size(11).text_color(t.blocked).child("needs you")))
         .when(a.status === "done", (el) => el.child(div().flex_none().text_size(11).text_color(t.done).child("finished")))
+        .when(a.previous, (el) => el.child(div().flex_none().text_size(11).text_color(t.accent).child("previous")))
         .child(div().flex_none().max_w(200).truncate().text_size(11).text_color(t.dim).child(where));
     };
 

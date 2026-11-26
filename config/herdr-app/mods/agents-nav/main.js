@@ -178,6 +178,17 @@ export default class Agents extends View {
     if (!same || cur.status !== "idle") this.held = cur ? { address: cur.address, rank: RANK[cur.status] ?? 0 } : null;
   }
 
+  // Agents you were in, latest first (shared "agents.recent"): the agent switcher
+  // offers the one before this. Only this copy's own focus changes write, so two
+  // windows focused on different agents don't take turns rewriting it.
+  remember(list) {
+    const cur = list.find((a) => a.focused)?.address;
+    if (!cur || cur === this.focusedWas) return;
+    this.focusedWas = cur;
+    const was = shared("agents.recent") ?? [];
+    if (was[0] !== cur) setShared("agents.recent", [cur, ...was.filter((x) => x !== cur)].slice(0, 20));
+  }
+
   rank(a) {
     const sawDone = a.address === this.held?.address && this.held.rank === RANK.done && a.status === "idle";
     return sawDone ? RANK.done : RANK[a.status] ?? 0;
@@ -295,6 +306,7 @@ export default class Agents extends View {
     const now = Date.now();
     this.track(list, now);
     this.hold(list);
+    this.remember(list);
     const byPriority = sort.id === "priority";
     const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
     const rankOf = (a) => urgency.get(a.address);

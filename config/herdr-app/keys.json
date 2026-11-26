@@ -96,7 +96,8 @@
   },
   "mod:agent-switcher": {
     "cmd-j": "agent-switcher.down",
-    "cmd-k": "agent-switcher.up"
+    "cmd-k": "agent-switcher.up",
+    "cmd-d": "agent-switcher.pick"
   },
   "mod:space-switcher": {
     "cmd-j": "space-switcher.down",
