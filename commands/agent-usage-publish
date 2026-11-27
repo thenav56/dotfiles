@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""agent-usage-publish - publish a coding agent's plan usage to herdr.
+"""agent-usage-publish - publish a coding agent's plan usage to herdr and, for Claude, to a file.
 
     agent-usage-publish claude   # stdin: Claude Code statusline JSON (claude-statusline)
     agent-usage-publish codex    # stdin: Codex hook JSON (config/codex/hooks.json: SessionStart, Stop)
@@ -19,8 +19,22 @@ the agent didn't report that window). herdr-app's agents sidebar
 each machine name. Labels sync from remote machines too.
 
 Writes only when the numbers change, or every REFRESH seconds so `at` says how
-fresh they are. Silent and exits 0 on any problem: it must never hurt the
-status line or the agent's turn.
+fresh they are. Claude sets the label only inside a herdr terminal.
+
+Claude also writes, for every session inside herdr or not, the live file sink
+$XDG_RUNTIME_DIR/claude-usages/live/<email>.json (tmpfs, dirs 0700, file 0600,
+atomic replace) so other tools read each account's usage without API calls:
+
+    {"acct": "<email>", "h5": 12, "h5r": <epoch s>, "wk": 45, "wkr": <epoch s>, "at": <epoch s>}
+
+`at` is the time of the write. It is rewritten when this session reports numbers
+that are new to it and differ from the file, or when the file holds the same
+numbers and is LIVE_REFRESH seconds old. A session repeating numbers it already
+reported leaves a differing file alone: another session wrote newer ones.
+Skipped when XDG_RUNTIME_DIR is unset or not writable.
+
+Silent and exits 0 on any problem: it must never hurt the status line or the
+agent's turn.
 """
 
 from __future__ import annotations
@@ -38,6 +52,7 @@ from datetime import datetime
 
 LABEL = "agent.usage"
 REFRESH = 300
+LIVE_REFRESH = 60
 TAIL = 512 * 1024  # How far back to look in a Codex transcript for its last rate limits.
 
 
@@ -200,6 +215,55 @@ def state_dir() -> str:
     return os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
 
 
+def live_dir() -> str | None:
+    """$XDG_RUNTIME_DIR/claude-usages/live, created 0700, or None without a writable
+    XDG_RUNTIME_DIR."""
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    if not base or not os.path.isdir(base) or not os.access(base, os.W_OK | os.X_OK):
+        return None
+    d = base
+    for part in ("claude-usages", "live"):
+        d = os.path.join(d, part)
+        try:
+            os.mkdir(d, 0o700)
+        except FileExistsError:
+            pass
+    return d
+
+
+def publish_live(usage: dict, state: dict, now: int) -> None:
+    """Writes the Claude usage file sink (see the module docstring)."""
+    new_here = usage != state.get("live")
+    state["live"] = usage
+    acct = usage["acct"]
+    if "/" in acct or acct.startswith("."):
+        return
+    d = live_dir()
+    if not d:
+        return
+    path = os.path.join(d, f"{acct}.json")
+    numbers = {k: v for k, v in usage.items() if k != "app"}
+    try:
+        with open(path, encoding="utf-8") as f:
+            cur = json.load(f)
+    except Exception:
+        cur = None
+    if isinstance(cur, dict) and {k: v for k, v in cur.items() if k != "at"} == numbers:
+        at = cur.get("at")
+        if isinstance(at, (int, float)) and 0 <= now - at < LIVE_REFRESH:
+            return
+    elif isinstance(cur, dict) and not new_here:
+        return
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".live-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump({**numbers, "at": now}, f, separators=(",", ":"))
+        os.replace(tmp, path)
+    except Exception:
+        os.unlink(tmp)
+        raise
+
+
 def known_claude_usage(email: str) -> dict | None:
     """The newest usage this machine has seen for a Claude account: what any session
     here last published for it, or ccstatusline's own cache (it asks the usage API
@@ -256,43 +320,61 @@ def main() -> None:
     if app not in ("claude", "codex"):
         return
     term = os.environ.get("HC_TERMINAL_ID")
-    if app == "claude" and not term:
-        return
     raw = sys.stdin.read()
     data = json.loads(raw) if raw.strip() else {}
 
-    # Claude: state per terminal. Codex: one per machine, remembering what each terminal got.
-    key = term.replace("/", "_") if app == "claude" else "codex"
-    state_path = os.path.join(state_dir(), f"agent-usage-{key}.json")
+    # Claude: state per herdr terminal, else per session. Codex: one per machine,
+    # remembering what each terminal got.
+    if app == "codex":
+        key = "codex"
+    elif term:
+        key = term.replace("/", "_")
+    else:
+        sid = "".join(c for c in str(data.get("session_id") or "") if c.isalnum() or c == "-")
+        key = f"s-{sid}" if sid else None
+    state_path = os.path.join(state_dir(), f"agent-usage-{key}.json") if key else None
     try:
         with open(state_path, encoding="utf-8") as f:
             state = json.load(f)
     except Exception:
         state = {}
+    before = json.dumps(state, sort_keys=True)
+
+    def save() -> None:
+        if not state_path or json.dumps(state, sort_keys=True) == before:
+            return
+        tmp = f"{state_path}.{os.getpid()}"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+        os.replace(tmp, state_path)
 
     usage = (claude if app == "claude" else codex)(data, state)
     if not usage:
         return
     now = int(time.time())
     sent = state.get("sent", {})
-    if app == "claude" and stale_after_switch(sent.get(term, {}).get("usage"), usage):
-        return
+    if app == "claude":
+        prev = sent.get(term, {}).get("usage") if term else state.get("live")
+        if stale_after_switch(prev, usage):
+            return
+        try:
+            publish_live(usage, state, now)
+        except Exception:
+            pass
+        if not term:
+            save()
+            return
     targets = [term] if app == "claude" else codex_terminals()
     due = [t for t in targets if sent.get(t, {}).get("usage") != usage or now - sent[t].get("at", 0) >= REFRESH]
-    if not due:
-        return
-
-    label = json.dumps({**usage, "at": now}, separators=(",", ":"))
-    for t in due:
-        done = subprocess.run([HC, "label", t, f"{LABEL}={label}"], capture_output=True, timeout=5)
-        if done.returncode == 0:
-            sent[t] = {"usage": usage, "at": now}
-    # Forget terminals that are gone.
-    state["sent"] = {t: s for t, s in sent.items() if t in targets}
-    tmp = f"{state_path}.{os.getpid()}"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(state, f)
-    os.replace(tmp, state_path)
+    if due:
+        label = json.dumps({**usage, "at": now}, separators=(",", ":"))
+        for t in due:
+            done = subprocess.run([HC, "label", t, f"{LABEL}={label}"], capture_output=True, timeout=5)
+            if done.returncode == 0:
+                sent[t] = {"usage": usage, "at": now}
+        # Forget terminals that are gone.
+        state["sent"] = {t: s for t, s in sent.items() if t in targets}
+    save()
 
 
 if __name__ == "__main__":

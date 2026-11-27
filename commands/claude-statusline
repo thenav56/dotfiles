@@ -1,14 +1,15 @@
 #!/bin/sh
 # claude-statusline - Claude Code's statusLine command (config/claude/settings.base.json).
 #
-# Draws the status line with ccstatusline. Inside a herdr terminal it also, in the
-# background, publishes this session's plan usage (5h / weekly %) as the terminal's
-# `agent.usage` label (agent-usage-publish), which herdr-app's agents sidebar
-# shows next to each machine name.
+# Draws the status line with ccstatusline. In the background it also publishes this
+# session's plan usage (5h / weekly %) with agent-usage-publish: to the live file
+# $XDG_RUNTIME_DIR/claude-usages/live/<email>.json for other tools to read, and
+# inside a herdr terminal as the terminal's `agent.usage` label, which herdr-app's
+# agents sidebar shows next to each machine name.
 
 input=$(cat)
 
-if [ -n "${HC_TERMINAL_ID:-}" ] && command -v python3 >/dev/null 2>&1; then
+if command -v python3 >/dev/null 2>&1; then
   printf '%s' "$input" | python3 "$(dirname "$0")/agent-usage-publish" claude >/dev/null 2>&1 &
 fi
 
