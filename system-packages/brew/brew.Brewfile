@@ -1,4 +1,9 @@
 # vim: set filetype=ruby
+#
+# TODO
+# Warning: flameshot has been deprecated because it does not pass the macOS Gatekeeper check! It will be disabled on 2026-09-01.
+# Warning: qbittorrent has been deprecated because it does not pass the macOS Gatekeeper check! It will be disabled on 2026-09-01.
+# Warning: rar has been deprecated because it does not pass the macOS Gatekeeper check! It will be disabled on 2026-09-01.
 
 # Taps
 tap "homeport/tap", trusted: true
@@ -14,6 +19,8 @@ brew "openssh"
 brew "svt-av1"
 brew "ruby"
 brew "rust"
+brew "shell-pool/tap/shpool"
+brew "neurosnap/tap/zmx"
 
 # Must have
 brew "atuin"
