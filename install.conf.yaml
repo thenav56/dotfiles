@@ -107,6 +107,8 @@
     ~/.config/herdr-app/layouts/:
       glob: true
       path: config/herdr-app/layouts/*.json
+    ~/.config/rex/init.lua:
+      path: config/rex/init.lua
 
 - create:
     - ~/.local/bin

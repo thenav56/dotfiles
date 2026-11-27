@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""rex-pane-close - close a Rex pane, asking first when something is running in it.
+
+Rex counterpart of the herdr pane-close mod. Rex's pane.close/client.close
+close without asking, so:
+
+  - a bare shell at its prompt (foreground process is a shell) closes at once;
+  - anything else (an agent, nvim, a long command) opens a small floating
+    prompt pane: Enter closes the pane, Esc (or any other key) cancels.
+
+Fails closed: if the pane's process can't be read, nothing is closed.
+
+Usage: rex-pane-close [-s SESSION] [BLOCK]     (defaults: $REX_SESSION, $REX_BLOCK)
+       rex-pane-close --prompt -s SESSION BLOCK NAME   (runs inside the prompt pane)
+Bound in config/rex/init.lua to cmd+w (same key as herdr's pane-close).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import termios
+import tty
+
+# rex.exec runs with the server's PATH, which may not include rex itself.
+REX_FALLBACKS = [os.path.expanduser(p) for p in (
+    "~/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/"
+    "Rex Server.app/Contents/MacOS/rex",
+    "~/.local/bin/rex",
+)]
+SHELLS = {"zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh", "csh", "nu", "xonsh", "login"}
+# [x, y, w, h] as fractions of the window.
+PROMPT_BOUNDS = [0.3, 0.4, 0.4, 0.14]
+
+
+def die(msg: str) -> None:
+    print(f"rex-pane-close: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def rex_bin() -> str:
+    found = shutil.which("rex")
+    if found:
+        return found
+    for p in REX_FALLBACKS:
+        if os.path.exists(p):
+            return p
+    die("rex not found")
+    raise AssertionError
+
+
+def rex(*args: str, env: dict | None = None) -> str:
+    proc = subprocess.run(
+        [rex_bin(), *args], capture_output=True, text=True, timeout=10,
+        env={**os.environ, **(env or {})},
+    )
+    if proc.returncode != 0:
+        die(f"rex {args[0]}: {(proc.stderr or proc.stdout).strip()}")
+    return proc.stdout
+
+
+def close_block(session: str, block: str) -> None:
+    rex("api", "call", "block.close", json.dumps({"session_id": session, "block_id": block}))
+
+
+def foreground(session: str, block: str) -> str:
+    info = json.loads(rex("block", "call", "-s", session, "-b", block, "process"))
+    fg = info.get("foreground") or info.get("child") or {}
+    name = fg.get("name")
+    if not name:
+        die("can't tell what is running in the pane")
+    return name
+
+
+def ask(session: str, block: str) -> None:
+    name = foreground(session, block)
+    if name in SHELLS:
+        close_block(session, block)
+        return
+    win = json.loads(rex("window", "inspect", "-s", session, "--json", env={"REX_BLOCK": block}))
+    req = {
+        "session_id": session,
+        "window_id": win["window_id"],
+        "bounds": PROMPT_BOUNDS,
+        "focus": True,
+        "layout": {"block": {
+            "flavor": "com.superlogical.terminal.shell",
+            "label": "Close pane?",
+            "options": {
+                "shell": "none",
+                "command": [sys.executable, os.path.abspath(__file__),
+                            "--prompt", "-s", session, block, name],
+            },
+        }},
+    }
+    rex("api", "call", "session.new_layer", json.dumps(req))
+
+
+def prompt(session: str, block: str, name: str) -> None:
+    sys.stdout.write(
+        f"\n  \033[1m{name}\033[0m is still running in this pane.\n\n"
+        "  \033[1mEnter\033[0m close    \033[1mEsc\033[0m cancel"
+    )
+    sys.stdout.flush()
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        key = os.read(fd, 8)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    if key in (b"\r", b"\n", b"y", b"Y"):
+        close_block(session, block)
+    else:
+        subprocess.run([rex_bin(), "focus", "-s", session, block], capture_output=True, timeout=10)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Close a Rex pane, asking if it is busy.")
+    ap.add_argument("--prompt", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("-s", "--session", default=os.environ.get("REX_SESSION", ""))
+    ap.add_argument("block", nargs="?", default=os.environ.get("REX_BLOCK", ""))
+    ap.add_argument("name", nargs="?", default="a program")
+    a = ap.parse_args()
+    if not a.session or not a.block:
+        die("need a session and block (args or REX_SESSION/REX_BLOCK)")
+    if a.prompt:
+        prompt(a.session, a.block, a.name)
+    else:
+        ask(a.session, a.block)
+
+
+if __name__ == "__main__":
+    main()

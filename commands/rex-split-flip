@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""rex-split-flip - toggle a Rex pane's split between side by side and stacked.
+
+Rex counterpart of herdr-split-flip. Rex has no action for this, so:
+
+  1. read the window layout (`rex window inspect --json`) to find the block's
+     parent split, its direction and its sibling;
+  2. `rex move` one of the two next to the other on the other axis
+     (below when side by side, right when stacked). The second of the pair is
+     moved, so on-screen order and the split ratio are kept.
+
+Only a split between two panes can flip; a sibling that is itself a group of
+panes is left alone (rex move anchors on a single block).
+
+Usage: rex-split-flip [-s SESSION] [BLOCK]   (defaults: $REX_SESSION, $REX_BLOCK)
+Bound in config/rex/init.lua to cmd+e (same key as herdr's split-flip).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+# rex.exec runs with the server's PATH, which may not include rex itself.
+REX_FALLBACKS = [os.path.expanduser(p) for p in (
+    "~/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/"
+    "Rex Server.app/Contents/MacOS/rex",
+    "~/.local/bin/rex",
+)]
+
+
+def die(msg: str) -> None:
+    print(f"rex-split-flip: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def rex_bin() -> str:
+    found = shutil.which("rex")
+    if found:
+        return found
+    for p in REX_FALLBACKS:
+        if os.path.exists(p):
+            return p
+    die("rex not found")
+    raise AssertionError
+
+
+def rex(*args: str, env: dict | None = None) -> str:
+    proc = subprocess.run(
+        [rex_bin(), *args], capture_output=True, text=True, timeout=10,
+        env={**os.environ, **(env or {})},
+    )
+    if proc.returncode != 0:
+        die(f"rex {args[0]}: {(proc.stderr or proc.stdout).strip()}")
+    return proc.stdout
+
+
+def find_parent(node: dict, block: str, parent: dict | None = None, side: str = ""):
+    """Return (split, side) holding the leaf `block`, or None."""
+    if node.get("block_id") == block:
+        return (parent, side) if parent else (None, "")
+    split = node.get("split")
+    if not split:
+        return None
+    for s in ("before", "after"):
+        hit = find_parent(split[s], block, split, s)
+        if hit is not None:
+            return hit
+    return None
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Flip a Rex pane's split axis.")
+    ap.add_argument("-s", "--session", default=os.environ.get("REX_SESSION", ""))
+    ap.add_argument("block", nargs="?", default=os.environ.get("REX_BLOCK", ""))
+    a = ap.parse_args()
+    if not a.session or not a.block:
+        die("need a session and block (args or REX_SESSION/REX_BLOCK)")
+
+    win = json.loads(rex("window", "inspect", "-s", a.session, "--json",
+                         env={"REX_BLOCK": a.block}))
+    hit = None
+    for layer in win.get("layers", []):
+        if layer.get("kind") == "tiled":
+            hit = find_parent(layer["layout"], a.block)
+            if hit is not None:
+                break
+    if hit is None:
+        die("pane is not in the tiled layout")
+    split, side = hit
+    if split is None:
+        die("pane is not split")
+
+    sibling = split["before" if side == "after" else "after"]
+    if "block_id" not in sibling:
+        die("pane's sibling is a group of panes; only a split of two can flip")
+
+    direction = split.get("direction")
+    if direction == "vertical":      # stacked -> side by side
+        to = "right"
+    elif direction == "horizontal":  # side by side -> stacked
+        to = "below"
+    else:
+        die(f"unknown split direction {direction!r}")
+
+    first, second = (a.block, sibling["block_id"]) if side == "before" \
+        else (sibling["block_id"], a.block)
+    # ratio is the first pane's share; the moved (second) pane keeps its own.
+    pct = min(99, max(1, round((1 - float(split.get("ratio", 0.5))) * 100)))
+    rex("move", "-s", a.session, second, to, first, "--ratio", str(pct))
+    rex("focus", "-s", a.session, a.block)
+
+
+if __name__ == "__main__":
+    main()
