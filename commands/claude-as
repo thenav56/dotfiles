@@ -669,12 +669,32 @@ def warn_unclassified() -> None:
                 f"[bold]{entry}[/bold] — add it to ALLOW_LIST or SKIP_LIST in claude-as")
 
 
-def ensure_onboarding(cfg: Path) -> None:
-    """Set hasCompletedOnboarding=true in the account's .claude.json.
+def trusted_paths(cfg: Path) -> set[str]:
+    """Project paths any other account has accepted the trust dialog for."""
+    import json
 
-    Without it an interactive launch starts at the first-run wizard even though
-    the stored token is valid. Atomic, 0600-preserving write (the file holds
-    the oauthAccount identity and must not become world-readable).
+    paths: set[str] = set()
+    for acct in accounts_root().iterdir():
+        if acct.is_symlink() or not acct.is_dir() or acct == cfg:
+            continue
+        try:
+            with open(acct / ".claude.json") as fh:
+                projects = json.load(fh).get("projects") or {}
+        except Exception:
+            continue
+        paths.update(k for k, v in projects.items()
+                     if isinstance(v, dict) and v.get("hasTrustDialogAccepted") is True)
+    return paths
+
+
+def prepare_claude_json(cfg: Path) -> None:
+    """Set onboarding and shared folder trust in the account's .claude.json.
+
+    Without hasCompletedOnboarding an interactive launch starts at the
+    first-run wizard even though the stored token is valid. Folder trust is
+    per account, so every path another account trusts is marked trusted here
+    too. Atomic, 0600-preserving write (the file holds the oauthAccount
+    identity and must not become world-readable).
     """
     import json
 
@@ -689,9 +709,18 @@ def ensure_onboarding(cfg: Path) -> None:
     except Exception as exc:
         console.print(f"[yellow]warning:[/yellow] cannot read .claude.json: {exc}")
         return
-    if data.get("hasCompletedOnboarding") is True:
+    changed = False
+    if data.get("hasCompletedOnboarding") is not True:
+        data["hasCompletedOnboarding"] = True
+        changed = True
+    projects = data.setdefault("projects", {})
+    for proj in trusted_paths(cfg):
+        entry = projects.setdefault(proj, {})
+        if isinstance(entry, dict) and entry.get("hasTrustDialogAccepted") is not True:
+            entry["hasTrustDialogAccepted"] = True
+            changed = True
+    if not changed:
         return
-    data["hasCompletedOnboarding"] = True
     tmp = path.with_suffix(".json.tmp")
     try:
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -704,7 +733,7 @@ def ensure_onboarding(cfg: Path) -> None:
             os.unlink(tmp)
         except OSError:
             pass
-        console.print(f"[yellow]warning:[/yellow] could not set onboarding flag: {exc}")
+        console.print(f"[yellow]warning:[/yellow] could not update .claude.json: {exc}")
 
 
 def login_cmd(email: str) -> str:
@@ -771,7 +800,7 @@ def launch(email: str, passthrough: list[str], config_dir: Path | None = None) -
     auth_gate(cfg, email)
     reconcile_symlinks(cfg)
     warn_unclassified()
-    ensure_onboarding(cfg)
+    prepare_claude_json(cfg)
     if IS_MAC:
         _sync_default_before_launch(email, via_default=config_dir is not None)
 
