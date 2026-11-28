@@ -29,16 +29,35 @@ rex.bind("cmd+shift+enter", "pane.split.right")
 -- Zoom (pane fullscreen toggle): cmd+z
 rex.bind("cmd+z", "pane.zoom")
 
+-- Actions Rex lacks run scripts from commands/. The Mac app runs these on the
+-- Mac's own server even for a pane on another host; ctx.server then names
+-- that host and the script reaches it with `rex -S`. So remote hosts need no
+-- config for these keys. Failures go to ~/.cache/rex-actions.log.
+local HOME = os.getenv("HOME") or ""
+local function run_script(script, ctx)
+  if not ctx.session_id or not ctx.block_id then return end
+  local argv = { HOME .. "/.dotfiles/commands/" .. script }
+  if ctx.server and ctx.server ~= "" then
+    argv[#argv + 1] = "-S"
+    argv[#argv + 1] = ctx.server
+  end
+  for _, a in ipairs({ "-s", ctx.session_id, ctx.block_id }) do argv[#argv + 1] = a end
+  local r = rex.exec(argv)
+  if not r.ok then
+    local line = string.format("%s server=%s session=%s block=%s code=%s %s",
+      script, tostring(ctx.server), ctx.session_id, ctx.block_id,
+      tostring(r.code), (r.stderr or ""):gsub("%s+$", ""))
+    rex.exec { "/bin/sh", "-c",
+      'mkdir -p "$HOME/.cache" && printf "%s %s\\n" "$(date "+%F %T")" "$1" >> "$HOME/.cache/rex-actions.log"',
+      "sh", line }
+  end
+end
+
 -- Flip split (side by side <-> stacked): cmd+e, like herdr's split-flip mod.
--- Rex has no action for it; commands/rex-split-flip does it with `rex move`.
 rex.action {
   name = "split_flip",
   title = "Flip Split",
-  run = function(ctx)
-    if not ctx.session_id or not ctx.block_id then return end
-    rex.exec { (os.getenv("HOME") or "") .. "/.dotfiles/commands/rex-split-flip",
-               "-s", ctx.session_id, ctx.block_id }
-  end,
+  run = function(ctx) run_script("rex-split-flip", ctx) end,
 }
 rex.bind("cmd+e", "split_flip")
 
@@ -48,11 +67,7 @@ rex.bind("cmd+e", "split_flip")
 rex.action {
   name = "pane_close",
   title = "Close Pane (Ask If Busy)",
-  run = function(ctx)
-    if not ctx.session_id or not ctx.block_id then return end
-    rex.exec { (os.getenv("HOME") or "") .. "/.dotfiles/commands/rex-pane-close",
-               "-s", ctx.session_id, ctx.block_id }
-  end,
+  run = function(ctx) run_script("rex-pane-close", ctx) end,
 }
 rex.bind("cmd+w", "pane_close")
 rex.bind("cmd+shift+w", "client.tab.close")

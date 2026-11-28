@@ -12,13 +12,14 @@ Rex counterpart of herdr-split-flip. Rex has no action for this, so:
 Only a split between two panes can flip; a sibling that is itself a group of
 panes is left alone (rex move anchors on a single block).
 
-Usage: rex-split-flip [-s SESSION] [BLOCK]   (defaults: $REX_SESSION, $REX_BLOCK)
+Usage: rex-split-flip [-S HOST] [-s SESSION] [BLOCK]   (defaults: $REX_SESSION, $REX_BLOCK)
 Bound in config/rex/init.lua to cmd+e (same key as herdr's split-flip).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -49,14 +50,52 @@ def rex_bin() -> str:
     raise AssertionError
 
 
+# -S HOST: the pane is on another Rex server. The Mac app runs config actions
+# on its own server even for remote panes; init.lua passes ctx.server here.
+SERVER: list[str] = []
+REX_STATE = os.path.expanduser("~/Library/Application Support/rex")
+
+
+def server_args(host: str) -> list[str]:
+    """`rex -S` args for HOST (label or id). A plain label makes rex open a new
+    ssh connection per call (~0.7s); the Mac app already keeps a tunnel socket
+    per host, named sha256(endpoint NUL remote-socket)[:16], so use that when
+    it exists (~0.1s). Rex internals: falls back to the label on any mismatch."""
+    try:
+        out = subprocess.run([rex_bin(), "hosts", "--json"], capture_output=True,
+                             text=True, timeout=5).stdout
+        hosts = [h["host"] for h in json.loads(out).get("hosts", [])]
+        endpoints = next(h.get("endpoints", []) for h in hosts if host in (h.get("label"), h.get("id")))
+        with open(os.path.join(REX_STATE, "host-endpoints.json")) as f:
+            remote = json.load(f).get("ssh_sockets", {})
+        for ep in endpoints:
+            if ep in remote:
+                key = hashlib.sha256(f"{ep}\0{remote[ep]}".encode()).hexdigest()[:16]
+                sock = os.path.join(REX_STATE, "ssh", key + ".sock")
+                if os.path.exists(sock):
+                    return ["-S", "unix://" + sock]
+    except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError):
+        pass
+    return ["-S", host]
+
+
 def rex(*args: str, env: dict | None = None) -> str:
     proc = subprocess.run(
-        [rex_bin(), *args], capture_output=True, text=True, timeout=10,
+        [rex_bin(), *SERVER, *args], capture_output=True, text=True, timeout=15,
         env={**os.environ, **(env or {})},
     )
     if proc.returncode != 0:
         die(f"rex {args[0]}: {(proc.stderr or proc.stdout).strip()}")
     return proc.stdout
+
+
+def window_of(session: str, block: str) -> dict:
+    """Inspect the window holding `block` (REX_BLOCK isn't honoured with -S)."""
+    blocks = json.loads(rex("block", "ls", "-s", session, "--json")).get("blocks", [])
+    wid = next((b.get("window_id") for b in blocks if b.get("block_id") == block), None)
+    if not wid:
+        die("pane is not in a window")
+    return json.loads(rex("window", "inspect", wid, "-s", session, "--json"))
 
 
 def find_parent(node: dict, block: str, parent: dict | None = None, side: str = ""):
@@ -75,14 +114,16 @@ def find_parent(node: dict, block: str, parent: dict | None = None, side: str = 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Flip a Rex pane's split axis.")
+    ap.add_argument("-S", "--server", default="", help="Rex host label (rex hosts)")
     ap.add_argument("-s", "--session", default=os.environ.get("REX_SESSION", ""))
     ap.add_argument("block", nargs="?", default=os.environ.get("REX_BLOCK", ""))
     a = ap.parse_args()
+    if a.server:
+        SERVER[:] = server_args(a.server)
     if not a.session or not a.block:
         die("need a session and block (args or REX_SESSION/REX_BLOCK)")
 
-    win = json.loads(rex("window", "inspect", "-s", a.session, "--json",
-                         env={"REX_BLOCK": a.block}))
+    win = window_of(a.session, a.block)
     hit = None
     for layer in win.get("layers", []):
         if layer.get("kind") == "tiled":

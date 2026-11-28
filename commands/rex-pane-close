@@ -10,21 +10,24 @@ close without asking, so:
 
 Fails closed: if the pane's process can't be read, nothing is closed.
 
-Usage: rex-pane-close [-s SESSION] [BLOCK]     (defaults: $REX_SESSION, $REX_BLOCK)
-       rex-pane-close --prompt -s SESSION BLOCK NAME   (runs inside the prompt pane)
+Usage: rex-pane-close [-S HOST] [-s SESSION] [BLOCK]   (defaults: $REX_SESSION, $REX_BLOCK)
+
+-S HOST: the pane is on another Rex server (a `rex hosts` label). The Mac app
+runs config actions on its own server even for remote panes, so init.lua
+passes ctx.server here. The prompt pane runs on the pane's machine as plain
+/bin/sh with that machine's rex, so remote hosts need nothing from dotfiles.
 Bound in config/rex/init.lua to cmd+w (same key as herdr's pane-close).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
-import termios
-import tty
 
 # rex.exec runs with the server's PATH, which may not include rex itself.
 REX_FALLBACKS = [os.path.expanduser(p) for p in (
@@ -35,6 +38,30 @@ REX_FALLBACKS = [os.path.expanduser(p) for p in (
 SHELLS = {"zsh", "bash", "fish", "sh", "dash", "ksh", "tcsh", "csh", "nu", "xonsh", "login"}
 # [x, y, w, h] as fractions of the window.
 PROMPT_BOUNDS = [0.3, 0.4, 0.4, 0.14]
+
+# Runs in the prompt pane, on the machine that owns the pane: $1 session,
+# $2 block, $3 program name. Enter/y closes the pane, anything else cancels.
+PROMPT_SH = r'''
+rex=$(command -v rex)
+for p in "$HOME/.local/bin/rex" \
+  "$HOME/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"; do
+  [ -n "$rex" ] && break
+  [ -x "$p" ] && rex=$p
+done
+printf '\n  \033[1m%s\033[0m is still running in this pane.\n\n  \033[1mEnter\033[0m close    \033[1mEsc\033[0m cancel' "$3"
+old=$(stty -g); stty raw -echo
+key=$(dd bs=1 count=1 2>/dev/null)
+stty "$old"
+case "$key" in
+  "$(printf '\r')"|y|Y)
+    "$rex" api call block.close "{\"session_id\":\"$1\",\"block_id\":\"$2\"}" >/dev/null ;;
+  *) "$rex" focus -s "$1" "$2" >/dev/null 2>&1 ;;
+esac
+exit 0
+'''
+
+SERVER: list[str] = []
+REX_STATE = os.path.expanduser("~/Library/Application Support/rex")
 
 
 def die(msg: str) -> None:
@@ -53,14 +80,46 @@ def rex_bin() -> str:
     raise AssertionError
 
 
+def server_args(host: str) -> list[str]:
+    """`rex -S` args for HOST (label or id). A plain label makes rex open a new
+    ssh connection per call (~0.7s); the Mac app already keeps a tunnel socket
+    per host, named sha256(endpoint NUL remote-socket)[:16], so use that when
+    it exists (~0.1s). Rex internals: falls back to the label on any mismatch."""
+    try:
+        out = subprocess.run([rex_bin(), "hosts", "--json"], capture_output=True,
+                             text=True, timeout=5).stdout
+        hosts = [h["host"] for h in json.loads(out).get("hosts", [])]
+        endpoints = next(h.get("endpoints", []) for h in hosts if host in (h.get("label"), h.get("id")))
+        with open(os.path.join(REX_STATE, "host-endpoints.json")) as f:
+            remote = json.load(f).get("ssh_sockets", {})
+        for ep in endpoints:
+            if ep in remote:
+                key = hashlib.sha256(f"{ep}\0{remote[ep]}".encode()).hexdigest()[:16]
+                sock = os.path.join(REX_STATE, "ssh", key + ".sock")
+                if os.path.exists(sock):
+                    return ["-S", "unix://" + sock]
+    except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError):
+        pass
+    return ["-S", host]
+
+
 def rex(*args: str, env: dict | None = None) -> str:
     proc = subprocess.run(
-        [rex_bin(), *args], capture_output=True, text=True, timeout=10,
+        [rex_bin(), *SERVER, *args], capture_output=True, text=True, timeout=15,
         env={**os.environ, **(env or {})},
     )
     if proc.returncode != 0:
         die(f"rex {args[0]}: {(proc.stderr or proc.stdout).strip()}")
     return proc.stdout
+
+
+def window_of(session: str, block: str) -> dict:
+    """Inspect the window holding `block` (REX_BLOCK isn't honoured with -S)."""
+    blocks = json.loads(rex("block", "ls", "-s", session, "--json")).get("blocks", [])
+    wid = next((b.get("window_id") for b in blocks if b.get("block_id") == block), None)
+    if not wid:
+        die("pane is not in a window")
+    return json.loads(rex("window", "inspect", wid, "-s", session, "--json"))
 
 
 def close_block(session: str, block: str) -> None:
@@ -81,7 +140,7 @@ def ask(session: str, block: str) -> None:
     if name in SHELLS:
         close_block(session, block)
         return
-    win = json.loads(rex("window", "inspect", "-s", session, "--json", env={"REX_BLOCK": block}))
+    win = window_of(session, block)
     req = {
         "session_id": session,
         "window_id": win["window_id"],
@@ -92,46 +151,24 @@ def ask(session: str, block: str) -> None:
             "label": "Close pane?",
             "options": {
                 "shell": "none",
-                "command": [sys.executable, os.path.abspath(__file__),
-                            "--prompt", "-s", session, block, name],
+                "command": ["/bin/sh", "-c", PROMPT_SH, "sh", session, block, name],
             },
         }},
     }
     rex("api", "call", "session.new_layer", json.dumps(req))
 
 
-def prompt(session: str, block: str, name: str) -> None:
-    sys.stdout.write(
-        f"\n  \033[1m{name}\033[0m is still running in this pane.\n\n"
-        "  \033[1mEnter\033[0m close    \033[1mEsc\033[0m cancel"
-    )
-    sys.stdout.flush()
-    fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
-    try:
-        tty.setraw(fd)
-        key = os.read(fd, 8)
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
-    if key in (b"\r", b"\n", b"y", b"Y"):
-        close_block(session, block)
-    else:
-        subprocess.run([rex_bin(), "focus", "-s", session, block], capture_output=True, timeout=10)
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description="Close a Rex pane, asking if it is busy.")
-    ap.add_argument("--prompt", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("-S", "--server", default="", help="Rex host label (rex hosts)")
     ap.add_argument("-s", "--session", default=os.environ.get("REX_SESSION", ""))
     ap.add_argument("block", nargs="?", default=os.environ.get("REX_BLOCK", ""))
-    ap.add_argument("name", nargs="?", default="a program")
     a = ap.parse_args()
+    if a.server:
+        SERVER[:] = server_args(a.server)
     if not a.session or not a.block:
         die("need a session and block (args or REX_SESSION/REX_BLOCK)")
-    if a.prompt:
-        prompt(a.session, a.block, a.name)
-    else:
-        ask(a.session, a.block)
+    ask(a.session, a.block)
 
 
 if __name__ == "__main__":
